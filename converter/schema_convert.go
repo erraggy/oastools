@@ -144,24 +144,27 @@ func tupleToPrefixItems(c *Converter, schema *parser.Schema, result *ConversionR
 // author wrote, and by the time tupleForOAS30 runs the value may have been moved
 // into the draft 4 spelling by prefixItemsToTuple.
 type tupleSource struct {
-	tuple          string
-	trailing       string
-	tupleAdvice    string
-	trailingAdvice string
+	tuple           string
+	trailing        string
+	tupleAdvice     string
+	trailingAdvice  string
+	malformedAdvice string
 }
 
 var (
 	draft4Tuple = tupleSource{
-		tuple:          fieldItems,
-		trailing:       fieldAdditionalItems,
-		tupleAdvice:    "OAS 3.0 requires 'items' to be a single schema, so it cannot say what belongs at each position. Convert to OAS 3.1 or later to keep the tuple as 'prefixItems', or describe the array with one schema that admits every position",
-		trailingAdvice: "draft 4 uses 'additionalItems' to constrain the elements past a tuple. OAS 3.0 has no tuple to qualify and no such keyword, so the constraint cannot come across. Convert to OAS 3.1 or later, where it becomes 'items' beside 'prefixItems'",
+		tuple:           fieldItems,
+		trailing:        fieldAdditionalItems,
+		tupleAdvice:     "OAS 3.0 requires 'items' to be a single schema, so it cannot say what belongs at each position. Convert to OAS 3.1 or later to keep the tuple as 'prefixItems', or describe the array with one schema that admits every position",
+		trailingAdvice:  "draft 4 uses 'additionalItems' to constrain the elements past a tuple. OAS 3.0 has no tuple to qualify and no such keyword, so the constraint cannot come across. Convert to OAS 3.1 or later, where it becomes 'items' beside 'prefixItems'",
+		malformedAdvice: "JSON Schema draft 4 takes a schema or a boolean in 'additionalItems', and OAS 3.0 has no such keyword at all. Describe what follows the tuple with a single schema, at OAS 3.1 or later where it becomes 'items' beside 'prefixItems'",
 	}
 	prefixItemsTuple = tupleSource{
-		tuple:          "prefixItems",
-		trailing:       fieldItems,
-		tupleAdvice:    "OAS 3.0 requires 'items' to be a single schema and has no 'prefixItems', so it cannot say what belongs at each position. Describe the array with one schema that admits every position, or keep the document at OAS 3.1 or later",
-		trailingAdvice: "JSON Schema 2020-12 constrains the elements past 'prefixItems' with 'items'. OAS 3.0 has no tuple for it to qualify, so the constraint cannot come across. Describe the array with one schema that admits every position",
+		tuple:           "prefixItems",
+		trailing:        fieldItems,
+		tupleAdvice:     "OAS 3.0 requires 'items' to be a single schema and has no 'prefixItems', so it cannot say what belongs at each position. Describe the array with one schema that admits every position, or keep the document at OAS 3.1 or later",
+		trailingAdvice:  "JSON Schema 2020-12 constrains the elements past 'prefixItems' with 'items'. OAS 3.0 has no tuple for it to qualify, so the constraint cannot come across. Describe the array with one schema that admits every position",
+		malformedAdvice: "JSON Schema 2020-12 requires 'items' to be a schema. Describe what follows the listed positions with a single schema",
 	}
 )
 
@@ -208,7 +211,7 @@ func tupleForOAS30(c *Converter, schema *parser.Schema, result *ConversionResult
 			// tupleToPrefixItems reports the same value.
 			c.addIssueWithContext(result, path,
 				fmt.Sprintf("Schema holds a %d element array in '%s', which no OAS version accepts there; dropped", len(rest), src.trailing),
-				"JSON Schema draft 4 takes a schema or a boolean in 'additionalItems', and OAS 3.0 has no such keyword at all. Describe what follows the tuple with a single schema, at OAS 3.1 or later where it becomes 'items' beside 'prefixItems'")
+				src.malformedAdvice)
 		} else if s.AdditionalItems != nil {
 			c.addIssueWithContext(result, path,
 				fmt.Sprintf("Schema uses '%s' to constrain the elements past a tuple, which OAS 3.0 cannot express; dropped along with the tuple it qualified", src.trailing),

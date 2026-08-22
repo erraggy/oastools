@@ -174,6 +174,11 @@ paths:
         - name: q
           in: query
           schema: ` + arr + `
+        - name: c
+          in: query
+          content:
+            application/json:
+              schema: ` + arr + `
       responses:
         default:
           description: fallback
@@ -185,6 +190,10 @@ paths:
           headers:
             X-H:
               schema: ` + arr + `
+            X-HC:
+              content:
+                application/json:
+                  schema: ` + arr + `
           content:
             application/json:
               schema: ` + arr + `
@@ -324,6 +333,8 @@ components:
 	positions := map[string]*parser.Schema{
 		"path item parameter":      item.Parameters[0].Schema,
 		"operation parameter":      op.Parameters[0].Schema,
+		"parameter content":        op.Parameters[1].Content["application/json"].Schema,
+		"header content":           op.Responses.Codes["200"].Headers["X-HC"].Content["application/json"].Schema,
 		"responses default":        op.Responses.Default.Content["application/json"].Schema,
 		"response header":          op.Responses.Codes["200"].Headers["X-H"].Schema,
 		"response content":         media.Schema,

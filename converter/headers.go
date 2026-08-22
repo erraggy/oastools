@@ -15,6 +15,31 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
+// oas2PrimitiveTypes are the type values a Swagger 2.0 Header Object, Items
+// Object and non-body parameter accept. Those positions take a type declaration
+// rather than a Schema Object, and none of them can name an object or a null.
+var oas2PrimitiveTypes = map[string]bool{
+	"string":  true,
+	"number":  true,
+	"integer": true,
+	"boolean": true,
+	"array":   true,
+}
+
+// oas2PrimitiveType reports the type OAS 2.0 can name in a position that takes a
+// type declaration. A type outside the permitted set has no spelling there, so
+// it is reported and the position falls back to the one type that admits any
+// scalar rendering of the value.
+func (c *Converter) oas2PrimitiveType(t, subject string, result *ConversionResult, path string) string {
+	if t == "" || oas2PrimitiveTypes[t] {
+		return t
+	}
+	c.addIssueWithContext(result, path,
+		fmt.Sprintf("%s has type '%s', which OAS 2.0 cannot name here; recorded as 'string'", subject, t),
+		"A Swagger 2.0 Header Object, Items Object and non-body parameter accept only string, number, integer, boolean or array. Describe the value with one of those, or carry it in the body where a Schema Object is allowed")
+	return "string"
+}
+
 // componentHeadersPrefix is the only $ref target an OAS 3.x Header Object can
 // name, and the one OAS 2.0 has no section for.
 const componentHeadersPrefix = "#/components/headers/"
@@ -283,7 +308,7 @@ func (c *Converter) oas2ItemsFromSchema(schema *parser.Schema, subject string, r
 	}
 
 	items := &parser.Items{
-		Type:        schemautil.GetPrimaryType(elem),
+		Type:        c.oas2PrimitiveType(schemautil.GetPrimaryType(elem), subject+" items", result, path),
 		Format:      elem.Format,
 		Default:     elem.Default,
 		Enum:        elem.Enum,
@@ -345,7 +370,7 @@ func (c *Converter) convertHeadersToOAS2(headers map[string]*parser.Header, resu
 // parameters outside the body.
 func (c *Converter) oas2TypedValueFromSchema(schema *parser.Schema, subject string, result *ConversionResult, path string) oas2TypedValue {
 	v := oas2TypedValue{
-		Type:        schemautil.GetPrimaryType(schema),
+		Type:        c.oas2PrimitiveType(schemautil.GetPrimaryType(schema), subject, result, path),
 		Format:      schema.Format,
 		Default:     schema.Default,
 		Enum:        schema.Enum,

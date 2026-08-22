@@ -104,7 +104,7 @@ func (c *Converter) convertOAS3ParameterToOAS2(param *parser.Parameter, result *
 	if converted.Type == "" && param.In != "body" {
 		inferred := inferTypeFromSchema(param.Schema)
 		if inferred != "" {
-			converted.Type = inferred
+			converted.Type = c.oas2PrimitiveType(inferred, "Parameter", result, path)
 			c.addIssueWithContext(result, path,
 				fmt.Sprintf("Inferred type '%s' from composite schema", inferred),
 				"OAS 2.0 requires explicit type for non-body parameters")
@@ -127,26 +127,33 @@ func (c *Converter) convertOAS3ParameterToOAS2(param *parser.Parameter, result *
 }
 
 // inferTypeFromSchema walks allOf/oneOf/anyOf to find a concrete type.
+//
+// A branch whose type OAS 2.0 can name in a type declaration is preferred over
+// an earlier one it cannot, because the alternatives of a composite are
+// interchangeable to the schema and only one of them can survive the demotion.
+// Taking the first regardless picks 'object' out of `anyOf: [object, integer]`
+// and loses a type that would have come across intact.
 func inferTypeFromSchema(schema *parser.Schema) string {
 	if schema == nil {
 		return ""
 	}
-	for _, sub := range schema.AllOf {
-		if t := schemautil.GetPrimaryType(sub); t != "" {
-			return t
+
+	var fallback string
+	for _, branch := range [][]*parser.Schema{schema.AllOf, schema.OneOf, schema.AnyOf} {
+		for _, sub := range branch {
+			t := schemautil.GetPrimaryType(sub)
+			if t == "" {
+				continue
+			}
+			if oas2PrimitiveTypes[t] {
+				return t
+			}
+			if fallback == "" {
+				fallback = t
+			}
 		}
 	}
-	for _, sub := range schema.OneOf {
-		if t := schemautil.GetPrimaryType(sub); t != "" {
-			return t
-		}
-	}
-	for _, sub := range schema.AnyOf {
-		if t := schemautil.GetPrimaryType(sub); t != "" {
-			return t
-		}
-	}
-	return ""
+	return fallback
 }
 
 // resolveHeaderRef resolves a #/components/headers/* ref by inlining the definition.

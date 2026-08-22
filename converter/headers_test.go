@@ -81,7 +81,10 @@ func TestOAS3HeaderDemotesToOAS2Spelling(t *testing.T) {
 	obj := headers["X-Object"]
 	require.NotNil(t, obj)
 	assert.Nil(t, obj.Schema, "an OAS 2.0 Header Object has no 'schema' field")
-	assert.Equal(t, "object", obj.Type, "the type should come across in the OAS 2.0 spelling")
+	// Not 'object'. The Swagger 2.0 Header Object permits only string, number,
+	// integer, boolean and array, so an object header has no spelling there and
+	// the type is recorded as the loss it is.
+	assert.Equal(t, "string", obj.Type)
 
 	arr := headers["X-Array"]
 	require.NotNil(t, arr)
@@ -106,6 +109,7 @@ func TestOAS3HeaderSchemaReachesTheSchemaPasses(t *testing.T) {
 	// The counterpart to the assertion above: the loss has to be reported, not
 	// merely absent from the output.
 	assertIssueMentioning(t, result, "unevaluatedProperties")
+	assertIssueMentioning(t, result, "cannot name here")
 }
 
 func TestOAS3HeaderRefIsInlinedAndConverted(t *testing.T) {

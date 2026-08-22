@@ -1164,3 +1164,68 @@ paths:
 	assert.Equal(t, "object", params[0].Schema.Type)
 	assert.Empty(t, params[0].Type, "a body parameter has no type declaration")
 }
+
+// TestNonBodyParameterTypeIsOneOAS2CanName covers the type declaration itself.
+// Swagger 2.0 accepts only string, number, integer, boolean and array outside
+// the body, so an object type has no spelling there whether it arrives directly
+// or through a composite.
+func TestNonBodyParameterTypeIsOneOAS2CanName(t *testing.T) {
+	const source = `openapi: 3.1.0
+info:
+  title: t
+  version: "1.0.0"
+paths:
+  /a:
+    get:
+      operationId: a
+      parameters:
+        - name: direct
+          in: query
+          schema:
+            type: object
+        - name: composite
+          in: query
+          schema:
+            anyOf:
+              - type: object
+                properties:
+                  gt: {type: integer}
+              - type: integer
+      responses:
+        "200":
+          description: OK
+`
+
+	parsed, err := parser.New().ParseBytes([]byte(source))
+	require.NoError(t, err)
+
+	result, err := ConvertWithOptions(WithParsed(*parsed), WithTargetVersion("2.0"))
+	require.NoError(t, err)
+
+	doc, ok := result.Document.(*parser.OAS2Document)
+	require.True(t, ok)
+
+	byName := make(map[string]*parser.Parameter)
+	for _, p := range doc.Paths["/a"].Get.Parameters {
+		byName[p.Name] = p
+	}
+
+	permitted := map[string]bool{"string": true, "number": true, "integer": true, "boolean": true, "array": true}
+
+	direct := byName["direct"]
+	require.NotNil(t, direct)
+	assert.True(t, permitted[direct.Type], "got type %q, which Swagger 2.0 does not accept here", direct.Type)
+
+	// The composite carries an integer branch beside the object one, and the
+	// alternatives are interchangeable, so the branch that survives the
+	// demotion should be the one OAS 2.0 can name rather than the first.
+	composite := byName["composite"]
+	require.NotNil(t, composite)
+	assert.Equal(t, "integer", composite.Type)
+
+	var messages string
+	for _, issue := range result.Issues {
+		messages += issue.Message + "\n"
+	}
+	assert.Contains(t, messages, "cannot name here", "the direct object type is a loss and has to be reported")
+}
