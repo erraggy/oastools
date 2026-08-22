@@ -311,3 +311,59 @@ components:
 	assert.Empty(t, h.Ref)
 	assert.Equal(t, "integer", h.Type, "the component's own type should be inlined, not a default")
 }
+
+// TestConvertedHeaderAlwaysCarriesAType covers the paths that reach the OAS 2.0
+// header without a type of their own. 'type' is required on a Header Object, so
+// an output missing it is rejected by the published Swagger 2.0 schema whatever
+// the rest of the document says.
+func TestConvertedHeaderAlwaysCarriesAType(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		header  string
+		mention string
+	}{
+		{
+			// OAS 2.0 cannot spell a header described by a media type at all.
+			name:    "content only",
+			header:  "content:\n                {application/json: {schema: {type: object}}}",
+			mention: "content",
+		},
+		{
+			// A schema whose type OAS 2.0 has no name for.
+			name:    "schema without a nameable type",
+			header:  "schema:\n                {oneOf: [{type: string}, {type: integer}]}",
+			mention: "no type OAS 2.0 can name",
+		},
+		{
+			// Neither, which is degenerate but reaches the same exit.
+			name:   "neither schema nor content",
+			header: "description: bare",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			source := `openapi: 3.1.0
+info:
+  title: t
+  version: "1.0.0"
+paths:
+  /a:
+    get:
+      operationId: a
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-H:
+              ` + tc.header + "\n"
+
+			result, headers := convertHeaderFixture(t, source, "2.0")
+
+			h := headers["X-H"]
+			require.NotNil(t, h)
+			assert.NotEmpty(t, h.Type, "an OAS 2.0 Header Object requires 'type'")
+			if tc.mention != "" {
+				assertIssueMentioning(t, result, tc.mention)
+			}
+		})
+	}
+}

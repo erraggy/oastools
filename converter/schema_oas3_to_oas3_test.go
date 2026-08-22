@@ -150,51 +150,71 @@ components:
 }
 
 // TestOAS3ToOAS3ReachesEverySchemaPosition pins the positional walk rather than
-// the passes. Each of these positions holds the same illegal array, so a
-// position the walk misses leaves one behind.
+// the passes. Every position forEachOAS3Schema implements holds the same illegal
+// array here, so a position dropped from the walk leaves one behind.
+//
+// The fixture has to keep pace with the walk: a position the walk visits and the
+// fixture omits is one a deletion could remove with this test still green.
 func TestOAS3ToOAS3ReachesEverySchemaPosition(t *testing.T) {
-	const source = `openapi: 3.1.0
+	const arr = "{type: object, additionalProperties: [{type: string}]}"
+
+	source := `openapi: 3.1.0
 info:
   title: t
   version: "1.0.0"
 paths:
   /a:
+    parameters:
+      - name: shared
+        in: query
+        schema: ` + arr + `
     get:
       operationId: a
       parameters:
         - name: q
           in: query
-          schema:
-            type: object
-            additionalProperties:
-              - type: string
+          schema: ` + arr + `
       responses:
+        default:
+          description: fallback
+          content:
+            application/json:
+              schema: ` + arr + `
         "200":
           description: OK
           headers:
             X-H:
-              schema:
-                type: object
-                additionalProperties:
-                  - type: string
+              schema: ` + arr + `
           content:
             application/json:
-              schema:
-                type: object
-                additionalProperties:
-                  - type: string
-              itemSchema:
-                type: object
-                additionalProperties:
-                  - type: string
+              schema: ` + arr + `
+              itemSchema: ` + arr + `
               encoding:
                 field:
                   headers:
                     X-E:
-                      schema:
-                        type: object
-                        additionalProperties:
-                          - type: string
+                      schema: ` + arr + `
+                  encoding:
+                    nested:
+                      headers:
+                        X-N:
+                          schema: ` + arr + `
+                  itemEncoding:
+                    headers:
+                      X-IE:
+                        schema: ` + arr + `
+                  prefixEncoding:
+                    - headers:
+                        X-PE:
+                          schema: ` + arr + `
+              itemEncoding:
+                headers:
+                  X-MIE:
+                    schema: ` + arr + `
+              prefixEncoding:
+                - headers:
+                    X-MPE:
+                      schema: ` + arr + `
       callbacks:
         onEvent:
           '{$request.body#/u}':
@@ -203,55 +223,131 @@ paths:
               requestBody:
                 content:
                   application/json:
-                    schema:
-                      type: object
-                      additionalProperties:
-                        - type: string
+                    schema: ` + arr + `
               responses:
                 "200":
                   description: OK
+    additionalOperations:
+      LINK:
+        operationId: linked
+        parameters:
+          - name: extra
+            in: query
+            schema: ` + arr + `
+        responses:
+          "200":
+            description: OK
+webhooks:
+  hook:
+    post:
+      operationId: hook
+      requestBody:
+        content:
+          application/json:
+            schema: ` + arr + `
+      responses:
+        "200":
+          description: OK
 components:
   headers:
     Shared:
-      schema:
-        type: object
-        additionalProperties:
-          - type: string
+      schema: ` + arr + `
   requestBodies:
     Body:
       content:
         application/json:
-          schema:
-            type: object
-            additionalProperties:
-              - type: string
+          schema: ` + arr + `
+  parameters:
+    Comp:
+      name: c
+      in: query
+      schema: ` + arr + `
+  responses:
+    Resp:
+      description: OK
+      headers:
+        X-CR:
+          schema: ` + arr + `
+      content:
+        application/json:
+          schema: ` + arr + `
+  mediaTypes:
+    Media:
+      schema: ` + arr + `
+  pathItems:
+    Item:
+      get:
+        operationId: pi
+        parameters:
+          - name: p
+            in: query
+            schema: ` + arr + `
+        responses:
+          "200":
+            description: OK
+  callbacks:
+    CompCallback:
+      '{$request.body#/u}':
+        post:
+          operationId: ccb
+          requestBody:
+            content:
+              application/json:
+                schema: ` + arr + `
+          responses:
+            "200":
+              description: OK
 `
 
 	_, doc := convertOAS3(t, source, "3.0.3")
 
 	// Navigated by hand rather than through forEachOAS3Schema. Checking the
 	// walk with the walk is no check at all: a position deleted from it would
-	// be skipped by the conversion and by the assertion together, and the test
-	// would still pass.
-	op := doc.Paths["/a"].Get
+	// be skipped by the conversion and by the assertion together.
+	item := doc.Paths["/a"]
+	require.NotNil(t, item)
+	op := item.Get
 	require.NotNil(t, op)
 	media := op.Responses.Codes["200"].Content["application/json"]
 	require.NotNil(t, media)
+	enc := media.Encoding["field"]
+	require.NotNil(t, enc)
 	callback := op.Callbacks["onEvent"]
 	require.NotNil(t, callback)
-	callbackItem := (*callback)["{$request.body#/u}"]
-	require.NotNil(t, callbackItem)
+	cbItem := (*callback)["{$request.body#/u}"]
+	require.NotNil(t, cbItem)
+	compCallback := doc.Components.Callbacks["CompCallback"]
+	require.NotNil(t, compCallback)
+	compCbItem := (*compCallback)["{$request.body#/u}"]
+	require.NotNil(t, compCbItem)
 
-	for name, schema := range map[string]*parser.Schema{
-		"operation parameter":     op.Parameters[0].Schema,
-		"response header":         op.Responses.Codes["200"].Headers["X-H"].Schema,
-		"response content":        media.Schema,
-		"media type itemSchema":   media.ItemSchema,
-		"encoding header":         media.Encoding["field"].Headers["X-E"].Schema,
-		"callback request body":   callbackItem.Post.RequestBody.Content["application/json"].Schema,
-		"components header":       doc.Components.Headers["Shared"].Schema,
-		"components request body": doc.Components.RequestBodies["Body"].Content["application/json"].Schema,
-	} {
+	positions := map[string]*parser.Schema{
+		"path item parameter":      item.Parameters[0].Schema,
+		"operation parameter":      op.Parameters[0].Schema,
+		"responses default":        op.Responses.Default.Content["application/json"].Schema,
+		"response header":          op.Responses.Codes["200"].Headers["X-H"].Schema,
+		"response content":         media.Schema,
+		"media type itemSchema":    media.ItemSchema,
+		"encoding header":          enc.Headers["X-E"].Schema,
+		"nested encoding header":   enc.Encoding["nested"].Headers["X-N"].Schema,
+		"encoding itemEncoding":    enc.ItemEncoding.Headers["X-IE"].Schema,
+		"encoding prefixEncoding":  enc.PrefixEncoding[0].Headers["X-PE"].Schema,
+		"media itemEncoding":       media.ItemEncoding.Headers["X-MIE"].Schema,
+		"media prefixEncoding":     media.PrefixEncoding[0].Headers["X-MPE"].Schema,
+		"callback request body":    cbItem.Post.RequestBody.Content["application/json"].Schema,
+		"additionalOperations":     item.AdditionalOperations["LINK"].Parameters[0].Schema,
+		"webhook request body":     doc.Webhooks["hook"].Post.RequestBody.Content["application/json"].Schema,
+		"components header":        doc.Components.Headers["Shared"].Schema,
+		"components request body":  doc.Components.RequestBodies["Body"].Content["application/json"].Schema,
+		"components parameter":     doc.Components.Parameters["Comp"].Schema,
+		"components response hdr":  doc.Components.Responses["Resp"].Headers["X-CR"].Schema,
+		"components response body": doc.Components.Responses["Resp"].Content["application/json"].Schema,
+		"components mediaTypes":    doc.Components.MediaTypes["Media"].Schema,
+		"components pathItems":     doc.Components.PathItems["Item"].Get.Parameters[0].Schema,
+		"components callback body": compCbItem.Post.RequestBody.Content["application/json"].Schema,
+	}
+
+	for name, schema := range positions {
 		require.NotNil(t, schema, "the fixture should place a schema at the %s position", name)
 		assert.Nil(t, schema.AdditionalProperties, "the %s position was not reached by the conversion", name)
 	}

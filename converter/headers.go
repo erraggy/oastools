@@ -187,9 +187,8 @@ func (c *Converter) convertOAS3HeaderToOAS2(header *parser.Header, result *Conve
 			c.oas2TypedValueFromSchema(schema, "Header", result, path).applyToHeader(converted)
 			if converted.Type == "" {
 				c.addIssueWithContext(result, path,
-					"Header schema has no type OAS 2.0 can name; defaulted to 'string'",
+					"Header schema has no type OAS 2.0 can name",
 					"An OAS 2.0 Header Object requires 'type'. Give the header schema an explicit primitive type")
-				converted.Type = "string"
 			}
 		}
 	}
@@ -213,6 +212,15 @@ func (c *Converter) convertOAS3HeaderToOAS2(header *parser.Header, result *Conve
 		c.addIssueWithContext(result, path,
 			"Header uses 'deprecated', which an OAS 2.0 Header Object does not define; dropped",
 			"OAS 2.0 has no way to mark a response header deprecated")
+	}
+
+	// 'type' is required on an OAS 2.0 Header Object, and several paths reach
+	// here without one: a header described by 'content', which OAS 2.0 cannot
+	// spell at all, a schema whose type it cannot name, and a header carrying
+	// neither. One fallback rather than one per path, so no future branch can
+	// emit a header without it.
+	if converted.Type == "" {
+		converted.Type = "string"
 	}
 
 	return converted
@@ -324,9 +332,6 @@ func (c *Converter) convertHeadersToOAS2(headers map[string]*parser.Header, resu
 				fmt.Sprintf("Header references %s, which OAS 2.0 cannot express; reference dropped", out.Ref),
 				"OAS 2.0 has no components.headers section. Define the header inline, or add the missing component so it can be inlined")
 			out.Ref = ""
-			if out.Type == "" {
-				out.Type = "string"
-			}
 		}
 		converted[name] = out
 	}
