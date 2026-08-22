@@ -251,9 +251,9 @@ func (c *Converter) convertOAS3ResponseToOAS2(response *parser.Response, result 
 		selected, media := selectContentSchema(response.Content)
 
 		if len(response.Content) > 1 {
-			c.addIssueWithContext(result, path,
-				multipleMediaTypeMessage("Response", len(response.Content), selected),
-				"An OAS 2.0 response has a single schema. The other media types are listed in 'produces', but only one schema comes across")
+			message, context := multipleMediaTypeIssue("Response", len(response.Content), selected,
+				"produces", "an OAS 2.0 response may carry none")
+			c.addIssueWithContext(result, path, message, context)
 		}
 
 		if media != nil {
@@ -357,12 +357,18 @@ func sortedMediaTypes(content map[string]*parser.MediaType) []string {
 	return names
 }
 
-// multipleMediaTypeMessage reports which media type's schema survived, or that
+// multipleMediaTypeIssue reports which media type's schema survived, or that
 // none was on offer, since a content map may carry several entries and no
-// schema between them.
-func multipleMediaTypeMessage(subject string, count int, selected string) string {
+// schema between them. The context follows the message: saying one schema came
+// across is wrong when none did.
+//
+// listedIn names the OAS 2.0 array the other media types still reach, and
+// noneKept describes what the target is left holding.
+func multipleMediaTypeIssue(subject string, count int, selected, listedIn, noneKept string) (message, context string) {
 	if selected == "" {
-		return fmt.Sprintf("%s has multiple media types (%d) and none carries a schema", subject, count)
+		return fmt.Sprintf("%s has multiple media types (%d) and none carries a schema", subject, count),
+			fmt.Sprintf("No source schema was kept. The media types are listed in '%s', and %s", listedIn, noneKept)
 	}
-	return fmt.Sprintf("%s has multiple media types (%d), keeping the schema from '%s'", subject, count, selected)
+	return fmt.Sprintf("%s has multiple media types (%d), keeping the schema from '%s'", subject, count, selected),
+		fmt.Sprintf("An OAS 2.0 %s has a single schema. The other media types are listed in '%s', but only one schema comes across", strings.ToLower(subject), listedIn)
 }

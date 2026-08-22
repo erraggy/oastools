@@ -230,4 +230,14 @@ paths:
 	assert.Contains(t, messages, "none carries a schema")
 	assert.NotContains(t, messages, "from ''", "the message should not quote an empty media type")
 	assert.Contains(t, messages, "recorded as the empty schema")
+
+	// The context has to agree with the message. Saying one schema came across
+	// is wrong when none did, and a context is what a reader acts on.
+	var contexts string
+	for _, issue := range result.Issues {
+		contexts += issue.Context + "\n"
+	}
+	assert.NotContains(t, contexts, "only one schema comes across",
+		"the context should not claim a schema converted when none did")
+	assert.Contains(t, contexts, "No source schema was kept")
 }

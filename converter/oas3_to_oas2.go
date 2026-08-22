@@ -297,9 +297,9 @@ func (c *Converter) convertOAS3RequestBodyToOAS2(requestBody *parser.RequestBody
 
 	// Warn about multiple media types
 	if len(requestBody.Content) > 1 {
-		c.addIssueWithContext(result, fmt.Sprintf("%s.requestBody", opPath),
-			multipleMediaTypeMessage("RequestBody", len(requestBody.Content), firstMediaType),
-			"An OAS 2.0 body parameter has a single schema. The other media types are listed in 'consumes', but only one schema comes across")
+		message, context := multipleMediaTypeIssue("RequestBody", len(requestBody.Content), firstMediaType,
+			"consumes", "the body parameter falls back to the empty schema")
+		c.addIssueWithContext(result, fmt.Sprintf("%s.requestBody", opPath), message, context)
 	}
 
 	// Create body parameter

@@ -1,6 +1,10 @@
 package httputil
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestMediaTypeRank(t *testing.T) {
 	for _, tc := range []struct {
@@ -29,9 +33,7 @@ func TestMediaTypeRank(t *testing.T) {
 		// would put a second notion of validity in a package that has one.
 		{"garbage+json", MediaTypeRankJSONSuffix},
 	} {
-		if got := MediaTypeRank(tc.mediaType); got != tc.want {
-			t.Errorf("MediaTypeRank(%q) = %d, want %d", tc.mediaType, got, tc.want)
-		}
+		assert.Equal(t, tc.want, MediaTypeRank(tc.mediaType), "MediaTypeRank(%q)", tc.mediaType)
 	}
 }
 
@@ -49,9 +51,7 @@ func TestPreferredMediaType(t *testing.T) {
 		{"application/ld+json", "application/geo+json", "application/geo+json"},
 		{"text/plain", "application/xml", "application/xml"},
 	} {
-		if got := PreferredMediaType(tc.a, tc.b); got != tc.want {
-			t.Errorf("PreferredMediaType(%q, %q) = %q, want %q", tc.a, tc.b, got, tc.want)
-		}
+		assert.Equal(t, tc.want, PreferredMediaType(tc.a, tc.b), "PreferredMediaType(%q, %q)", tc.a, tc.b)
 	}
 }
 
@@ -65,9 +65,8 @@ func TestPreferredMediaTypeIsSymmetric(t *testing.T) {
 	}
 	for _, a := range names {
 		for _, b := range names {
-			if PreferredMediaType(a, b) != PreferredMediaType(b, a) {
-				t.Errorf("PreferredMediaType is not symmetric for %q and %q", a, b)
-			}
+			assert.Equal(t, PreferredMediaType(a, b), PreferredMediaType(b, a),
+				"PreferredMediaType is not symmetric for %q and %q", a, b)
 		}
 	}
 }
