@@ -520,13 +520,12 @@ schemes:
 | OAS 3.0 | OAS 3.1 | Notes |
 |---------|---------|-------|
 | `nullable: true` | `type: ["string", "null"]` | Type becomes array; nullability preserved |
-| `example` | Promoted to `examples` array | Single example wrapped in `example` field |
+| `example` | `example` | Not rewritten; OAS 3.1 accepts both `example` and `examples` |
 | N/A | `webhooks` | New in 3.1; not available in 3.0 |
 | `exclusiveMinimum: true` + `minimum` | `exclusiveMinimum: <value>` | JSON Schema Draft 2020-12 alignment |
 | `exclusiveMaximum: true` + `maximum` | `exclusiveMaximum: <value>` | JSON Schema Draft 2020-12 alignment |
 | N/A | `unevaluatedProperties` | New JSON Schema keyword in 3.1 |
 | N/A | `prefixItems` | Replaces `items` array tuple form in 3.1 |
-| N/A | `contentEncoding`, `contentMediaType` | For non-JSON schema content |
 
 ### OAS 3.2 -> OAS 3.0 / 3.1
 
@@ -574,13 +573,11 @@ against the target version before shipping it.
 |---------|---------|-------|
 | `type: ["string", "null"]` | `type: string` + `nullable: true` | Array to boolean; nullability preserved |
 | `webhooks` | Critical loss | No equivalent in OAS 3.0; must be removed |
-| `examples.example` | Single `example` value | Only first example retained if multiple |
 | `exclusiveMinimum: <value>` | `exclusiveMinimum: true` + `minimum` | Numeric to boolean + value pair |
 | `exclusiveMaximum: <value>` | `exclusiveMaximum: true` + `maximum` | Numeric to boolean + value pair |
 | `$comment` | Dropped | JSON Schema keyword with no OAS 3.0 equivalent |
 | `unevaluatedProperties` | Dropped | JSON Schema keyword with no OAS 3.0 equivalent |
-| `prefixItems` | Converted to `items` schema | Tuple validation loses positional semantics |
-| `contentEncoding`, `contentMediaType` | Dropped | No OAS 3.0 equivalent for content metadata |
+| `prefixItems` | `items` tuple form | Positions are preserved: draft 4 spells a tuple as an array in `items` |
 
 [Back to top](#top)
 

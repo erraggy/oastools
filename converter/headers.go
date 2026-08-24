@@ -64,23 +64,25 @@ type oas2TypedValue struct {
 
 func oas2TypedValueOfHeader(h *parser.Header) oas2TypedValue {
 	return oas2TypedValue{
-		Type: h.Type, Format: h.Format, Default: h.Default, Enum: h.Enum,
+		Type: h.Type, Format: h.Format,
+		Default: deepCopyValue(h.Default), Enum: deepCopyEnumValues(h.Enum),
 		Maximum: h.Maximum, ExclusiveMaximum: h.ExclusiveMaximum,
 		Minimum: h.Minimum, ExclusiveMinimum: h.ExclusiveMinimum,
 		MaxLength: h.MaxLength, MinLength: h.MinLength, Pattern: h.Pattern,
 		MaxItems: h.MaxItems, MinItems: h.MinItems, UniqueItems: h.UniqueItems,
-		MultipleOf: h.MultipleOf, Items: h.Items, CollectionFormat: h.CollectionFormat,
+		MultipleOf: h.MultipleOf, Items: h.Items.DeepCopy(), CollectionFormat: h.CollectionFormat,
 	}
 }
 
 func oas2TypedValueOfParameter(p *parser.Parameter) oas2TypedValue {
 	return oas2TypedValue{
-		Type: p.Type, Format: p.Format, Default: p.Default, Enum: p.Enum,
+		Type: p.Type, Format: p.Format,
+		Default: deepCopyValue(p.Default), Enum: deepCopyEnumValues(p.Enum),
 		Maximum: p.Maximum, ExclusiveMaximum: p.ExclusiveMaximum,
 		Minimum: p.Minimum, ExclusiveMinimum: p.ExclusiveMinimum,
 		MaxLength: p.MaxLength, MinLength: p.MinLength, Pattern: p.Pattern,
 		MaxItems: p.MaxItems, MinItems: p.MinItems, UniqueItems: p.UniqueItems,
-		MultipleOf: p.MultipleOf, Items: p.Items, CollectionFormat: p.CollectionFormat,
+		MultipleOf: p.MultipleOf, Items: p.Items.DeepCopy(), CollectionFormat: p.CollectionFormat,
 	}
 }
 
@@ -362,8 +364,8 @@ func (c *Converter) oas2TypedValueFromSchema(schema *parser.Schema, subject stri
 	v := oas2TypedValue{
 		Type:        c.oas2PrimitiveType(schemautil.GetPrimaryType(schema), subject, result, path),
 		Format:      schema.Format,
-		Default:     schema.Default,
-		Enum:        schema.Enum,
+		Default:     deepCopyValue(schema.Default),
+		Enum:        deepCopyEnumValues(schema.Enum),
 		Maximum:     schema.Maximum,
 		Minimum:     schema.Minimum,
 		MaxLength:   schema.MaxLength,

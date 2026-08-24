@@ -198,16 +198,19 @@ vet:
 .PHONY: build-examples
 build-examples:
 	@echo "Building example modules..."
-	@modules=$$(find examples -name go.mod | xargs -n1 dirname | sort) || exit 1; \
+	@modules=$$(find examples -name go.mod -exec dirname {} \; | sort); \
 	if [ -z "$$modules" ]; then \
 		echo "No example modules found under examples/."; \
 		exit 1; \
 	fi; \
 	failed=""; \
 	for dir in $$modules; do \
-		if ! go -C "$$dir" build -o /dev/null ./... 2>&1; then \
-			failed="$$failed $$dir"; \
-		fi; \
+		for pkg in $$(go -C "$$dir" list ./... 2>/dev/null); do \
+			if ! go -C "$$dir" build -o /dev/null "$$pkg" 2>&1; then \
+				failed="$$failed $$dir"; \
+				break; \
+			fi; \
+		done; \
 	done; \
 	if [ -n "$$failed" ]; then \
 		echo "Example modules failed to build:"; \

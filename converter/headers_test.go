@@ -444,3 +444,31 @@ paths:
 	assertIssueMentioning(t, result, "no element schema")
 	assertIssueMentioning(t, result, "no type OAS 2.0 can name")
 }
+
+// TestConvertedHeaderSharesNothingMutableWithSource asserts the converted
+// document owns its header values. A Header Object's Default, Enum and Items
+// are a value, a slice and a pointer, so assigning them across leaves the two
+// documents sharing backing storage and a write to one reaching the other.
+func TestConvertedHeaderSharesNothingMutableWithSource(t *testing.T) {
+	source := &parser.Header{
+		Type:    "array",
+		Default: map[string]any{"key": "sourceValue"},
+		Enum:    []any{"a", "b"},
+		Items:   &parser.Items{Type: "string", Enum: []any{"x"}},
+	}
+
+	value := oas2TypedValueOfHeader(source)
+
+	require.NotNil(t, value.Items, "the array header must carry its items across")
+	assert.NotSame(t, source.Items, value.Items, "Items must be copied, not aliased")
+
+	// Writing through the converted value must not reach the source.
+	value.Enum[0] = "mutated"
+	value.Items.Enum[0] = "mutated"
+	value.Default.(map[string]any)["key"] = "mutated"
+
+	assert.Equal(t, []any{"a", "b"}, source.Enum, "source Enum must be untouched")
+	assert.Equal(t, []any{"x"}, source.Items.Enum, "source Items.Enum must be untouched")
+	assert.Equal(t, map[string]any{"key": "sourceValue"}, source.Default,
+		"source Default must be untouched")
+}
