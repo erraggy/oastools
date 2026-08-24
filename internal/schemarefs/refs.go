@@ -8,7 +8,7 @@
 package schemarefs
 
 import (
-	"fmt"
+	"errors"
 	"maps"
 	"slices"
 	"strconv"
@@ -65,7 +65,7 @@ func eachRef(schema *parser.Schema, location string, visit func(name, location s
 	// Check properties
 	for propName, propSchema := range schema.Properties {
 		if propSchema != nil {
-			propLoc := joinLocation(location, fmt.Sprintf("properties.%s", propName))
+			propLoc := joinLocation(location, "properties."+propName)
 			eachRef(propSchema, propLoc, visit)
 		}
 	}
@@ -83,17 +83,17 @@ func eachRef(schema *parser.Schema, location string, visit func(name, location s
 	// Check composition keywords
 	for i, s := range schema.AllOf {
 		if s != nil {
-			eachRef(s, joinLocation(location, fmt.Sprintf("allOf[%d]", i)), visit)
+			eachRef(s, joinLocation(location, "allOf["+strconv.Itoa(i)+"]"), visit)
 		}
 	}
 	for i, s := range schema.AnyOf {
 		if s != nil {
-			eachRef(s, joinLocation(location, fmt.Sprintf("anyOf[%d]", i)), visit)
+			eachRef(s, joinLocation(location, "anyOf["+strconv.Itoa(i)+"]"), visit)
 		}
 	}
 	for i, s := range schema.OneOf {
 		if s != nil {
-			eachRef(s, joinLocation(location, fmt.Sprintf("oneOf[%d]", i)), visit)
+			eachRef(s, joinLocation(location, "oneOf["+strconv.Itoa(i)+"]"), visit)
 		}
 	}
 	if schema.Not != nil {
@@ -103,14 +103,14 @@ func eachRef(schema *parser.Schema, location string, visit func(name, location s
 	// Check patternProperties
 	for pattern, patternSchema := range schema.PatternProperties {
 		if patternSchema != nil {
-			eachRef(patternSchema, joinLocation(location, fmt.Sprintf("patternProperties[%s]", pattern)), visit)
+			eachRef(patternSchema, joinLocation(location, "patternProperties["+pattern+"]"), visit)
 		}
 	}
 
 	// Check prefixItems (JSON Schema 2020-12)
 	for i, s := range schema.PrefixItems {
 		if s != nil {
-			eachRef(s, joinLocation(location, fmt.Sprintf("prefixItems[%d]", i)), visit)
+			eachRef(s, joinLocation(location, "prefixItems["+strconv.Itoa(i)+"]"), visit)
 		}
 	}
 
@@ -132,7 +132,7 @@ func eachRef(schema *parser.Schema, location string, visit func(name, location s
 	// Check dependentSchemas
 	for depName, depSchema := range schema.DependentSchemas {
 		if depSchema != nil {
-			eachRef(depSchema, joinLocation(location, fmt.Sprintf("dependentSchemas.%s", depName)), visit)
+			eachRef(depSchema, joinLocation(location, "dependentSchemas."+depName), visit)
 		}
 	}
 
@@ -155,7 +155,7 @@ func eachRef(schema *parser.Schema, location string, visit func(name, location s
 	// Check $defs
 	for defName, defSchema := range schema.Defs {
 		if defSchema != nil {
-			eachRef(defSchema, joinLocation(location, fmt.Sprintf("$defs.%s", defName)), visit)
+			eachRef(defSchema, joinLocation(location, "$defs."+defName), visit)
 		}
 	}
 
@@ -210,7 +210,7 @@ type Distinct struct {
 	trees map[string]map[string]struct{}
 }
 
-// split partitions a group of equivalent schema names so no part holds two
+// Split partitions a group of equivalent schema names so no part holds two
 // names that one schema tree references. Each part is then free to collapse to
 // a single name.
 //
@@ -282,6 +282,19 @@ func intersects(left, right map[string]struct{}) bool {
 // The per-tree walk is EachRef, which reads every keyword a subschema can
 // hide under. Its reference locations go unused here.
 func Collect(doc any) (*Distinct, error) {
+	// walker.Walk compares Document against nil, which a typed nil pointer is
+	// not, so it reaches the traversal and is dereferenced there.
+	switch typed := doc.(type) {
+	case *parser.OAS2Document:
+		if typed == nil {
+			return nil, errors.New("schemarefs: nil *parser.OAS2Document")
+		}
+	case *parser.OAS3Document:
+		if typed == nil {
+			return nil, errors.New("schemarefs: nil *parser.OAS3Document")
+		}
+	}
+
 	d := &Distinct{trees: make(map[string]map[string]struct{})}
 	trees := 0
 	err := walker.Walk(&parser.ParseResult{Document: doc},

@@ -452,3 +452,65 @@ func TestSchemaDeduplicator_SplitSkipsSingletons(t *testing.T) {
 	assert.Empty(t, asked, "neither name shares a group with another")
 	assert.Len(t, result.CanonicalSchemas, 2)
 }
+
+// A SplitFunc that loses, repeats, or empties a part would drop or duplicate a
+// schema, and nothing downstream could tell. Deduplicate refuses instead.
+func TestSchemaDeduplicator_SplitPartitionIsChecked(t *testing.T) {
+	schemas := map[string]*parser.Schema{
+		"Address":  {Type: "object"},
+		"Location": {Type: "object"},
+		"Place":    {Type: "object"},
+	}
+
+	tests := []struct {
+		name  string
+		split SplitFunc
+		want  string
+	}{
+		{
+			name:  "a name left out",
+			split: func(group []string) [][]string { return [][]string{group[:len(group)-1]} },
+			want:  "returned 2 names for a group of 3",
+		},
+		{
+			name:  "a name in two parts",
+			split: func(group []string) [][]string { return [][]string{group, {group[0]}} },
+			want:  "returned 4 names for a group of 3",
+		},
+		{
+			// By name rather than by position: a group arrives in the order
+			// the schemas hashed in, which is a map range.
+			name: "a name swapped for one that was not in the group",
+			split: func(group []string) [][]string {
+				swapped := make([]string, 0, len(group))
+				for _, name := range group {
+					if name == "Address" {
+						swapped = append(swapped, "Unrelated")
+						continue
+					}
+					swapped = append(swapped, name)
+				}
+				return [][]string{swapped}
+			},
+			want: `returned "Address" 0 times`,
+		},
+		{
+			name:  "an empty part",
+			split: func(group []string) [][]string { return [][]string{group, {}} },
+			want:  "returned an empty part",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := DefaultDeduplicationConfig()
+			config.Split = tt.split
+			deduper := NewSchemaDeduplicator(config, alwaysEqual)
+
+			result, err := deduper.Deduplicate(schemas)
+			require.Error(t, err, "an unusable partition must not reach the result")
+			assert.Contains(t, err.Error(), tt.want)
+			assert.Nil(t, result)
+		})
+	}
+}

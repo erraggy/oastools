@@ -2,6 +2,7 @@ package schemarefs
 
 import (
 	"reflect"
+	"slices"
 	"strconv"
 	"testing"
 
@@ -69,8 +70,17 @@ func TestEachRefReadsEverySubschemaField(t *testing.T) {
 		return seen
 	}
 
+	// The exact set the reflection reaches. A field whose type changes so the
+	// switch below stops matching it would otherwise drop out of the guard
+	// without failing anything, which is the guard quietly covering less.
+	want := []string{
+		"AllOf", "AnyOf", "Contains", "ContentSchema", "Defs", "DependentSchemas",
+		"Else", "If", "Not", "OneOf", "PatternProperties", "PrefixItems",
+		"Properties", "PropertyNames", "Then",
+	}
+
 	schemaType := reflect.TypeOf(parser.Schema{})
-	covered := 0
+	var covered []string
 	for i := range schemaType.NumField() {
 		f := schemaType.Field(i)
 		if !f.IsExported() {
@@ -89,7 +99,7 @@ func TestEachRefReadsEverySubschemaField(t *testing.T) {
 			continue
 		}
 
-		covered++
+		covered = append(covered, f.Name)
 		t.Run(f.Name, func(t *testing.T) {
 			schema := &parser.Schema{}
 			reflect.ValueOf(schema).Elem().Field(i).Set(value)
@@ -98,7 +108,9 @@ func TestEachRefReadsEverySubschemaField(t *testing.T) {
 					"distinguishes can still be merged", f.Name)
 		})
 	}
-	require.NotZero(t, covered, "no schema-bearing fields were reached")
+	slices.Sort(covered)
+	require.Equal(t, want, covered,
+		"the set of schema-bearing fields changed; add the new one to EachRef and to want")
 
 	// The schema-or-bool fields, which are any and so cannot be told from the
 	// fields holding plain values by their type alone.
@@ -119,7 +131,7 @@ func TestEachRefReadsEverySubschemaField(t *testing.T) {
 	}
 }
 
-// The worked example in split's doc comment, kept honest.
+// The worked example in Split's doc comment, kept honest.
 func TestDistinct_SplitMatchesItsDocumentedExample(t *testing.T) {
 	d := &Distinct{trees: map[string]map[string]struct{}{
 		"OriginAddress":      {"shipmentTree": {}},
@@ -255,5 +267,108 @@ func TestSplitNeverPutsNamesSharingATreeInOnePart(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// oas2Doc and oas3Doc are the same API in both spellings: an operation whose
+// response is an inline schema referencing Origin, plus a component Shipment
+// referencing Origin and Destination.
+func oas2Doc() *parser.OAS2Document {
+	return &parser.OAS2Document{
+		Swagger: "2.0",
+		Paths: parser.Paths{"/s": &parser.PathItem{Get: &parser.Operation{
+			Responses: &parser.Responses{Codes: map[string]*parser.Response{
+				"200": {Schema: &parser.Schema{Properties: map[string]*parser.Schema{
+					"from": {Ref: "#/definitions/Origin"},
+				}}},
+			}},
+		}}},
+		Definitions: map[string]*parser.Schema{
+			"Shipment": {Properties: map[string]*parser.Schema{
+				"from": {Ref: "#/definitions/Origin"},
+				"to":   {Ref: "#/definitions/Destination"},
+			}},
+			"Origin":      {Type: "object"},
+			"Destination": {Type: "object"},
+		},
+		OASVersion: parser.OASVersion20,
+	}
+}
+
+func oas3Doc() *parser.OAS3Document {
+	return &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Paths: parser.Paths{"/s": &parser.PathItem{Get: &parser.Operation{
+			Responses: &parser.Responses{Codes: map[string]*parser.Response{
+				"200": {Content: map[string]*parser.MediaType{
+					"application/json": {Schema: &parser.Schema{Properties: map[string]*parser.Schema{
+						"from": {Ref: "#/components/schemas/Origin"},
+					}}},
+				}},
+			}},
+		}}},
+		Components: &parser.Components{Schemas: map[string]*parser.Schema{
+			"Shipment": {Properties: map[string]*parser.Schema{
+				"from": {Ref: "#/components/schemas/Origin"},
+				"to":   {Ref: "#/components/schemas/Destination"},
+			}},
+			"Origin":      {Type: "object"},
+			"Destination": {Type: "object"},
+		}},
+		OASVersion: parser.OASVersion303,
+	}
+}
+
+// Collect reads both document spellings, counts a reference nested under a
+// property, and keeps the inline response tree apart from the component one.
+func TestCollectReadsBothDocumentVersions(t *testing.T) {
+	for name, doc := range map[string]any{"oas2": oas2Doc(), "oas3": oas3Doc()} {
+		t.Run(name, func(t *testing.T) {
+			d, err := Collect(doc)
+			require.NoError(t, err)
+
+			// Shipment names both, so they are held apart.
+			require.Equal(t, [][]string{{"Destination"}, {"Origin"}},
+				d.Split([]string{"Origin", "Destination"}))
+
+			// Two trees reference Origin: Shipment and the inline response.
+			assert.Len(t, d.trees["Origin"], 2)
+			assert.Len(t, d.trees["Destination"], 1)
+		})
+	}
+}
+
+// Names in trees that never meet are free to consolidate, which is the case
+// deduplication exists for.
+func TestCollectLeavesIndependentTreesFree(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Components: &parser.Components{Schemas: map[string]*parser.Schema{
+			"Left":  {Properties: map[string]*parser.Schema{"a": {Ref: "#/components/schemas/Alpha"}}},
+			"Right": {Properties: map[string]*parser.Schema{"b": {Ref: "#/components/schemas/Bravo"}}},
+			"Alpha": {Type: "object"},
+			"Bravo": {Type: "object"},
+		}},
+		OASVersion: parser.OASVersion303,
+	}
+
+	d, err := Collect(doc)
+	require.NoError(t, err)
+	assert.Equal(t, [][]string{{"Alpha", "Bravo"}}, d.Split([]string{"Alpha", "Bravo"}))
+}
+
+// A document Collect cannot walk is reported rather than read as one holding
+// nothing apart, which would silently consolidate everything.
+func TestCollectRefusesWhatItCannotWalk(t *testing.T) {
+	for name, doc := range map[string]any{
+		"nil document":      nil,
+		"unsupported type":  struct{}{},
+		"nil typed pointer": (*parser.OAS3Document)(nil),
+	} {
+		t.Run(name, func(t *testing.T) {
+			d, err := Collect(doc)
+			require.Error(t, err)
+			assert.Nil(t, d)
+		})
 	}
 }
