@@ -53,6 +53,10 @@ type RefGraph struct {
 
 	// resolved caches the fully resolved operation lineage for each schema
 	resolved map[string][]OperationRef
+
+	// keys is the set of schema names the document declares, for resolving a
+	// reference token to the name callers look the graph up by.
+	keys map[string]struct{}
 }
 
 // SchemaRef represents a reference from one schema to another.

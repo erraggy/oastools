@@ -2,16 +2,16 @@ package joiner
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/erraggy/oastools/internal/httputil"
-	"github.com/erraggy/oastools/internal/schemautil"
+	"github.com/erraggy/oastools/internal/schemarefs"
 	"github.com/erraggy/oastools/parser"
 )
 
 // newRefGraph creates a new empty RefGraph.
-func newRefGraph() *RefGraph {
+func newRefGraph(keys map[string]struct{}) *RefGraph {
 	return &RefGraph{
+		keys:          keys,
 		schemaRefs:    make(map[string][]SchemaRef),
 		operationRefs: make(map[string][]OperationRef),
 		resolved:      make(map[string][]OperationRef),
@@ -20,7 +20,7 @@ func newRefGraph() *RefGraph {
 
 // buildRefGraphOAS3 builds a reference graph from an OAS 3.x document.
 func buildRefGraphOAS3(doc *parser.OAS3Document, version parser.OASVersion) *RefGraph {
-	g := newRefGraph()
+	g := newRefGraph(schemarefs.ComponentSchemaNames(doc))
 	if doc == nil {
 		return g
 	}
@@ -46,7 +46,7 @@ func buildRefGraphOAS3(doc *parser.OAS3Document, version parser.OASVersion) *Ref
 	if doc.Components != nil {
 		for schemaName, schema := range doc.Components.Schemas {
 			if schema != nil {
-				g.recordSchemaRefs(schemaName, schema, "")
+				g.recordSchemaRefs(schemaName, schema)
 			}
 		}
 	}
@@ -193,7 +193,7 @@ func (g *RefGraph) recordResponseSchemaRefs(response *parser.Response, baseRef O
 
 // recordOperationSchemaRef records a schema reference from an operation.
 func (g *RefGraph) recordOperationSchemaRef(schema *parser.Schema, baseRef OperationRef, usage UsageType, statusCode, paramName, mediaType string) {
-	schemaName := extractSchemaNameFromRef(schema.Ref)
+	schemaName := g.resolve(extractSchemaNameFromRef(schema.Ref))
 	if schemaName == "" {
 		// Not a $ref, but might contain nested $refs - we track the immediate ref only
 		return
@@ -215,7 +215,7 @@ func (g *RefGraph) recordOperationSchemaRef(schema *parser.Schema, baseRef Opera
 
 // buildRefGraphOAS2 builds a reference graph from an OAS 2.0 document.
 func buildRefGraphOAS2(doc *parser.OAS2Document) *RefGraph {
-	g := newRefGraph()
+	g := newRefGraph(schemarefs.ComponentSchemaNames(doc))
 	if doc == nil {
 		return g
 	}
@@ -231,7 +231,7 @@ func buildRefGraphOAS2(doc *parser.OAS2Document) *RefGraph {
 	// Traverse definitions for schema-to-schema references
 	for schemaName, schema := range doc.Definitions {
 		if schema != nil {
-			g.recordSchemaRefs(schemaName, schema, "")
+			g.recordSchemaRefs(schemaName, schema)
 		}
 	}
 
@@ -309,160 +309,33 @@ func (g *RefGraph) recordPathItemOAS2(path string, pathItem *parser.PathItem) {
 }
 
 // extractSchemaNameFromRef extracts the schema name from a $ref string.
-// Returns empty string if not a schema reference.
 func extractSchemaNameFromRef(ref string) string {
-	if ref == "" {
+	return schemarefs.SchemaName(ref)
+}
+
+// resolve maps a reference token to the schema name the document declares, so
+// the graph is keyed by the names its callers look up. A name legal in OAS 2.0
+// can need escaping to be written in a reference: `pkg/Pet` is a legal
+// definition name and a reference to it reads `#/definitions/pkg~1Pet`. Keyed
+// by the token, the graph answers nothing for the name being renamed, and an
+// operation-context template renders its fields empty.
+func (g *RefGraph) resolve(token string) string {
+	if token == "" {
 		return ""
 	}
-
-	// OAS 3.x: #/components/schemas/Name
-	if name, found := strings.CutPrefix(ref, "#/components/schemas/"); found {
-		return name
-	}
-
-	// OAS 2.0: #/definitions/Name
-	if name, found := strings.CutPrefix(ref, "#/definitions/"); found {
-		return name
-	}
-
-	return ""
+	return schemarefs.ResolveName(token, g.keys)
 }
 
-// recordSchemaRefs recursively records schema-to-schema references.
-func (g *RefGraph) recordSchemaRefs(schemaName string, schema *parser.Schema, location string) {
-	if schema == nil {
-		return
-	}
-
-	// Check direct $ref
-	if schema.Ref != "" {
-		targetName := extractSchemaNameFromRef(schema.Ref)
-		if targetName != "" {
-			locStr := location
-			if locStr == "" {
-				locStr = "$ref"
-			}
-			g.schemaRefs[targetName] = append(g.schemaRefs[targetName], SchemaRef{
-				FromSchema:  schemaName,
-				RefLocation: locStr,
-			})
-		}
-	}
-
-	// Check properties
-	for propName, propSchema := range schema.Properties {
-		if propSchema != nil {
-			propLoc := joinLocation(location, fmt.Sprintf("properties.%s", propName))
-			g.recordSchemaRefs(schemaName, propSchema, propLoc)
-		}
-	}
-
-	// Check items
-	for i, itemsSchema := range schemautil.SchemaOrBoolSchemas(schema.Items) {
-		g.recordSchemaRefs(schemaName, itemsSchema, joinLocation(location, "items"+schemautil.IndexSuffix(i)))
-	}
-
-	// Check additionalProperties
-	for i, addProps := range schemautil.SchemaOrBoolSchemas(schema.AdditionalProperties) {
-		g.recordSchemaRefs(schemaName, addProps, joinLocation(location, "additionalProperties"+schemautil.IndexSuffix(i)))
-	}
-
-	// Check composition keywords
-	for i, s := range schema.AllOf {
-		if s != nil {
-			g.recordSchemaRefs(schemaName, s, joinLocation(location, fmt.Sprintf("allOf[%d]", i)))
-		}
-	}
-	for i, s := range schema.AnyOf {
-		if s != nil {
-			g.recordSchemaRefs(schemaName, s, joinLocation(location, fmt.Sprintf("anyOf[%d]", i)))
-		}
-	}
-	for i, s := range schema.OneOf {
-		if s != nil {
-			g.recordSchemaRefs(schemaName, s, joinLocation(location, fmt.Sprintf("oneOf[%d]", i)))
-		}
-	}
-	if schema.Not != nil {
-		g.recordSchemaRefs(schemaName, schema.Not, joinLocation(location, "not"))
-	}
-
-	// Check patternProperties
-	for pattern, patternSchema := range schema.PatternProperties {
-		if patternSchema != nil {
-			g.recordSchemaRefs(schemaName, patternSchema, joinLocation(location, fmt.Sprintf("patternProperties[%s]", pattern)))
-		}
-	}
-
-	// Check prefixItems (JSON Schema 2020-12)
-	for i, s := range schema.PrefixItems {
-		if s != nil {
-			g.recordSchemaRefs(schemaName, s, joinLocation(location, fmt.Sprintf("prefixItems[%d]", i)))
-		}
-	}
-
-	// Check additionalItems
-	for i, addItems := range schemautil.SchemaOrBoolSchemas(schema.AdditionalItems) {
-		g.recordSchemaRefs(schemaName, addItems, joinLocation(location, "additionalItems"+schemautil.IndexSuffix(i)))
-	}
-
-	// Check contains
-	if schema.Contains != nil {
-		g.recordSchemaRefs(schemaName, schema.Contains, joinLocation(location, "contains"))
-	}
-
-	// Check propertyNames
-	if schema.PropertyNames != nil {
-		g.recordSchemaRefs(schemaName, schema.PropertyNames, joinLocation(location, "propertyNames"))
-	}
-
-	// Check dependentSchemas
-	for depName, depSchema := range schema.DependentSchemas {
-		if depSchema != nil {
-			g.recordSchemaRefs(schemaName, depSchema, joinLocation(location, fmt.Sprintf("dependentSchemas.%s", depName)))
-		}
-	}
-
-	// Check conditional schemas (if/then/else)
-	if schema.If != nil {
-		g.recordSchemaRefs(schemaName, schema.If, joinLocation(location, "if"))
-	}
-	if schema.Then != nil {
-		g.recordSchemaRefs(schemaName, schema.Then, joinLocation(location, "then"))
-	}
-	if schema.Else != nil {
-		g.recordSchemaRefs(schemaName, schema.Else, joinLocation(location, "else"))
-	}
-
-	// Check contentSchema
-	if schema.ContentSchema != nil {
-		g.recordSchemaRefs(schemaName, schema.ContentSchema, joinLocation(location, "contentSchema"))
-	}
-
-	// Check $defs
-	for defName, defSchema := range schema.Defs {
-		if defSchema != nil {
-			g.recordSchemaRefs(schemaName, defSchema, joinLocation(location, fmt.Sprintf("$defs.%s", defName)))
-		}
-	}
-
-	// Check unevaluatedProperties
-	for i, unevProps := range schemautil.SchemaOrBoolSchemas(schema.UnevaluatedProperties) {
-		g.recordSchemaRefs(schemaName, unevProps, joinLocation(location, "unevaluatedProperties"+schemautil.IndexSuffix(i)))
-	}
-
-	// Check unevaluatedItems
-	for i, unevItems := range schemautil.SchemaOrBoolSchemas(schema.UnevaluatedItems) {
-		g.recordSchemaRefs(schemaName, unevItems, joinLocation(location, "unevaluatedItems"+schemautil.IndexSuffix(i)))
-	}
-}
-
-// joinLocation joins location path segments.
-func joinLocation(base, segment string) string {
-	if base == "" {
-		return segment
-	}
-	return base + "." + segment
+// recordSchemaRefs records every reference schema makes to a component schema,
+// attributing each to schemaName.
+func (g *RefGraph) recordSchemaRefs(schemaName string, schema *parser.Schema) {
+	schemarefs.EachRef(schema, "", func(token, at string) {
+		name := g.resolve(token)
+		g.schemaRefs[name] = append(g.schemaRefs[name], SchemaRef{
+			FromSchema:  schemaName,
+			RefLocation: at,
+		})
+	})
 }
 
 // deduplicateOperationRefs removes duplicate operation references.

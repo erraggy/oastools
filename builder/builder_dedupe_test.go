@@ -297,3 +297,103 @@ func TestBuilder_DeduplicateSchemas_ManualCall(t *testing.T) {
 
 	assert.Len(t, doc.Components.Schemas, 1)
 }
+
+// address is the shape two names can share while still meaning different
+// things.
+func addressSchema() *parser.Schema {
+	return &parser.Schema{
+		Type:     "object",
+		Required: []string{"street", "city"},
+		Properties: map[string]*parser.Schema{
+			"street": {Type: "string"},
+			"city":   {Type: "string"},
+		},
+	}
+}
+
+// A schema referencing two same-shaped names is distinguishing them, so
+// consolidating the two would leave a shipment's origin as its destination.
+func TestBuilder_DeduplicateSchemas_KeepsNamesASchemaDistinguishes(t *testing.T) {
+	b := New(parser.OASVersion320)
+	b.addSchema("Shipment", &parser.Schema{
+		Type:     "object",
+		Required: []string{"shippedFrom", "shippedTo"},
+		Properties: map[string]*parser.Schema{
+			"shippedFrom": {Ref: "#/components/schemas/OriginAddress"},
+			"shippedTo":   {Ref: "#/components/schemas/DestinationAddress"},
+		},
+	})
+	b.addSchema("OriginAddress", addressSchema())
+	b.addSchema("DestinationAddress", addressSchema())
+
+	b.DeduplicateSchemas()
+
+	assert.Len(t, b.schemas, 3)
+	assert.Contains(t, b.schemas, "OriginAddress")
+	assert.Contains(t, b.schemas, "DestinationAddress")
+	assert.Empty(t, b.schemaAliases, "neither address was consolidated")
+}
+
+// The parent does not have to be a component: an operation's inline schema
+// distinguishes the two names just as a declared one does.
+func TestBuilder_DeduplicateSchemas_KeepsNamesAnInlineSchemaDistinguishes(t *testing.T) {
+	b := New(parser.OASVersion320)
+	b.addSchema("OriginAddress", addressSchema())
+	b.addSchema("DestinationAddress", addressSchema())
+	b.paths["/shipments"] = &parser.PathItem{Get: &parser.Operation{
+		OperationID: "getShipment",
+		Responses: &parser.Responses{Codes: map[string]*parser.Response{
+			"200": {
+				Description: "ok",
+				Content: map[string]*parser.MediaType{
+					"application/json": {Schema: &parser.Schema{
+						Type: "object",
+						Properties: map[string]*parser.Schema{
+							"shippedFrom": {Ref: "#/components/schemas/OriginAddress"},
+							"shippedTo":   {Ref: "#/components/schemas/DestinationAddress"},
+						},
+					}},
+				},
+			},
+		}},
+	}}
+
+	b.DeduplicateSchemas()
+
+	assert.Len(t, b.schemas, 2)
+	assert.Empty(t, b.schemaAliases, "neither address was consolidated")
+}
+
+// Two same-shaped names that no single schema references together are what
+// deduplication is for, and they still consolidate.
+func TestBuilder_DeduplicateSchemas_MergesNamesNothingReferencesTogether(t *testing.T) {
+	b := New(parser.OASVersion320)
+	b.addSchema("Address", addressSchema())
+	b.addSchema("Location", addressSchema())
+
+	b.DeduplicateSchemas()
+
+	assert.Len(t, b.schemas, 1)
+	assert.Equal(t, "Address", b.schemaAliases["Location"])
+}
+
+// OAS 2.0 spells references at #/definitions, and reads the schemas from a
+// different place in the snapshot, so it is checked on its own.
+func TestBuilder_DeduplicateSchemas_KeepsNamesASchemaDistinguishes_OAS2(t *testing.T) {
+	b := New(parser.OASVersion20)
+	b.addSchema("Shipment", &parser.Schema{
+		Type:     "object",
+		Required: []string{"shippedFrom", "shippedTo"},
+		Properties: map[string]*parser.Schema{
+			"shippedFrom": {Ref: "#/definitions/OriginAddress"},
+			"shippedTo":   {Ref: "#/definitions/DestinationAddress"},
+		},
+	})
+	b.addSchema("OriginAddress", addressSchema())
+	b.addSchema("DestinationAddress", addressSchema())
+
+	b.DeduplicateSchemas()
+
+	assert.Len(t, b.schemas, 3)
+	assert.Empty(t, b.schemaAliases)
+}

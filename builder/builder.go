@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/erraggy/oastools/internal/fileutil"
+	"github.com/erraggy/oastools/internal/schemarefs"
 	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/joiner"
 	"github.com/erraggy/oastools/parser"
@@ -164,6 +165,17 @@ func (b *Builder) DeduplicateSchemas() *Builder {
 
 	// Create deduplicator and run deduplication
 	config := schemautil.DefaultDeduplicationConfig()
+
+	// Two schemas a single schema references are two things however alike
+	// their shapes are, so consolidating them would lose what only their names
+	// carried.
+	split, err := schemarefs.Collect(b.referenceSnapshot())
+	if err != nil {
+		b.errors = append(b.errors, fmt.Errorf("builder: reading schema references for deduplication failed: %w", err))
+		return b
+	}
+	config.Split = split.Split
+
 	deduper := schemautil.NewSchemaDeduplicator(config, compare)
 
 	result, err := deduper.Deduplicate(b.schemas)
@@ -177,6 +189,35 @@ func (b *Builder) DeduplicateSchemas() *Builder {
 	b.schemaAliases = result.Aliases
 
 	return b
+}
+
+// referenceSnapshot assembles what the builder holds so far into a document,
+// for reading references out of. Deduplication runs before the document is
+// built, so this is the only view of the paths and components together.
+//
+// The maps and schemas are shared with the builder rather than copied, which
+// is safe because the reader does not modify them.
+func (b *Builder) referenceSnapshot() any {
+	if b.version == parser.OASVersion20 {
+		return &parser.OAS2Document{
+			Paths:       b.paths,
+			Definitions: b.schemas,
+			Parameters:  b.parameters,
+			Responses:   b.responses,
+			OASVersion:  b.version,
+		}
+	}
+	return &parser.OAS3Document{
+		Paths:    b.paths,
+		Webhooks: b.webhooks,
+		Components: &parser.Components{
+			Schemas:       b.schemas,
+			Parameters:    b.parameters,
+			Responses:     b.responses,
+			RequestBodies: b.requestBodies,
+		},
+		OASVersion: b.version,
+	}
 }
 
 // SetInfo sets the Info object for the document.

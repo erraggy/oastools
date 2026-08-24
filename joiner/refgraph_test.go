@@ -894,7 +894,7 @@ func TestResolveLineage_NilGraph(t *testing.T) {
 }
 
 func TestResolveLineage_UnknownSchema(t *testing.T) {
-	graph := newRefGraph()
+	graph := newRefGraph(nil)
 
 	lineage := graph.ResolveLineage("NonExistentSchema")
 
@@ -1123,41 +1123,6 @@ func TestBuildRefGraphOAS3_SchemaRefLocations(t *testing.T) {
 	assert.Equal(t, "items", listItemRefs[0].RefLocation)
 }
 
-func TestJoinLocation(t *testing.T) {
-	tests := []struct {
-		name     string
-		base     string
-		segment  string
-		expected string
-	}{
-		{
-			name:     "empty base",
-			base:     "",
-			segment:  "properties.name",
-			expected: "properties.name",
-		},
-		{
-			name:     "non-empty base",
-			base:     "properties.address",
-			segment:  "properties.street",
-			expected: "properties.address.properties.street",
-		},
-		{
-			name:     "both non-empty",
-			base:     "allOf[0]",
-			segment:  "properties.id",
-			expected: "allOf[0].properties.id",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := joinLocation(tt.base, tt.segment)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
 // =============================================================================
 // OAS 2.0 Specific Tests
 // =============================================================================
@@ -1258,10 +1223,102 @@ func TestBuildRefGraphOAS2_DefaultResponse(t *testing.T) {
 // =============================================================================
 
 func TestNewRefGraph(t *testing.T) {
-	graph := newRefGraph()
+	graph := newRefGraph(nil)
 
 	require.NotNil(t, graph)
 	assert.NotNil(t, graph.schemaRefs)
 	assert.NotNil(t, graph.operationRefs)
 	assert.NotNil(t, graph.resolved)
+}
+
+// A schema name legal in OAS 2.0 can need escaping to be written in a
+// reference: `pkg/Pet` is a legal definition name and a reference to it reads
+// `#/definitions/pkg~1Pet`. The graph is looked up by the name being renamed,
+// so keying it by the token answers nothing and an operation-context template
+// renders its fields empty.
+func TestRefGraphResolvesEscapedReferenceTokens(t *testing.T) {
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Paths: parser.Paths{"/store/pet": &parser.PathItem{Get: &parser.Operation{
+			OperationID: "getStorePet",
+			Responses: &parser.Responses{Codes: map[string]*parser.Response{
+				"200": {Schema: &parser.Schema{Ref: "#/definitions/pkg~1Pet"}},
+			}},
+		}}},
+		Definitions: map[string]*parser.Schema{
+			"pkg/Pet": {Properties: map[string]*parser.Schema{
+				"category": {Ref: "#/definitions/pkg~1Category"},
+			}},
+			"pkg/Category": {Type: "object"},
+		},
+		OASVersion: parser.OASVersion20,
+	}
+
+	graph := buildRefGraphOAS2(doc)
+
+	// Looked up by the declared name, which is what a rename is given.
+	lineage := graph.ResolveLineage("pkg/Pet")
+	require.Len(t, lineage, 1, "the operation referencing pkg/Pet was not found")
+	assert.Equal(t, "getStorePet", lineage[0].OperationID)
+
+	// And through an intermediate schema whose own name needs escaping.
+	nested := graph.ResolveLineage("pkg/Category")
+	require.Len(t, nested, 1, "lineage through pkg/Pet was not followed")
+	assert.Equal(t, "getStorePet", nested[0].OperationID)
+}
+
+// A reference naming no declared schema is left as it is, so a graph built
+// without a document behaves as it did.
+func TestRefGraphLeavesAnUnresolvableTokenAlone(t *testing.T) {
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Paths: parser.Paths{"/p": &parser.PathItem{Get: &parser.Operation{
+			OperationID: "getThing",
+			Responses: &parser.Responses{Codes: map[string]*parser.Response{
+				"200": {Schema: &parser.Schema{Ref: "#/definitions/Missing"}},
+			}},
+		}}},
+		Definitions: map[string]*parser.Schema{"Present": {Type: "object"}},
+		OASVersion:  parser.OASVersion20,
+	}
+
+	graph := buildRefGraphOAS2(doc)
+	assert.Len(t, graph.ResolveLineage("Missing"), 1,
+		"an unresolvable token still keys the graph by itself")
+	assert.Empty(t, graph.ResolveLineage("Present"))
+}
+
+// The OAS 3 builder resolves tokens the same way, against
+// components.schemas rather than definitions.
+func TestRefGraphResolvesEscapedReferenceTokens_OAS3(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Paths: parser.Paths{"/store/pet": &parser.PathItem{Get: &parser.Operation{
+			OperationID: "getStorePet",
+			Responses: &parser.Responses{Codes: map[string]*parser.Response{
+				"200": {Content: map[string]*parser.MediaType{
+					"application/json": {Schema: &parser.Schema{
+						Ref: "#/components/schemas/pkg~1Pet",
+					}},
+				}},
+			}},
+		}}},
+		Components: &parser.Components{Schemas: map[string]*parser.Schema{
+			"pkg/Pet": {Properties: map[string]*parser.Schema{
+				"category": {Ref: "#/components/schemas/pkg~1Category"},
+			}},
+			"pkg/Category": {Type: "object"},
+		}},
+		OASVersion: parser.OASVersion303,
+	}
+
+	graph := buildRefGraphOAS3(doc, parser.OASVersion303)
+
+	lineage := graph.ResolveLineage("pkg/Pet")
+	require.Len(t, lineage, 1, "the operation referencing pkg/Pet was not found")
+	assert.Equal(t, "getStorePet", lineage[0].OperationID)
+
+	nested := graph.ResolveLineage("pkg/Category")
+	require.Len(t, nested, 1, "lineage through pkg/Pet was not followed")
+	assert.Equal(t, "getStorePet", nested[0].OperationID)
 }

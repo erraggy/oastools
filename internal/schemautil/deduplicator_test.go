@@ -1,6 +1,7 @@
 package schemautil
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
@@ -334,4 +335,206 @@ func TestSchemaDeduplicator_Outranks(t *testing.T) {
 			assert.Equal(t, tt.aliases, group[1:], "the rest stay sorted")
 		})
 	}
+}
+
+// splitHoldingApart builds a SplitFunc that keeps the named groups separate,
+// standing in for the joiner's partition without its reference bookkeeping.
+// Any name not listed joins a single remainder part, appended last.
+func splitHoldingApart(apart ...[]string) SplitFunc {
+	return func(group []string) [][]string {
+		parts := make([][]string, 0, len(apart)+1)
+		rest := make([]string, 0, len(group))
+		for _, name := range group {
+			part := -1
+			for i, names := range apart {
+				if slices.Contains(names, name) {
+					part = i
+					break
+				}
+			}
+			if part < 0 {
+				rest = append(rest, name)
+				continue
+			}
+			for len(parts) <= part {
+				parts = append(parts, nil)
+			}
+			parts[part] = append(parts[part], name)
+		}
+		if len(rest) > 0 {
+			parts = append(parts, rest)
+		}
+		return parts
+	}
+}
+
+func TestSchemaDeduplicator_Split(t *testing.T) {
+	schemas := map[string]*parser.Schema{
+		"Address":  {Type: "object"},
+		"Location": {Type: "object"},
+		"Place":    {Type: "object"},
+	}
+
+	tests := []struct {
+		name   string
+		split  SplitFunc
+		groups [][]string
+	}{
+		{
+			name:   "nil consolidates the group whole",
+			split:  nil,
+			groups: [][]string{{"Address", "Location", "Place"}},
+		},
+		{
+			name:   "a name held apart keeps its own name",
+			split:  splitHoldingApart([]string{"Location"}),
+			groups: [][]string{{"Address", "Place"}, {"Location"}},
+		},
+		{
+			name:   "two names held together still consolidate",
+			split:  splitHoldingApart([]string{"Location", "Place"}),
+			groups: [][]string{{"Address"}, {"Location", "Place"}},
+		},
+		{
+			name: "every name held apart leaves every name standing",
+			split: splitHoldingApart(
+				[]string{"Address"}, []string{"Location"}, []string{"Place"}),
+			groups: [][]string{{"Address"}, {"Location"}, {"Place"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := DefaultDeduplicationConfig()
+			config.Split = tt.split
+			deduper := NewSchemaDeduplicator(config, alwaysEqual)
+
+			result, err := deduper.Deduplicate(schemas)
+			require.NoError(t, err)
+
+			require.Len(t, result.CanonicalSchemas, len(tt.groups))
+			removed := 0
+			for _, group := range tt.groups {
+				canonical := group[0]
+				require.Contains(t, result.CanonicalSchemas, canonical)
+				assert.Equal(t, group, result.EquivalenceGroups[canonical])
+				for _, alias := range group[1:] {
+					assert.Equal(t, canonical, result.CanonicalName(alias))
+					removed++
+				}
+			}
+			assert.Equal(t, removed, result.RemovedCount)
+		})
+	}
+}
+
+// A group only one schema falls into is never handed to the SplitFunc, so a
+// caller cannot be asked to partition something with nothing to partition.
+func TestSchemaDeduplicator_SplitSkipsSingletons(t *testing.T) {
+	schemas := map[string]*parser.Schema{
+		"Address": {Type: "object"},
+		"Count":   {Type: "integer"},
+	}
+
+	var asked [][]string
+	config := DefaultDeduplicationConfig()
+	config.Split = func(group []string) [][]string {
+		asked = append(asked, group)
+		return [][]string{group}
+	}
+	deduper := NewSchemaDeduplicator(config, func(left, right *parser.Schema) bool {
+		return left.Type == right.Type
+	})
+
+	result, err := deduper.Deduplicate(schemas)
+	require.NoError(t, err)
+
+	assert.Empty(t, asked, "neither name shares a group with another")
+	assert.Len(t, result.CanonicalSchemas, 2)
+}
+
+// A SplitFunc that loses, repeats, or empties a part would drop or duplicate a
+// schema, and nothing downstream could tell. Deduplicate refuses instead.
+func TestSchemaDeduplicator_SplitPartitionIsChecked(t *testing.T) {
+	schemas := map[string]*parser.Schema{
+		"Address":  {Type: "object"},
+		"Location": {Type: "object"},
+		"Place":    {Type: "object"},
+	}
+
+	tests := []struct {
+		name  string
+		split SplitFunc
+		want  string
+	}{
+		{
+			name:  "a name left out",
+			split: func(group []string) [][]string { return [][]string{group[:len(group)-1]} },
+			want:  "returned 2 names for a group of 3",
+		},
+		{
+			name:  "a name in two parts",
+			split: func(group []string) [][]string { return [][]string{group, {group[0]}} },
+			want:  "returned 4 names for a group of 3",
+		},
+		{
+			// By name rather than by position: a group arrives in the order
+			// the schemas hashed in, which is a map range.
+			name: "a name swapped for one that was not in the group",
+			split: func(group []string) [][]string {
+				swapped := make([]string, 0, len(group))
+				for _, name := range group {
+					if name == "Address" {
+						swapped = append(swapped, "Unrelated")
+						continue
+					}
+					swapped = append(swapped, name)
+				}
+				return [][]string{swapped}
+			},
+			want: `returned "Address" 0 times`,
+		},
+		{
+			name:  "an empty part",
+			split: func(group []string) [][]string { return [][]string{group, {}} },
+			want:  "returned an empty part",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := DefaultDeduplicationConfig()
+			config.Split = tt.split
+			deduper := NewSchemaDeduplicator(config, alwaysEqual)
+
+			result, err := deduper.Deduplicate(schemas)
+			require.Error(t, err, "an unusable partition must not reach the result")
+			assert.Contains(t, err.Error(), tt.want)
+			assert.Nil(t, result)
+		})
+	}
+}
+
+// A SplitFunc gets a copy of the group, so a callback that overwrites an entry
+// and returns it is caught rather than validated against its own edit.
+func TestSchemaDeduplicator_SplitCannotEditTheGroupItIsCheckedAgainst(t *testing.T) {
+	schemas := map[string]*parser.Schema{
+		"Address":  {Type: "object"},
+		"Location": {Type: "object"},
+		"Place":    {Type: "object"},
+	}
+
+	config := DefaultDeduplicationConfig()
+	config.Split = func(group []string) [][]string {
+		// Overwrite an input name, then hand the same slice back. Checked
+		// against the caller's own copy, this cannot pass.
+		group[0] = "Unrelated"
+		return [][]string{group}
+	}
+	deduper := NewSchemaDeduplicator(config, alwaysEqual)
+
+	result, err := deduper.Deduplicate(schemas)
+	require.Error(t, err, "a group the callback edited must not be accepted")
+	assert.Contains(t, err.Error(), "0 times")
+	assert.Nil(t, result)
 }

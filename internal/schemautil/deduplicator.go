@@ -1,6 +1,8 @@
 package schemautil
 
 import (
+	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/erraggy/oastools/parser"
@@ -59,7 +61,10 @@ func (d *SchemaDeduplicator) Deduplicate(schemas map[string]*parser.Schema) (*De
 	hashGroups := d.hasher.GroupByHash(schemas)
 
 	// Phase 2: Verify equivalence within each group and build equivalence groups
-	equivalenceGroups := d.buildEquivalenceGroups(schemas, hashGroups)
+	equivalenceGroups, err := d.buildEquivalenceGroups(schemas, hashGroups)
+	if err != nil {
+		return nil, err
+	}
 
 	// Phase 3: Select canonical names and build result
 	result := d.buildResult(schemas, equivalenceGroups)
@@ -71,7 +76,7 @@ func (d *SchemaDeduplicator) Deduplicate(schemas map[string]*parser.Schema) (*De
 func (d *SchemaDeduplicator) buildEquivalenceGroups(
 	schemas map[string]*parser.Schema,
 	hashGroups map[uint64][]string,
-) [][]string {
+) ([][]string, error) {
 	var equivalenceGroups [][]string
 
 	for _, names := range hashGroups {
@@ -81,12 +86,18 @@ func (d *SchemaDeduplicator) buildEquivalenceGroups(
 			continue
 		}
 
-		// Verify equivalence and split into true equivalence groups
-		subGroups := d.verifyEquivalence(schemas, names)
-		equivalenceGroups = append(equivalenceGroups, subGroups...)
+		// Verify equivalence and split into true equivalence groups, then hand
+		// each to the caller, which may hold some of its names apart.
+		for _, group := range d.verifyEquivalence(schemas, names) {
+			parts, err := d.split(group)
+			if err != nil {
+				return nil, err
+			}
+			equivalenceGroups = append(equivalenceGroups, parts...)
+		}
 	}
 
-	return equivalenceGroups
+	return equivalenceGroups, nil
 }
 
 // verifyEquivalence uses deep comparison to split a hash group into true equivalence groups.
@@ -125,6 +136,54 @@ func (d *SchemaDeduplicator) verifyEquivalence(
 	}
 
 	return groups
+}
+
+// split applies the configured SplitFunc to one equivalence group, leaving the
+// group whole when there is none.
+func (d *SchemaDeduplicator) split(group []string) ([][]string, error) {
+	if d.config.Split == nil || len(group) < 2 {
+		return [][]string{group}, nil
+	}
+	// A SplitFunc receives a copy, so what it returns is checked against a
+	// group it could not have edited. Handed the original, it could overwrite
+	// an entry and return it, and the check would compare the result against
+	// the names it just wrote rather than the ones the group had.
+	parts := d.config.Split(slices.Clone(group))
+	if err := checkPartition(group, parts); err != nil {
+		return nil, err
+	}
+	return parts, nil
+}
+
+// checkPartition reports whether parts place every name in group exactly once.
+//
+// The result is taken at face value from here on, so a name left out is a
+// schema dropped with no error, and a name in two parts is one schema written
+// under two canonical names. Neither is recoverable later: reference rewriting
+// reads the aliases this produces, so it cannot put back what never arrived.
+func checkPartition(group []string, parts [][]string) error {
+	placed := make(map[string]int, len(group))
+	total := 0
+	for _, part := range parts {
+		if len(part) == 0 {
+			return fmt.Errorf("schemautil: Split returned an empty part for group %v", group)
+		}
+		for _, name := range part {
+			placed[name]++
+			total++
+		}
+	}
+	if total != len(group) {
+		return fmt.Errorf("schemautil: Split returned %d names for a group of %d: %v",
+			total, len(group), parts)
+	}
+	for _, name := range group {
+		if placed[name] != 1 {
+			return fmt.Errorf("schemautil: Split returned %q %d times for group %v",
+				name, placed[name], group)
+		}
+	}
+	return nil
 }
 
 // buildResult creates the final deduplication result.
