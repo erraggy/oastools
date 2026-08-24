@@ -12,15 +12,28 @@ import (
 // distinctSchemaNames records which schema trees reference each component
 // schema name.
 //
-// A schema that references two names is distinguishing them, so semantic
-// deduplication must not merge the two however alike their shapes are. In
+// Deduplication merges schemas that compare equal, and a name is not part of
+// that comparison. So when two names describe the same shape, their names are
+// the only thing left separating them, and a schema that references both is
+// relying on exactly that:
 //
 //	Shipment:
 //	  shippedFrom: {$ref: OriginAddress}
 //	  shippedTo:   {$ref: DestinationAddress}
 //
-// both addresses have the same shape, and merging them would leave a
-// shipment's origin as its destination (#501).
+// Both addresses are a street and a city, so they compare equal and a merge
+// rewrites one reference to the other's name. The result resolves and
+// validates, and says a shipment's origin is its destination (#501).
+//
+// The unit is the whole tree, not one schema's own properties. Two references
+// are held apart however deeply either is nested, and alternatives under
+// oneOf are held apart as well, though only one of them is ever present. A
+// tree naming two shapes is treating them as two things wherever they sit, and
+// where the two readings differ, leaving the names alone keeps the document
+// saying what its author wrote.
+//
+// Example_deduplicationDistinctNames shows both sides of this from a caller's
+// point of view: the pair held apart, and a pair still consolidated.
 type distinctSchemaNames struct {
 	// trees maps a component schema name to the trees that reference it.
 	// Trees are numbered by the order they were walked in; the number is an
@@ -32,8 +45,9 @@ type distinctSchemaNames struct {
 // names that one schema tree references. Each part is then free to collapse to
 // a single name.
 //
-// Given a group of OriginAddress, DestinationAddress and BillingAddress, where
-// Shipment references the first two and nothing references BillingAddress:
+// OriginAddress, DestinationAddress and BillingAddress all describe the same
+// address shape, so they compare equal and arrive as one group. Shipment
+// references the first two, and nothing references BillingAddress:
 //
 //	{BillingAddress, DestinationAddress}  nothing holds these two apart
 //	{OriginAddress}                       Shipment references it alongside

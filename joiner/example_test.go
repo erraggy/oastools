@@ -589,3 +589,123 @@ func Example_collisionHandlerCustomMerge() {
 	// Has username (from right): true
 	// Description: Merged User schema
 }
+
+// Example_deduplicationDistinctNames demonstrates which same-shaped schemas
+// semantic deduplication consolidates and which it leaves alone.
+//
+// Deduplication compares shapes, and a name is not part of the comparison. So
+// when one schema references two same-shaped names, their names are the only
+// thing separating them: Shipment requires both shippedFrom and shippedTo, so
+// consolidating OriginAddress and DestinationAddress would leave it saying a
+// shipment's origin is its destination.
+//
+// A pair no single schema references together is the case deduplication is
+// for. ShipmentLabel and TrackingLabel are the same shape in two documents,
+// nothing references both, and they collapse to one name.
+func Example_deduplicationDistinctNames() {
+	shippingSpec := []byte(`openapi: "3.0.0"
+info:
+  title: Shipping API
+  version: "1.0"
+paths:
+  /shipments:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShipmentLabel'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shipment'
+components:
+  schemas:
+    Shipment:
+      type: object
+      required: [shippedFrom, shippedTo]
+      properties:
+        shippedFrom:
+          $ref: '#/components/schemas/OriginAddress'
+        shippedTo:
+          $ref: '#/components/schemas/DestinationAddress'
+    OriginAddress:
+      type: object
+      properties:
+        street:
+          type: string
+        city:
+          type: string
+    DestinationAddress:
+      type: object
+      properties:
+        street:
+          type: string
+        city:
+          type: string
+    ShipmentLabel:
+      type: object
+      properties:
+        code:
+          type: string
+`)
+
+	trackingSpec := []byte(`openapi: "3.0.0"
+info:
+  title: Tracking API
+  version: "1.0"
+paths:
+  /tracking:
+    get:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackingLabel'
+components:
+  schemas:
+    TrackingLabel:
+      type: object
+      properties:
+        code:
+          type: string
+`)
+
+	shipping, err := parser.ParseWithOptions(parser.WithBytes(shippingSpec))
+	if err != nil {
+		log.Fatal(err)
+	}
+	tracking, err := parser.ParseWithOptions(parser.WithBytes(trackingSpec))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	result, err := joiner.JoinWithOptions(
+		joiner.WithParsed(*shipping, *tracking),
+		joiner.WithSemanticDeduplication(true),
+		joiner.WithEquivalenceMode("deep"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	doc := result.Document.(*parser.OAS3Document)
+	names := slices.Sorted(maps.Keys(doc.Components.Schemas))
+
+	// Both addresses survive; TrackingLabel is gone, consolidated into
+	// ShipmentLabel.
+	fmt.Printf("Schemas: %v\n", names)
+
+	shipment := doc.Components.Schemas["Shipment"]
+	fmt.Printf("shippedFrom: %s\n", shipment.Properties["shippedFrom"].Ref)
+	fmt.Printf("shippedTo:   %s\n", shipment.Properties["shippedTo"].Ref)
+	// Output:
+	// Schemas: [DestinationAddress OriginAddress Shipment ShipmentLabel]
+	// shippedFrom: #/components/schemas/OriginAddress
+	// shippedTo:   #/components/schemas/DestinationAddress
+}

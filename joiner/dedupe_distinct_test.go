@@ -353,3 +353,66 @@ func TestDistinctSchemaNames_SplitMatchesItsDocumentedExample(t *testing.T) {
 		[][]string{{"BillingAddress", "DestinationAddress"}, {"OriginAddress"}},
 		d.split([]string{"OriginAddress", "DestinationAddress", "BillingAddress"}))
 }
+
+// shipmentTreeOAS2 puts two references to the same address shape in one schema
+// tree, in the arrangement the caller names.
+func shipmentTreeOAS2(parent *parser.Schema) parser.ParseResult {
+	return parser.ParseResult{
+		Document: &parser.OAS2Document{
+			Swagger: "2.0",
+			Info:    &parser.Info{Title: "store", Version: "1.0.0"},
+			Paths: parser.Paths{
+				"/store/shipment": &parser.PathItem{Get: &parser.Operation{
+					OperationID: "getStoreShipment",
+					Responses: &parser.Responses{Codes: map[string]*parser.Response{
+						"200": {Description: "ok", Schema: &parser.Schema{
+							Ref: "#/definitions/Shipment",
+						}},
+					}},
+				}},
+			},
+			Definitions: map[string]*parser.Schema{
+				"Shipment":           parent,
+				"OriginAddress":      address(),
+				"DestinationAddress": address(),
+			},
+			OASVersion: parser.OASVersion20,
+		},
+		Version:      "2.0",
+		OASVersion:   parser.OASVersion20,
+		SourcePath:   "store",
+		SourceFormat: "json",
+	}
+}
+
+// The two references do not have to be siblings. What matters is that one tree
+// names both shapes, so nesting one of them deeper changes nothing.
+func TestJoiner_SemanticDeduplication_HoldsApartReferencesAtAnyDepth(t *testing.T) {
+	res := joinDeduplicated(t, parser.OASVersion20, shipmentTreeOAS2(&parser.Schema{
+		Type: "object",
+		Properties: map[string]*parser.Schema{
+			"shippedFrom": {Ref: "#/definitions/OriginAddress"},
+			"detail": {Type: "object", Properties: map[string]*parser.Schema{
+				"shippedTo": {Ref: "#/definitions/DestinationAddress"},
+			}},
+		},
+	}))
+
+	assert.Equal(t, []string{"DestinationAddress", "OriginAddress", "Shipment"},
+		sortedSchemaNames(t, res.Document))
+}
+
+// Alternatives are held apart too, though a value only ever satisfies one of
+// them: a tree offering a choice between two names is still treating them as
+// two things.
+func TestJoiner_SemanticDeduplication_HoldsApartAlternatives(t *testing.T) {
+	res := joinDeduplicated(t, parser.OASVersion20, shipmentTreeOAS2(&parser.Schema{
+		OneOf: []*parser.Schema{
+			{Ref: "#/definitions/OriginAddress"},
+			{Ref: "#/definitions/DestinationAddress"},
+		},
+	}))
+
+	assert.Equal(t, []string{"DestinationAddress", "OriginAddress", "Shipment"},
+		sortedSchemaNames(t, res.Document))
+}
