@@ -75,7 +75,7 @@ func TestTupleItemsAreComparedElementwise(t *testing.T) {
 // to answer which schema points at which. A tuple element missing from it makes
 // a referenced schema look unreferenced, the same way #502 did in the fixer.
 func TestTupleItemsRefsAreRecordedInTheRefGraph(t *testing.T) {
-	g := newRefGraph()
+	g := newRefGraph(nil)
 	g.recordSchemaRefs("PetTuple", &parser.Schema{
 		Type: "array",
 		Items: []*parser.Schema{
@@ -103,7 +103,7 @@ func TestTupleItemsRefsAreRecordedInTheRefGraph(t *testing.T) {
 // TestTupleItemsRefsAreRecordedForAdditionalItems covers the other schema-or-bool
 // field the tuple form reaches through in an OAS 2.0 document.
 func TestTupleItemsRefsAreRecordedForAdditionalItems(t *testing.T) {
-	g := newRefGraph()
+	g := newRefGraph(nil)
 	g.recordSchemaRefs("PetTuple", &parser.Schema{
 		Type:            "array",
 		AdditionalItems: []*parser.Schema{{Ref: "#/definitions/Extra"}},
@@ -117,7 +117,7 @@ func TestTupleItemsRefsAreRecordedForAdditionalItems(t *testing.T) {
 // graph gained alongside the tuple form. A ref the graph misses makes a
 // referenced schema look unreferenced.
 func TestNewlyTraversedFieldsAreRecordedInTheRefGraph(t *testing.T) {
-	g := newRefGraph()
+	g := newRefGraph(nil)
 	g.recordSchemaRefs("Holder", &parser.Schema{
 		AdditionalProperties:  []*parser.Schema{{Ref: "#/definitions/AddProps"}},
 		AdditionalItems:       []*parser.Schema{{Ref: "#/definitions/AddItems"}},

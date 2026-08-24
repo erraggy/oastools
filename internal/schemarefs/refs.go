@@ -269,8 +269,9 @@ func intersects(left, right map[string]struct{}) bool {
 	return false
 }
 
-// componentSchemaNames returns the keys of the map deduplication works over.
-func componentSchemaNames(doc any) map[string]struct{} {
+// ComponentSchemaNames returns the keys of a document's component schema map,
+// which is the set a reference token has to be resolved against.
+func ComponentSchemaNames(doc any) map[string]struct{} {
 	// A typed nil reaches here ahead of the walk that reports it, so the nil
 	// checks are this function's own to make.
 	var names map[string]*parser.Schema
@@ -292,7 +293,7 @@ func componentSchemaNames(doc any) map[string]struct{} {
 	return keys
 }
 
-// resolveName maps a reference token to the component key it denotes.
+// ResolveName maps a reference token to the component key it denotes.
 //
 // A name legal in OAS 2.0 can need escaping to be written in a reference:
 // `addr/Origin` is a legal definition name, and a reference to it reads
@@ -303,7 +304,7 @@ func componentSchemaNames(doc any) map[string]struct{} {
 // Exact first, decoded second, because decoding is lossy: a component
 // genuinely named `Foo%20Bar` decodes to `Foo Bar` and stops matching itself.
 // A token matching no key is returned as it is, and simply names no group.
-func resolveName(token string, keys map[string]struct{}) string {
+func ResolveName(token string, keys map[string]struct{}) string {
 	if _, ok := keys[token]; ok {
 		return token
 	}
@@ -330,7 +331,7 @@ func resolveName(token string, keys map[string]struct{}) string {
 func Collect(doc any) (*Distinct, error) {
 	// Deduplication is handed the component map's own keys, so a reference has
 	// to be resolved to one of those before it can be counted against them.
-	keys := componentSchemaNames(doc)
+	keys := ComponentSchemaNames(doc)
 
 	d := &Distinct{trees: make(map[string]map[string]struct{})}
 	trees := 0
@@ -340,7 +341,7 @@ func Collect(doc any) (*Distinct, error) {
 			// SkipChildren stops the walk from descending into subschemas.
 			tree := strconv.Itoa(trees)
 			EachRef(schema, "", func(token, _ string) {
-				name := resolveName(token, keys)
+				name := ResolveName(token, keys)
 				holders := d.trees[name]
 				if holders == nil {
 					holders = make(map[string]struct{}, 1)

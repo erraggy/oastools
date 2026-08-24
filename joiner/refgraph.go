@@ -9,8 +9,9 @@ import (
 )
 
 // newRefGraph creates a new empty RefGraph.
-func newRefGraph() *RefGraph {
+func newRefGraph(keys map[string]struct{}) *RefGraph {
 	return &RefGraph{
+		keys:          keys,
 		schemaRefs:    make(map[string][]SchemaRef),
 		operationRefs: make(map[string][]OperationRef),
 		resolved:      make(map[string][]OperationRef),
@@ -19,7 +20,7 @@ func newRefGraph() *RefGraph {
 
 // buildRefGraphOAS3 builds a reference graph from an OAS 3.x document.
 func buildRefGraphOAS3(doc *parser.OAS3Document, version parser.OASVersion) *RefGraph {
-	g := newRefGraph()
+	g := newRefGraph(schemarefs.ComponentSchemaNames(doc))
 	if doc == nil {
 		return g
 	}
@@ -192,7 +193,7 @@ func (g *RefGraph) recordResponseSchemaRefs(response *parser.Response, baseRef O
 
 // recordOperationSchemaRef records a schema reference from an operation.
 func (g *RefGraph) recordOperationSchemaRef(schema *parser.Schema, baseRef OperationRef, usage UsageType, statusCode, paramName, mediaType string) {
-	schemaName := extractSchemaNameFromRef(schema.Ref)
+	schemaName := g.resolve(extractSchemaNameFromRef(schema.Ref))
 	if schemaName == "" {
 		// Not a $ref, but might contain nested $refs - we track the immediate ref only
 		return
@@ -214,7 +215,7 @@ func (g *RefGraph) recordOperationSchemaRef(schema *parser.Schema, baseRef Opera
 
 // buildRefGraphOAS2 builds a reference graph from an OAS 2.0 document.
 func buildRefGraphOAS2(doc *parser.OAS2Document) *RefGraph {
-	g := newRefGraph()
+	g := newRefGraph(schemarefs.ComponentSchemaNames(doc))
 	if doc == nil {
 		return g
 	}
@@ -312,10 +313,24 @@ func extractSchemaNameFromRef(ref string) string {
 	return schemarefs.SchemaName(ref)
 }
 
+// resolve maps a reference token to the schema name the document declares, so
+// the graph is keyed by the names its callers look up. A name legal in OAS 2.0
+// can need escaping to be written in a reference: `pkg/Pet` is a legal
+// definition name and a reference to it reads `#/definitions/pkg~1Pet`. Keyed
+// by the token, the graph answers nothing for the name being renamed, and an
+// operation-context template renders its fields empty.
+func (g *RefGraph) resolve(token string) string {
+	if token == "" {
+		return ""
+	}
+	return schemarefs.ResolveName(token, g.keys)
+}
+
 // recordSchemaRefs records every reference schema makes to a component schema,
 // attributing each to schemaName.
 func (g *RefGraph) recordSchemaRefs(schemaName string, schema *parser.Schema) {
-	schemarefs.EachRef(schema, "", func(name, at string) {
+	schemarefs.EachRef(schema, "", func(token, at string) {
+		name := g.resolve(token)
 		g.schemaRefs[name] = append(g.schemaRefs[name], SchemaRef{
 			FromSchema:  schemaName,
 			RefLocation: at,
