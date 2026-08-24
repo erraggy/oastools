@@ -242,9 +242,9 @@ func TestJoiner_SemanticDeduplication_MergesAcrossSeparateSchemaTrees(t *testing
 func TestDistinctSchemaNames_SplitWeighsEveryMemberOfAPart(t *testing.T) {
 	// One tree references Location and Place. Address is referenced by no tree,
 	// so nothing holds it apart from either of them.
-	d := &distinctSchemaNames{trees: map[string]map[int]struct{}{
-		"Location": {7: {}},
-		"Place":    {7: {}},
+	d := &distinctSchemaNames{trees: map[string]map[string]struct{}{
+		"Location": {"7": {}},
+		"Place":    {"7": {}},
 	}}
 
 	assert.Equal(t, [][]string{{"Address", "Location"}, {"Place"}},
@@ -254,9 +254,9 @@ func TestDistinctSchemaNames_SplitWeighsEveryMemberOfAPart(t *testing.T) {
 // The deduplicator hands over a group in whatever order it hashed the names in,
 // so the partition has to settle the same way whatever that order was.
 func TestDistinctSchemaNames_SplitDoesNotDependOnGroupOrder(t *testing.T) {
-	d := &distinctSchemaNames{trees: map[string]map[int]struct{}{
-		"Location": {7: {}},
-		"Place":    {7: {}},
+	d := &distinctSchemaNames{trees: map[string]map[string]struct{}{
+		"Location": {"7": {}},
+		"Place":    {"7": {}},
 	}}
 	want := [][]string{{"Address", "Location"}, {"Place"}}
 
@@ -270,24 +270,25 @@ func TestDistinctSchemaNames_SplitDoesNotDependOnGroupOrder(t *testing.T) {
 	}
 }
 
-// record walks the subschema keywords by hand, so a keyword added to
-// parser.Schema later could go unread and let deduplication merge two names a
-// document distinguishes under it. Reflection asks the question directly: with
-// a reference sitting under one field and nothing else set, is it found?
+// recordSchemaRefs walks the subschema keywords by hand, and semantic
+// deduplication now depends on it: a keyword it does not read is one whose
+// references go uncounted, letting two names a document distinguishes under
+// that keyword be merged. Reflection asks the question directly. With a
+// reference sitting under one field and nothing else set, is it found?
 //
 // The typed schema fields are enumerated rather than listed, so a new one is
 // covered the day it is added. The schema-or-bool fields are declared any and
 // share that type with Default and Const, which hold no schema, so those are
 // named.
-func TestDistinctSchemaNames_RecordReadsEverySubschemaField(t *testing.T) {
+func TestRecordSchemaRefsReadsEverySubschemaField(t *testing.T) {
 	const target = "#/definitions/Target"
 	child := func() *parser.Schema { return &parser.Schema{Ref: target} }
 
 	found := func(t *testing.T, schema *parser.Schema) bool {
 		t.Helper()
-		d := &distinctSchemaNames{trees: make(map[string]map[int]struct{})}
-		d.record(0, schema)
-		_, ok := d.trees["Target"]
+		g := newRefGraph()
+		g.recordSchemaRefs("tree", schema, "")
+		_, ok := g.schemaRefs["Target"]
 		return ok
 	}
 
@@ -339,4 +340,16 @@ func TestDistinctSchemaNames_RecordReadsEverySubschemaField(t *testing.T) {
 				"a reference under Schema.%s is not read", name)
 		})
 	}
+}
+
+// The worked example in split's doc comment, kept honest.
+func TestDistinctSchemaNames_SplitMatchesItsDocumentedExample(t *testing.T) {
+	d := &distinctSchemaNames{trees: map[string]map[string]struct{}{
+		"OriginAddress":      {"shipmentTree": {}},
+		"DestinationAddress": {"shipmentTree": {}},
+	}}
+
+	assert.Equal(t,
+		[][]string{{"BillingAddress", "DestinationAddress"}, {"OriginAddress"}},
+		d.split([]string{"OriginAddress", "DestinationAddress", "BillingAddress"}))
 }

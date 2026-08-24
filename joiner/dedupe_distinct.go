@@ -3,38 +3,54 @@ package joiner
 import (
 	"maps"
 	"slices"
+	"strconv"
 
-	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 	"github.com/erraggy/oastools/walker"
 )
 
 // distinctSchemaNames records which schema trees reference each component
-// schema name, so semantic deduplication can hold apart two names that one
-// tree references. A schema that references both is distinguishing them:
-// whatever their shapes have in common, the document says a value of one is
-// not a value of the other (#501).
+// schema name.
+//
+// A schema that references two names is distinguishing them, so semantic
+// deduplication must not merge the two however alike their shapes are. In
+//
+//	Shipment:
+//	  shippedFrom: {$ref: OriginAddress}
+//	  shippedTo:   {$ref: DestinationAddress}
+//
+// both addresses have the same shape, and merging them would leave a
+// shipment's origin as its destination (#501).
 type distinctSchemaNames struct {
 	// trees maps a component schema name to the trees that reference it.
-	trees map[string]map[int]struct{}
+	// Trees are numbered by the order they were walked in; the number is an
+	// identity and means nothing else.
+	trees map[string]map[string]struct{}
 }
 
-// split partitions a group of equivalent schema names so that no part holds
-// two names one schema tree references.
+// split partitions a group of equivalent schema names so no part holds two
+// names that one schema tree references. Each part is then free to collapse to
+// a single name.
 //
-// Greedy over the sorted group: a name joins the first part no tree references
-// it alongside, so the partition does not depend on the order the deduplicator
-// hashed the names in. Each part carries the union of its members' trees,
-// which is what a name has to miss to join it: intersecting the union once is
-// the same answer as comparing the name against every member, and costs the
-// references the name actually has rather than the size of the part.
+// Given a group of OriginAddress, DestinationAddress and BillingAddress, where
+// Shipment references the first two and nothing references BillingAddress:
+//
+//	{BillingAddress, DestinationAddress}  nothing holds these two apart
+//	{OriginAddress}                       Shipment references it alongside
+//	                                      DestinationAddress
+//
+// Names are taken in sorted order, which is why DestinationAddress is the one
+// keeping BillingAddress company rather than OriginAddress: the parts must not
+// depend on the order the deduplicator happened to hash the names in.
+//
+// A part remembers every tree its members are referenced by, not just its
+// first member's, because a name can be free to join one member and still
+// clash with another.
 func (d *distinctSchemaNames) split(group []string) [][]string {
-	sorted := slices.Sorted(slices.Values(group))
-
 	var parts [][]string
-	var partTrees []map[int]struct{}
+	var partTrees []map[string]struct{}
 
-	for _, name := range sorted {
+	for _, name := range slices.Sorted(slices.Values(group)) {
 		trees := d.trees[name]
 		placed := false
 		for i, held := range partTrees {
@@ -48,7 +64,7 @@ func (d *distinctSchemaNames) split(group []string) [][]string {
 		}
 		if !placed {
 			parts = append(parts, []string{name})
-			held := make(map[int]struct{}, len(trees))
+			held := make(map[string]struct{}, len(trees))
 			maps.Copy(held, trees)
 			partTrees = append(partTrees, held)
 		}
@@ -58,7 +74,7 @@ func (d *distinctSchemaNames) split(group []string) [][]string {
 
 // intersects reports whether two tree sets share a member, scanning the smaller
 // of the two.
-func intersects(left, right map[int]struct{}) bool {
+func intersects(left, right map[string]struct{}) bool {
 	if len(left) > len(right) {
 		left, right = right, left
 	}
@@ -70,97 +86,43 @@ func intersects(left, right map[int]struct{}) bool {
 	return false
 }
 
-// collectDistinctSchemaNames records the component schema names each schema
-// tree in doc references.
+// collectDistinctSchemaNames records the component schema names that each
+// schema tree in doc references.
 //
 // A tree is a schema with no schema above it, so the names it references are
-// the union of every subschema's. Checking trees is therefore the same as
-// checking every schema object, and it counts a tree an operation declares
-// inline the same as a named component: deduplication rewrites references
-// wherever they sit, so an unnamed parent loses the distinction just as a
-// named one does.
+// the union of all its subschemas'. That makes checking trees the same as
+// checking every schema object, and it treats a tree an operation declares
+// inline like a named component: deduplication rewrites references wherever
+// they sit, so an unnamed parent loses the distinction just as a named one
+// does.
+//
+// The per-tree walk is RefGraph.recordSchemaRefs, which already reads every
+// keyword a subschema can hide under. Its reference locations go unused here,
+// but a second walk of its own would be a second list of keywords to keep
+// current, and one that missed a keyword would merge names a document
+// distinguishes under it.
 func collectDistinctSchemaNames(doc any) (*distinctSchemaNames, error) {
-	d := &distinctSchemaNames{trees: make(map[string]map[int]struct{})}
-	tree := 0
-
+	g := newRefGraph()
+	trees := 0
 	err := walker.Walk(&parser.ParseResult{Document: doc},
 		walker.WithSchemaHandler(func(_ *walker.WalkContext, schema *parser.Schema) walker.Action {
 			// Every schema reaching this handler is a tree root, because
 			// SkipChildren stops the walk from descending into subschemas.
-			d.record(tree, schema)
-			tree++
+			g.recordSchemaRefs(strconv.Itoa(trees), schema, "")
+			trees++
 			return walker.SkipChildren
 		}))
 	if err != nil {
 		return nil, err
 	}
-	return d, nil
-}
 
-// record notes every component schema name referenced anywhere under schema as
-// referenced by tree.
-func (d *distinctSchemaNames) record(tree int, schema *parser.Schema) {
-	if schema == nil {
-		return
-	}
-
-	if name := extractSchemaNameFromRef(schema.Ref); name != "" {
-		trees := d.trees[name]
-		if trees == nil {
-			trees = make(map[int]struct{}, 1)
-			d.trees[name] = trees
+	d := &distinctSchemaNames{trees: make(map[string]map[string]struct{}, len(g.schemaRefs))}
+	for name, refs := range g.schemaRefs {
+		holders := make(map[string]struct{}, len(refs))
+		for _, ref := range refs {
+			holders[ref.FromSchema] = struct{}{}
 		}
-		trees[tree] = struct{}{}
+		d.trees[name] = holders
 	}
-
-	// Every keyword a subschema can sit under. RefGraph.recordSchemaRefs walks
-	// the same set; this one is kept separate because it needs no location
-	// strings, and building them for references that are only counted was the
-	// larger cost of the two.
-	for _, sub := range schema.Properties {
-		d.record(tree, sub)
-	}
-	for _, sub := range schema.PatternProperties {
-		d.record(tree, sub)
-	}
-	for _, sub := range schema.DependentSchemas {
-		d.record(tree, sub)
-	}
-	for _, sub := range schema.Defs {
-		d.record(tree, sub)
-	}
-	for _, sub := range schema.AllOf {
-		d.record(tree, sub)
-	}
-	for _, sub := range schema.AnyOf {
-		d.record(tree, sub)
-	}
-	for _, sub := range schema.OneOf {
-		d.record(tree, sub)
-	}
-	for _, sub := range schema.PrefixItems {
-		d.record(tree, sub)
-	}
-	for _, sub := range schemautil.SchemaOrBoolSchemas(schema.Items) {
-		d.record(tree, sub)
-	}
-	for _, sub := range schemautil.SchemaOrBoolSchemas(schema.AdditionalProperties) {
-		d.record(tree, sub)
-	}
-	for _, sub := range schemautil.SchemaOrBoolSchemas(schema.AdditionalItems) {
-		d.record(tree, sub)
-	}
-	for _, sub := range schemautil.SchemaOrBoolSchemas(schema.UnevaluatedProperties) {
-		d.record(tree, sub)
-	}
-	for _, sub := range schemautil.SchemaOrBoolSchemas(schema.UnevaluatedItems) {
-		d.record(tree, sub)
-	}
-	d.record(tree, schema.Not)
-	d.record(tree, schema.Contains)
-	d.record(tree, schema.PropertyNames)
-	d.record(tree, schema.If)
-	d.record(tree, schema.Then)
-	d.record(tree, schema.Else)
-	d.record(tree, schema.ContentSchema)
+	return d, nil
 }
