@@ -205,8 +205,7 @@ build-examples:
 	fi; \
 	failed=""; \
 	for dir in $$modules; do \
-		if ! pkgs=$$(go -C "$$dir" list ./... 2>&1); then \
-			echo "$$pkgs"; \
+		if ! pkgs=$$(go -C "$$dir" list ./...); then \
 			failed="$$failed $$dir"; \
 			continue; \
 		fi; \
