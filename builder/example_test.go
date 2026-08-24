@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"maps"
 	"net/http"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -814,6 +816,75 @@ func Example_semanticDeduplication() {
 	// Title: ID API
 	// Schemas: 1
 	// Operations: 3
+}
+
+// Example_deduplicationDistinctNames demonstrates which same-shaped schemas
+// semantic deduplication consolidates and which it leaves alone.
+//
+// Deduplication compares shapes, and a name is not part of the comparison. So
+// when one schema references two same-shaped names, their names are the only
+// thing separating them: Shipment has both a shippedFrom and a shippedTo, so
+// consolidating OriginAddress and DestinationAddress would leave it saying a
+// shipment's origin is its destination.
+//
+// A pair no single schema references together is the case deduplication is
+// for. WarehouseAddress is the same shape as the other two, nothing references
+// it alongside either, and it consolidates.
+func Example_deduplicationDistinctNames() {
+	type OriginAddress struct {
+		Street string `json:"street"`
+		City   string `json:"city"`
+	}
+	type DestinationAddress struct {
+		Street string `json:"street"`
+		City   string `json:"city"`
+	}
+	type WarehouseAddress struct {
+		Street string `json:"street"`
+		City   string `json:"city"`
+	}
+	type Shipment struct {
+		ShippedFrom OriginAddress      `json:"shippedFrom"`
+		ShippedTo   DestinationAddress `json:"shippedTo"`
+	}
+	type Warehouse struct {
+		Located WarehouseAddress `json:"located"`
+	}
+
+	spec := builder.New(parser.OASVersion320,
+		builder.WithSemanticDeduplication(true),
+	).
+		SetTitle("Shipping API").
+		SetVersion("1.0.0").
+		AddOperation(http.MethodGet, "/shipments/{id}",
+			builder.WithPathParam("id", int64(0)),
+			builder.WithResponse(http.StatusOK, Shipment{}),
+		).
+		AddOperation(http.MethodGet, "/warehouses/{id}",
+			builder.WithPathParam("id", int64(0)),
+			builder.WithResponse(http.StatusOK, Warehouse{}),
+		)
+
+	doc, err := spec.BuildOAS3()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	names := slices.Sorted(maps.Keys(doc.Components.Schemas))
+	fmt.Printf("Schemas: %v\n", names)
+
+	shipment := doc.Components.Schemas["builder_test.Shipment"]
+	fmt.Printf("shippedFrom: %s\n", shipment.Properties["shippedFrom"].Ref)
+	fmt.Printf("shippedTo:   %s\n", shipment.Properties["shippedTo"].Ref)
+
+	// WarehouseAddress is gone, consolidated into DestinationAddress.
+	warehouse := doc.Components.Schemas["builder_test.Warehouse"]
+	fmt.Printf("located:     %s\n", warehouse.Properties["located"].Ref)
+	// Output:
+	// Schemas: [builder_test.DestinationAddress builder_test.OriginAddress builder_test.Shipment builder_test.Warehouse]
+	// shippedFrom: #/components/schemas/builder_test.OriginAddress
+	// shippedTo:   #/components/schemas/builder_test.DestinationAddress
+	// located:     #/components/schemas/builder_test.DestinationAddress
 }
 
 // Example_serverBuilder demonstrates building a runnable HTTP server from an OpenAPI spec.
