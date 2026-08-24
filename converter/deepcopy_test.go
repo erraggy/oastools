@@ -76,10 +76,58 @@ func TestDeepCopyValueCopiesTypedContainers(t *testing.T) {
 		assert.Nil(t, copied)
 	})
 
+	t.Run("struct with exported mutable fields", func(t *testing.T) {
+		type payload struct {
+			Tags   []string
+			Labels map[string]string
+		}
+		source := payload{Tags: []string{"a"}, Labels: map[string]string{"k": "v"}}
+		copied, ok := deepCopyValue(source).(payload)
+		require.True(t, ok, "the concrete type must survive the copy")
+
+		copied.Tags[0] = "mutated"
+		copied.Labels["k"] = "mutated"
+
+		assert.Equal(t, []string{"a"}, source.Tags)
+		assert.Equal(t, map[string]string{"k": "v"}, source.Labels)
+	})
+
+	t.Run("struct with an unexported field keeps its value", func(t *testing.T) {
+		source := withHidden{Tags: []string{"a"}, hidden: "kept"}
+		copied, ok := deepCopyValue(source).(withHidden)
+		require.True(t, ok)
+
+		// The exported field is copied.
+		copied.Tags[0] = "mutated"
+		assert.Equal(t, []string{"a"}, source.Tags)
+
+		// The unexported field survives the copy rather than being zeroed,
+		// which is what a field-by-field copy would have done to it.
+		assert.Equal(t, "kept", copied.hidden)
+	})
+
+	t.Run("pointer to a struct", func(t *testing.T) {
+		type payload struct{ Tags []string }
+		source := &payload{Tags: []string{"a"}}
+		copied, ok := deepCopyValue(source).(*payload)
+		require.True(t, ok)
+		require.NotSame(t, source, copied)
+		copied.Tags[0] = "mutated"
+		assert.Equal(t, []string{"a"}, source.Tags)
+	})
+
 	t.Run("nil typed slice keeps its nilness", func(t *testing.T) {
 		var source []string
 		copied, ok := deepCopyValue(source).([]string)
 		require.True(t, ok)
 		assert.Nil(t, copied)
 	})
+}
+
+// withHidden has an unexported field, which reflection cannot set. It is
+// declared at package scope because a type literal inside a subtest cannot
+// carry one that the test can also read.
+type withHidden struct {
+	Tags   []string
+	hidden string
 }

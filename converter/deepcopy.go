@@ -75,11 +75,11 @@ func deepCopyValue(v any) any {
 // A pointer is followed and its target copied, since a *map or a *[]string
 // shares its contents as readily as the bare form does.
 //
-// A struct is returned as-is, deliberately. Copying one field by field through
-// reflection cannot reach unexported fields, so the result would be a silent
-// partial copy, and the alternative is unsafe. A struct reaching Default or
-// Enum is already outside what a parsed document produces; the fields that
-// matter for conversion are the JSON shapes above.
+// A struct is copied field by field over Go's own shallow copy of it. Only
+// settable fields are copied, which is exactly the exported ones, and that is
+// the whole of what a JSON-serializable value carries. Unexported fields keep
+// whatever the shallow copy gave them: reflection cannot set them without
+// unsafe, and leaving them is never worse than returning the struct untouched.
 func deepCopyReflected(v any) any {
 	rv := reflect.ValueOf(v)
 	switch rv.Kind() {
@@ -104,6 +104,15 @@ func deepCopyReflected(v any) any {
 		}
 		cp := reflect.New(rv.Type().Elem())
 		copyReflectedInto(cp.Elem(), rv.Elem())
+		return cp.Interface()
+	case reflect.Struct:
+		cp := reflect.New(rv.Type()).Elem()
+		cp.Set(rv)
+		for i := range rv.NumField() {
+			if field := cp.Field(i); field.CanSet() {
+				copyReflectedInto(field, rv.Field(i))
+			}
+		}
 		return cp.Interface()
 	case reflect.Map:
 		if rv.IsNil() {
