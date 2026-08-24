@@ -2,6 +2,7 @@ package schemarefs
 
 import (
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
@@ -193,5 +194,66 @@ func TestSchemaName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, SchemaName(tt.ref))
 		})
+	}
+}
+
+// Split is the only SplitFunc the deduplicator is given, and the deduplicator
+// takes its result at face value: a name it left out would be a schema
+// dropped with no error, and a name in two parts would be one schema written
+// under two names. Neither is possible by construction, since every name is
+// placed exactly once, and this holds it that way over arbitrary groups and
+// reference patterns.
+func TestSplitReturnsEveryNameExactlyOnce(t *testing.T) {
+	names := []string{"Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"}
+
+	// Every assignment of six names across three trees, so groups that are
+	// wholly free, wholly conflicting, and every shape between are covered.
+	for pattern := range 729 {
+		d := &Distinct{trees: make(map[string]map[string]struct{})}
+		remaining := pattern
+		for _, name := range names {
+			tree := remaining % 3
+			remaining /= 3
+			d.trees[name] = map[string]struct{}{strconv.Itoa(tree): {}}
+		}
+
+		counts := make(map[string]int, len(names))
+		for _, part := range d.Split(names) {
+			require.NotEmpty(t, part, "pattern %d produced an empty part", pattern)
+			for _, name := range part {
+				counts[name]++
+			}
+		}
+
+		for _, name := range names {
+			require.Equal(t, 1, counts[name],
+				"pattern %d returned %s %d times", pattern, name, counts[name])
+		}
+	}
+}
+
+// Names sharing a tree never share a part, which is the property the whole
+// partition exists for.
+func TestSplitNeverPutsNamesSharingATreeInOnePart(t *testing.T) {
+	names := []string{"Alpha", "Bravo", "Charlie", "Delta"}
+
+	for pattern := range 256 {
+		d := &Distinct{trees: make(map[string]map[string]struct{})}
+		remaining := pattern
+		for _, name := range names {
+			tree := remaining % 4
+			remaining /= 4
+			d.trees[name] = map[string]struct{}{strconv.Itoa(tree): {}}
+		}
+
+		for _, part := range d.Split(names) {
+			for i, left := range part {
+				for _, right := range part[i+1:] {
+					require.False(t, intersects(d.trees[left], d.trees[right]),
+						"pattern %d put %s and %s in one part despite a shared tree",
+						pattern, left, right)
+				}
+			}
+		}
 	}
 }

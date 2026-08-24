@@ -339,7 +339,7 @@ func TestSchemaDeduplicator_Outranks(t *testing.T) {
 
 // splitHoldingApart builds a SplitFunc that keeps the named groups separate,
 // standing in for the joiner's partition without its reference bookkeeping.
-// Any name not listed joins the first part.
+// Any name not listed joins a single remainder part, appended last.
 func splitHoldingApart(apart ...[]string) SplitFunc {
 	return func(group []string) [][]string {
 		parts := make([][]string, 0, len(apart)+1)
