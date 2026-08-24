@@ -205,7 +205,12 @@ build-examples:
 	fi; \
 	failed=""; \
 	for dir in $$modules; do \
-		for pkg in $$(go -C "$$dir" list ./... 2>/dev/null); do \
+		if ! pkgs=$$(go -C "$$dir" list ./... 2>&1); then \
+			echo "$$pkgs"; \
+			failed="$$failed $$dir"; \
+			continue; \
+		fi; \
+		for pkg in $$pkgs; do \
 			if ! go -C "$$dir" build -o /dev/null "$$pkg" 2>&1; then \
 				failed="$$failed $$dir"; \
 				break; \

@@ -17,7 +17,7 @@ type joinInput struct {
 	Specs          []specInput `json:"specs"                         jsonschema:"Array of OAS documents to join (minimum 2)"`
 	PathStrategy   string      `json:"path_strategy,omitempty"       jsonschema:"Strategy for path collisions: accept-left or accept-right or fail or fail-on-paths"`
 	SchemaStrategy string      `json:"schema_strategy,omitempty"     jsonschema:"Strategy for schema collisions: accept-left or accept-right or fail or rename-left or rename-right or deduplicate or deduplicate-or-rename"`
-	SemanticDedup  bool        `json:"semantic_dedup,omitempty"      jsonschema:"Enable semantic deduplication of equivalent schemas. Names that one schema tree references are kept apart"`
+	SemanticDedup  bool        `json:"semantic_dedup,omitempty"      jsonschema:"Enable semantic deduplication of equivalent schemas. Equivalent names that one schema tree references stay distinct from each other; equivalent names in unrelated trees still merge"`
 	Output         string      `json:"output,omitempty"              jsonschema:"File path to write joined document. If omitted the result is returned inline."`
 }
 

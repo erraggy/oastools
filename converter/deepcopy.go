@@ -2,6 +2,7 @@ package converter
 
 import (
 	"maps"
+	"reflect"
 	"slices"
 
 	"github.com/erraggy/oastools/parser"
@@ -61,9 +62,61 @@ func deepCopyValue(v any) any {
 		}
 		return cp
 	default:
-		// For unknown types, return as-is
+		return deepCopyReflected(v)
+	}
+}
+
+// deepCopyReflected copies the slice and map types the type switch above does
+// not name. Default and Enum are declared as any, so a document built in Go
+// rather than parsed can hold []string or map[string]string there, and
+// returning those unchanged leaves the converted document sharing the source's
+// backing array.
+//
+// Anything that is not a slice or a map is returned as-is: the remaining kinds
+// are either immutable in Go semantics or a pointer whose identity the caller
+// chose deliberately.
+func deepCopyReflected(v any) any {
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Slice:
+		if rv.IsNil() {
+			return v
+		}
+		cp := reflect.MakeSlice(rv.Type(), rv.Len(), rv.Len())
+		for i := range rv.Len() {
+			copyReflectedInto(cp.Index(i), rv.Index(i))
+		}
+		return cp.Interface()
+	case reflect.Map:
+		if rv.IsNil() {
+			return v
+		}
+		cp := reflect.MakeMapWithSize(rv.Type(), rv.Len())
+		iter := rv.MapRange()
+		for iter.Next() {
+			elem := reflect.New(rv.Type().Elem()).Elem()
+			copyReflectedInto(elem, iter.Value())
+			cp.SetMapIndex(iter.Key(), elem)
+		}
+		return cp.Interface()
+	default:
 		return v
 	}
+}
+
+// copyReflectedInto writes a copy of src into dst, recursing through
+// deepCopyValue so a nested slice or map is copied too.
+func copyReflectedInto(dst, src reflect.Value) {
+	copied := deepCopyValue(src.Interface())
+	if copied == nil {
+		return
+	}
+	cv := reflect.ValueOf(copied)
+	if cv.Type().AssignableTo(dst.Type()) {
+		dst.Set(cv)
+		return
+	}
+	dst.Set(src)
 }
 
 // deepCopyEnumValues deep copies an Enum slice ([]any values).
