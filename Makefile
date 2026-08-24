@@ -198,21 +198,29 @@ vet:
 .PHONY: build-examples
 build-examples:
 	@echo "Building example modules..."
-	@modules=$$(find examples -name go.mod | xargs -n1 dirname | sort) || exit 1; \
+	@modules=$$(find examples -name go.mod -exec dirname {} \; | sort); \
 	if [ -z "$$modules" ]; then \
 		echo "No example modules found under examples/."; \
 		exit 1; \
 	fi; \
 	failed=""; \
 	for dir in $$modules; do \
-		if ! go -C "$$dir" build -o /dev/null ./... 2>&1; then \
+		if ! pkgs=$$(go -C "$$dir" list ./...); then \
 			failed="$$failed $$dir"; \
+			continue; \
 		fi; \
+		for pkg in $$pkgs; do \
+			if ! go -C "$$dir" build -o /dev/null "$$pkg" 2>&1; then \
+				failed="$$failed $$dir($$pkg)"; \
+				break; \
+			fi; \
+		done; \
 	done; \
 	if [ -n "$$failed" ]; then \
 		echo "Example modules failed to build:"; \
 		for dir in $$failed; do echo "  $$dir"; done; \
-		echo "Run 'go -C <dir> mod tidy' to refresh a stale go.sum."; \
+		echo "A stale go.sum is the usual cause: run 'go -C <dir> mod tidy'."; \
+		echo "Any other error above is a real fault in the example itself."; \
 		exit 1; \
 	fi; \
 	echo "All $$(echo $$modules | wc -w | tr -d ' ') example modules build."

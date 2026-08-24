@@ -2,6 +2,7 @@ package converter
 
 import (
 	"maps"
+	"reflect"
 	"slices"
 
 	"github.com/erraggy/oastools/parser"
@@ -36,4 +37,130 @@ func deepCopyStrings(v []string) []string {
 // cloning the map is the whole copy. A nil map copies to nil.
 func deepCopyScopes(v map[string]string) map[string]string {
 	return maps.Clone(v)
+}
+
+// deepCopyValue deep copies an arbitrary value (used for schema Default field).
+// Handles strings, numbers, booleans, slices, and maps. Returns nil for nil input.
+func deepCopyValue(v any) any {
+	if v == nil {
+		return nil
+	}
+	switch val := v.(type) {
+	case string, float64, bool:
+		// Primitives are immutable in Go semantics
+		return v
+	case []any:
+		cp := make([]any, len(val))
+		for i, elem := range val {
+			cp[i] = deepCopyValue(elem)
+		}
+		return cp
+	case map[string]any:
+		cp := make(map[string]any, len(val))
+		for k, elem := range val {
+			cp[k] = deepCopyValue(elem)
+		}
+		return cp
+	default:
+		return deepCopyReflected(v)
+	}
+}
+
+// deepCopyReflected copies the slice and map types the type switch above does
+// not name. Default and Enum are declared as any, so a document built in Go
+// rather than parsed can hold []string or map[string]string there, and
+// returning those unchanged leaves the converted document sharing the source's
+// backing array.
+//
+// A pointer is followed and its target copied, since a *map or a *[]string
+// shares its contents as readily as the bare form does.
+//
+// A struct is copied field by field over Go's own shallow copy of it. Only
+// settable fields are copied, which is exactly the exported ones, and that is
+// the whole of what a JSON-serializable value carries. Unexported fields keep
+// whatever the shallow copy gave them: reflection cannot set them without
+// unsafe, and leaving them is never worse than returning the struct untouched.
+//
+// One shape is therefore still shared: a struct embedding an unexported type,
+// whose exported fields JSON does marshal but reflection cannot set, because
+// the embedded field itself is unsettable. Reaching it needs a document built
+// in Go rather than parsed, holding such a struct in Default or Enum. Closing
+// it would take unsafe or a per-type copy, and neither is worth carrying for
+// a shape no parsed document produces.
+func deepCopyReflected(v any) any {
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Slice:
+		if rv.IsNil() {
+			return v
+		}
+		cp := reflect.MakeSlice(rv.Type(), rv.Len(), rv.Len())
+		for i := range rv.Len() {
+			copyReflectedInto(cp.Index(i), rv.Index(i))
+		}
+		return cp.Interface()
+	case reflect.Array:
+		cp := reflect.New(rv.Type()).Elem()
+		for i := range rv.Len() {
+			copyReflectedInto(cp.Index(i), rv.Index(i))
+		}
+		return cp.Interface()
+	case reflect.Pointer:
+		if rv.IsNil() {
+			return v
+		}
+		cp := reflect.New(rv.Type().Elem())
+		copyReflectedInto(cp.Elem(), rv.Elem())
+		return cp.Interface()
+	case reflect.Struct:
+		cp := reflect.New(rv.Type()).Elem()
+		cp.Set(rv)
+		for i := range rv.NumField() {
+			if field := cp.Field(i); field.CanSet() {
+				copyReflectedInto(field, rv.Field(i))
+			}
+		}
+		return cp.Interface()
+	case reflect.Map:
+		if rv.IsNil() {
+			return v
+		}
+		cp := reflect.MakeMapWithSize(rv.Type(), rv.Len())
+		iter := rv.MapRange()
+		for iter.Next() {
+			elem := reflect.New(rv.Type().Elem()).Elem()
+			copyReflectedInto(elem, iter.Value())
+			cp.SetMapIndex(iter.Key(), elem)
+		}
+		return cp.Interface()
+	default:
+		return v
+	}
+}
+
+// copyReflectedInto writes a copy of src into dst, recursing through
+// deepCopyValue so a nested slice or map is copied too.
+func copyReflectedInto(dst, src reflect.Value) {
+	copied := deepCopyValue(src.Interface())
+	if copied == nil {
+		return
+	}
+	cv := reflect.ValueOf(copied)
+	if cv.Type().AssignableTo(dst.Type()) {
+		dst.Set(cv)
+		return
+	}
+	dst.Set(src)
+}
+
+// deepCopyEnumValues deep copies an Enum slice ([]any values).
+func deepCopyEnumValues(v []any) []any {
+	if v == nil {
+		return nil
+	}
+	cp := make([]any, len(v))
+	for i, elem := range v {
+		cp[i] = deepCopyValue(elem)
+	}
+	return cp
 }
