@@ -2,6 +2,7 @@ package schemautil
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/erraggy/oastools/parser"
@@ -143,7 +144,11 @@ func (d *SchemaDeduplicator) split(group []string) ([][]string, error) {
 	if d.config.Split == nil || len(group) < 2 {
 		return [][]string{group}, nil
 	}
-	parts := d.config.Split(group)
+	// A SplitFunc receives a copy, so what it returns is checked against a
+	// group it could not have edited. Handed the original, it could overwrite
+	// an entry and return it, and the check would compare the result against
+	// the names it just wrote rather than the ones the group had.
+	parts := d.config.Split(slices.Clone(group))
 	if err := checkPartition(group, parts); err != nil {
 		return nil, err
 	}

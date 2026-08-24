@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 	"github.com/erraggy/oastools/walker"
@@ -268,6 +269,52 @@ func intersects(left, right map[string]struct{}) bool {
 	return false
 }
 
+// componentSchemaNames returns the keys of the map deduplication works over.
+func componentSchemaNames(doc any) map[string]struct{} {
+	// A typed nil reaches here ahead of the walk that reports it, so the nil
+	// checks are this function's own to make.
+	var names map[string]*parser.Schema
+	switch typed := doc.(type) {
+	case *parser.OAS2Document:
+		if typed != nil {
+			names = typed.Definitions
+		}
+	case *parser.OAS3Document:
+		if typed != nil && typed.Components != nil {
+			names = typed.Components.Schemas
+		}
+	}
+
+	keys := make(map[string]struct{}, len(names))
+	for name := range names {
+		keys[name] = struct{}{}
+	}
+	return keys
+}
+
+// resolveName maps a reference token to the component key it denotes.
+//
+// A name legal in OAS 2.0 can need escaping to be written in a reference:
+// `addr/Origin` is a legal definition name, and a reference to it reads
+// `#/definitions/addr~1Origin`. Counted under the token, it would never meet
+// the key deduplication compares, and the two schemas a parent distinguishes
+// would merge.
+//
+// Exact first, decoded second, because decoding is lossy: a component
+// genuinely named `Foo%20Bar` decodes to `Foo Bar` and stops matching itself.
+// A token matching no key is returned as it is, and simply names no group.
+func resolveName(token string, keys map[string]struct{}) string {
+	if _, ok := keys[token]; ok {
+		return token
+	}
+	if decoded := pathutil.DecodeRefToken(token); decoded != token {
+		if _, ok := keys[decoded]; ok {
+			return decoded
+		}
+	}
+	return token
+}
+
 // Collect records the component schema names that each
 // schema tree in doc references.
 //
@@ -281,6 +328,10 @@ func intersects(left, right map[string]struct{}) bool {
 // The per-tree walk is EachRef, which reads every keyword a subschema can
 // hide under. Its reference locations go unused here.
 func Collect(doc any) (*Distinct, error) {
+	// Deduplication is handed the component map's own keys, so a reference has
+	// to be resolved to one of those before it can be counted against them.
+	keys := componentSchemaNames(doc)
+
 	d := &Distinct{trees: make(map[string]map[string]struct{})}
 	trees := 0
 	err := walker.Walk(&parser.ParseResult{Document: doc},
@@ -288,7 +339,8 @@ func Collect(doc any) (*Distinct, error) {
 			// Every schema reaching this handler is a tree root, because
 			// SkipChildren stops the walk from descending into subschemas.
 			tree := strconv.Itoa(trees)
-			EachRef(schema, "", func(name, _ string) {
+			EachRef(schema, "", func(token, _ string) {
+				name := resolveName(token, keys)
 				holders := d.trees[name]
 				if holders == nil {
 					holders = make(map[string]struct{}, 1)

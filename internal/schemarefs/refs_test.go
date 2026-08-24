@@ -372,3 +372,73 @@ func TestCollectRefusesWhatItCannotWalk(t *testing.T) {
 		})
 	}
 }
+
+// OAS 2.0 puts no charset constraint on definitions keys, so a name needing
+// RFC 6901 escaping to be written in a reference is a legal name, not a
+// malformed one. Counted under the escaped token it would never meet the key
+// deduplication compares, and the two schemas would merge.
+func TestCollectResolvesEscapedReferenceTokens(t *testing.T) {
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Definitions: map[string]*parser.Schema{
+			"Shipment": {Properties: map[string]*parser.Schema{
+				"from": {Ref: "#/definitions/addr~1Origin"},
+				"to":   {Ref: "#/definitions/addr~1Destination"},
+				"via":  {Ref: "#/definitions/addr~0Transit"},
+			}},
+			"addr/Origin":      {Type: "object"},
+			"addr/Destination": {Type: "object"},
+			"addr~Transit":     {Type: "object"},
+		},
+		OASVersion: parser.OASVersion20,
+	}
+
+	d, err := Collect(doc)
+	require.NoError(t, err)
+
+	// Recorded under the decoded key, which is what the definitions map holds.
+	for _, name := range []string{"addr/Origin", "addr/Destination", "addr~Transit"} {
+		assert.Contains(t, d.trees, name, "reference to %s was not counted", name)
+	}
+
+	group := []string{"addr/Origin", "addr/Destination", "addr~Transit"}
+	assert.Equal(t, [][]string{{"addr/Destination"}, {"addr/Origin"}, {"addr~Transit"}},
+		d.Split(group), "one schema references all three, so none may merge")
+}
+
+// Decoding is lossy, so a key that is genuinely named with a percent sequence
+// has to win over the name that sequence decodes to.
+func TestCollectPrefersAnExactKeyOverADecodedOne(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Components: &parser.Components{Schemas: map[string]*parser.Schema{
+			"Holder":    {Properties: map[string]*parser.Schema{"a": {Ref: "#/components/schemas/Foo%20Bar"}}},
+			"Foo%20Bar": {Type: "object"},
+			"Foo Bar":   {Type: "object"},
+		}},
+		OASVersion: parser.OASVersion303,
+	}
+
+	d, err := Collect(doc)
+	require.NoError(t, err)
+
+	assert.Contains(t, d.trees, "Foo%20Bar", "the exact key is the one referenced")
+	assert.NotContains(t, d.trees, "Foo Bar", "the decoded name is a different schema")
+}
+
+// A token naming no key at all is left as it is and simply constrains nothing.
+func TestCollectLeavesAnUnresolvableTokenAlone(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Components: &parser.Components{Schemas: map[string]*parser.Schema{
+			"Holder": {Properties: map[string]*parser.Schema{"a": {Ref: "#/components/schemas/Missing"}}},
+			"Alpha":  {Type: "object"},
+			"Bravo":  {Type: "object"},
+		}},
+		OASVersion: parser.OASVersion303,
+	}
+
+	d, err := Collect(doc)
+	require.NoError(t, err)
+	assert.Equal(t, [][]string{{"Alpha", "Bravo"}}, d.Split([]string{"Alpha", "Bravo"}))
+}

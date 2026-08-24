@@ -514,3 +514,27 @@ func TestSchemaDeduplicator_SplitPartitionIsChecked(t *testing.T) {
 		})
 	}
 }
+
+// A SplitFunc gets a copy of the group, so a callback that overwrites an entry
+// and returns it is caught rather than validated against its own edit.
+func TestSchemaDeduplicator_SplitCannotEditTheGroupItIsCheckedAgainst(t *testing.T) {
+	schemas := map[string]*parser.Schema{
+		"Address":  {Type: "object"},
+		"Location": {Type: "object"},
+		"Place":    {Type: "object"},
+	}
+
+	config := DefaultDeduplicationConfig()
+	config.Split = func(group []string) [][]string {
+		// Overwrite an input name, then hand the same slice back. Checked
+		// against the caller's own copy, this cannot pass.
+		group[0] = "Unrelated"
+		return [][]string{group}
+	}
+	deduper := NewSchemaDeduplicator(config, alwaysEqual)
+
+	result, err := deduper.Deduplicate(schemas)
+	require.Error(t, err, "a group the callback edited must not be accepted")
+	assert.Contains(t, err.Error(), "0 times")
+	assert.Nil(t, result)
+}
