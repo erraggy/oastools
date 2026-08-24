@@ -71,6 +71,27 @@ Beyond handling same-named collisions, the joiner can identify and consolidate s
 
 See [Which Name Survives](#which-name-survives) for which of the equivalent names the consolidated schema keeps.
 
+**Names one schema tree references are held apart.** Two schemas that compare equal have nothing but their names telling them apart, and a schema that references both is relying on exactly that. Consolidating them would rewrite one reference to the other's name and lose the distinction:
+
+```yaml
+Shipment:
+  required: [shippedFrom, shippedTo]
+  properties:
+    shippedFrom: {$ref: '#/components/schemas/OriginAddress'}
+    shippedTo: {$ref: '#/components/schemas/DestinationAddress'}
+
+OriginAddress:       {properties: {street: ..., city: ...}}
+DestinationAddress:  {properties: {street: ..., city: ...}}
+```
+
+`OriginAddress` and `DestinationAddress` are equivalent, so consolidating them gives a document in which a shipment's origin is its destination. Every reference still resolves and the output still validates, which is what makes it worth preventing: the only trace would be the consolidated count in the warning. Both names survive instead (#501).
+
+The unit is the **schema tree**, a schema with no schema above it. Depth within the tree does not matter, `oneOf` alternatives are held apart from each other, and an inline parent counts the same as a named one, so an operation's request body holds its references apart just as a component does. Sharing an *operation* is not sharing a tree, so a request body and a response that happen to match still merge.
+
+Names the same tree never references are unaffected. Add a `Warehouse` that references an equivalent `WarehouseAddress` to the example above and five schemas come out as four: `WarehouseAddress` shares a tree with neither of the others, so it consolidates with one of them.
+
+Which one it joins is decided part by part, not for the group as a whole. The three equivalent names are sorted, the first part takes `DestinationAddress`, turns `OriginAddress` away because `Shipment` references both, then accepts `WarehouseAddress`. So `DestinationAddress` and `OriginAddress` both survive and it is `DestinationAddress` that absorbs the third.
+
 ### Deduplicate or Rename
 
 `StrategyDeduplicateOrRename` is for joining many documents that mostly agree: a fleet of services that each vendor the same shared schemas, with occasional local divergence.
@@ -123,7 +144,7 @@ Two things consolidate equivalent schemas, and both have to choose one name out 
 Both choose the same way, by these two rules in order:
 
 1. **A name a document wrote beats a name the join invented.** When documents collide on `Common`, the joiner stores the second one under a new name from your rename template, say `Api_Common`. If the two turn out to be equivalent after all, `Common` is what survives. Nothing ever declared `Api_Common`, so keeping it would put a name in your output that none of your inputs use.
-2. **Otherwise, whichever sorts first alphabetically.** This applies when every candidate is a name some document wrote, which is the usual case for `SemanticDeduplication`: `Address`, `ShippingAddress` and `BillingAddress` consolidate to `Address`.
+2. **Otherwise, whichever sorts first alphabetically.** This applies when every candidate is a name some document wrote, which is the usual case for `SemanticDeduplication`: `Address`, `ShippingAddress` and `BillingAddress` consolidate to `Address`, provided no one schema tree references two of them. A group is chosen from only after it has been split, so an `Order` carrying both a `ShippingAddress` and a `BillingAddress` keeps both, and each surviving part picks its own name by these same rules.
 
 Rule 1 matters because rule 2 alone gives an answer that depends on your rename template. `Api_Common` sorts before `Common`, `Common.api` sorts after it, and neither ordering has anything to do with which name your API actually uses. Rule 1 settles it the same way whatever the template (#498).
 

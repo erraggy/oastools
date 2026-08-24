@@ -348,7 +348,7 @@ Merge multiple OAS documents into one.
 | `specs` | array | Array of spec objects (minimum 2) |
 | `path_strategy` | string | Collision strategy for paths |
 | `schema_strategy` | string | Collision strategy for schemas |
-| `semantic_dedup` | boolean | Enable semantic deduplication of equivalent schemas |
+| `semantic_dedup` | boolean | Enable semantic deduplication of equivalent schemas. Names that one schema tree references are kept apart |
 | `output` | string | File path to write the merged document |
 
 Path collision strategies: `accept-left`, `accept-right`, `fail`

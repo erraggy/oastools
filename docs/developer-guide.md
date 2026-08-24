@@ -826,6 +826,9 @@ if err != nil {
 
 // Semantic deduplication consolidates identical schemas:
 // - Schemas with identical structure are detected via FNV-1a hashing
+// - Equivalent names that one schema tree references are kept apart, so a
+//   Shipment requiring both an OriginAddress and a DestinationAddress keeps
+//   both names (see "Semantic Deduplication" in the joiner deep dive)
 // - The alphabetically-first name is canonical, unless a rename invented it
 //   and a name a document declared is available (see "Which Name Survives"
 //   in the joiner deep dive)
@@ -1469,6 +1472,10 @@ spec := builder.New(parser.OASVersion320,
 
 doc, err := spec.BuildOAS3()
 // Result: Only 1 schema instead of 2, with $refs automatically rewritten
+//
+// UserID and CustomerID are reached from separate operations, so nothing
+// depends on telling them apart and they consolidate. Had one schema
+// referenced both, both names would survive.
 ```
 
 **Custom Field Processors:**

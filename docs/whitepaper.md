@@ -756,6 +756,8 @@ When joining documents, name collisions may occur in schemas, paths, or other co
 
 The `StrategyDeduplicateEquivalent` strategy performs deep structural comparison. Two schemas are considered equivalent if they have identical types, properties, required fields, and constraints. When equivalent schemas are found, one is kept and all references are updated to point to the surviving definition. Empty schemas (those with no properties, type, or constraints) are correctly preserved during deduplication rather than being collapsed (fixed in v1.46.2).
 
+The `SemanticDeduplication` option goes further, consolidating equivalent schemas that never collided because their names differ. Equivalence there is a question about shape, and a name can carry meaning that the shape does not: where one schema tree references two equivalent names, consolidating them would rewrite one reference to the other and say that a shipment's origin is its destination. Such names are therefore held apart. The unit is the schema tree, not the document, so an unrelated third equivalent name still consolidates with one of them.
+
 ### 8.3 Reference Rewriting
 
 When schemas are renamed (via `StrategyRenameLeft` or `StrategyRenameRight`), the joiner automatically updates all `$ref` values throughout the merged document. This includes references in other schemas, request bodies, responses, parameters, and anywhere else references may appear.
@@ -1407,6 +1409,8 @@ spec := builder.New(parser.OASVersion310, builder.WithSemanticDeduplication(true
 spec.RegisterType(UserRequest{})  // Creates UserRequest schema
 spec.RegisterType(UserResponse{}) // If identical, reuses UserRequest
 ```
+
+Names that one schema tree references are held apart, so two equivalent types a third type carries as separate fields both survive.
 
 ---
 

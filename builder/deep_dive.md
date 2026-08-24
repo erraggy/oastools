@@ -793,6 +793,8 @@ func main() {
 }
 ```
 
+The two types are reached from separate operations, so nothing in the document depends on telling them apart. Equivalent names that one schema tree references are held apart instead: a type carrying both an `Address` and a `ShippingAddress` field keeps both names, since consolidating them would leave its two fields pointing at one schema and lose the distinction the field names were making.
+
 ### Registering Types Explicitly
 
 When you need to register a schema without using it in an operation:
