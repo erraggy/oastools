@@ -501,8 +501,8 @@
 // Deduplication compares schemas structurally, and counts the documentation and advisory
 // fields as part of that comparison, so two schemas differing only in title or description
 // are kept apart. When duplicates are found, the alphabetically first name becomes canonical
-// (unless a name was invented by a rename, in which case an original name from the documents
-// wins). All references are automatically rewritten.
+// and all references are automatically rewritten. The builder never invents a name, so the
+// rename-priority rule joiner applies to collisions does not arise here.
 //
 // Schema names that one schema tree references are held apart, because a schema referencing
 // two of them tells them apart by name alone: a Shipment carrying both an OriginAddress and

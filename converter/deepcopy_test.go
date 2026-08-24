@@ -52,6 +52,14 @@ func TestDeepCopyValueCopiesTypedContainers(t *testing.T) {
 		assert.Equal(t, 7, deepCopyValue(7), "an int is immutable and needs no copy")
 	})
 
+	t.Run("array holding a slice", func(t *testing.T) {
+		source := [1][]string{{"a"}}
+		copied, ok := deepCopyValue(source).([1][]string)
+		require.True(t, ok)
+		copied[0][0] = "mutated"
+		assert.Equal(t, [1][]string{{"a"}}, source, "the slice inside the array must be copied")
+	})
+
 	t.Run("nil typed slice keeps its nilness", func(t *testing.T) {
 		var source []string
 		copied, ok := deepCopyValue(source).([]string)

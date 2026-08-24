@@ -87,6 +87,12 @@ func deepCopyReflected(v any) any {
 			copyReflectedInto(cp.Index(i), rv.Index(i))
 		}
 		return cp.Interface()
+	case reflect.Array:
+		cp := reflect.New(rv.Type()).Elem()
+		for i := range rv.Len() {
+			copyReflectedInto(cp.Index(i), rv.Index(i))
+		}
+		return cp.Interface()
 	case reflect.Map:
 		if rv.IsNil() {
 			return v
