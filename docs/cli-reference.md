@@ -625,7 +625,7 @@ oastools join [flags] <file1> <file2> [file3...]
 | `--rename-template` | | Go template for renamed schemas (default: `{{.Name}}_{{.Source}}`) |
 | `--operation-context` | | Enable operation-aware schema renaming |
 | `--primary-operation-policy` | | Policy for selecting primary operation: `first`, `most-specific`, `alphabetical` (default: `first`) |
-| `--semantic-dedup` | | Enable semantic deduplication to consolidate identical schemas |
+| `--semantic-dedup` | | Enable semantic deduplication to consolidate identical schemas. Equivalent names that one schema tree references are kept apart |
 | `--equivalence-mode` | | Schema comparison mode for deduplication: `none`, `shallow`, `deep` (default: `none`) |
 | `--equivalence-docs` | | Whether `title`, `description`, `example`, and `examples` participate in schema equivalence: `include` (default, strict), `ignore` (legacy loose) |
 | `--collision-report` | | Generate detailed collision analysis report |

@@ -25,8 +25,8 @@ A complete, self-contained OpenAPI toolkit for Go with minimal dependencies.
 ## Highlights
 
 - 📦 **Minimal Dependencies** — Only [`go.yaml.in/yaml`](https://pkg.go.dev/go.yaml.in/yaml/v4), [`golang.org/x/tools`](https://pkg.go.dev/golang.org/x/tools), [`golang.org/x/text`](https://pkg.go.dev/golang.org/x/text), and the [MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk) at runtime
-- ✅ **Battle-Tested** — 8,000+ tests against 10 production APIs (Stripe, GitHub, Discord, MS Graph 34MB)
-- ⚡ **Performance** — Pre-parsed workflows 11–150x faster; 340+ benchmarks
+- ✅ **Battle-Tested** — 11,000+ tests against 10 production APIs (Stripe, GitHub, Discord, MS Graph 34MB)
+- ⚡ **Performance** — Pre-parsed workflows 11–150x faster; 370+ benchmarks
 - 📋 **OAS 2.0–3.2** — Full JSON Schema Draft 2020-12 for OAS 3.1+; automatic format detection and preservation
 - 🤖 **AI-Ready** — Built-in [MCP server](https://erraggy.github.io/oastools/mcp-server/) exposes all capabilities to LLM agents
 - 🌐 **Try Online** — [oastools.robnrob.com](https://oastools.robnrob.com) — no install required
