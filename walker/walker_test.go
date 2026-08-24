@@ -605,3 +605,57 @@ func TestWalk_TypedAndGenericDocumentHandlers(t *testing.T) {
 			"OAS2DocumentHandler should not be called for OAS 3.x document")
 	})
 }
+
+// A nil pointer of a document type makes a non-nil interface, so it passes the
+// Document == nil check and reaches the type switch. Before it was rejected
+// there, the traversal dereferenced it. ParseResult.Copy produces one from a
+// result that already holds one, since the generated DeepCopy returns a typed
+// nil for a nil receiver.
+func TestWalkRejectsATypedNilDocument(t *testing.T) {
+	tests := []struct {
+		name     string
+		document any
+		want     string
+	}{
+		{
+			name:     "oas2",
+			document: (*parser.OAS2Document)(nil),
+			want:     "nil *parser.OAS2Document",
+		},
+		{
+			name:     "oas3",
+			document: (*parser.OAS3Document)(nil),
+			want:     "nil *parser.OAS3Document",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := &parser.ParseResult{Document: tt.document}
+
+			// Both entry points reach the same dispatch.
+			err := Walk(result, WithSchemaHandler(
+				func(*WalkContext, *parser.Schema) Action { return Continue }))
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.want)
+
+			err = WalkWithOptions(WithParsed(result))
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.want)
+		})
+	}
+}
+
+// Copy is how a typed nil reaches a caller that never wrote one.
+func TestParseResultCopyPropagatesATypedNilDocument(t *testing.T) {
+	original := &parser.ParseResult{Document: (*parser.OAS3Document)(nil)}
+	copied := original.Copy()
+
+	// Compared with ==, not require.NotNil, which unwraps the interface and
+	// reports the nil pointer inside it as nil. The interface itself is not
+	// nil, which is exactly why the check in Walk does not catch this.
+	require.False(t, copied.Document == nil, "a typed nil is a non-nil interface")
+	err := Walk(copied)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "nil *parser.OAS3Document")
+}

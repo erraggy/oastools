@@ -452,10 +452,21 @@ func (w *Walker) walk(result *parser.ParseResult) error {
 		state.parentStack = &stack
 	}
 
+	// A nil pointer of a document type is not caught by the Document == nil
+	// check in Walk: it makes a non-nil interface holding a nil pointer, which
+	// matches a case below and would be dereferenced by the traversal.
+	// ParseResult.Copy produces one from a result that already holds one,
+	// since the generated DeepCopy returns a typed nil for a nil receiver.
 	switch doc := result.Document.(type) {
 	case *parser.OAS2Document:
+		if doc == nil {
+			return fmt.Errorf("walker: nil %T in ParseResult", doc)
+		}
 		return w.walkOAS2(doc, state)
 	case *parser.OAS3Document:
+		if doc == nil {
+			return fmt.Errorf("walker: nil %T in ParseResult", doc)
+		}
 		return w.walkOAS3(doc, state)
 	default:
 		return fmt.Errorf("walker: unsupported document type: %T", result.Document)

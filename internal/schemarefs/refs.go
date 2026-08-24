@@ -8,7 +8,6 @@
 package schemarefs
 
 import (
-	"errors"
 	"maps"
 	"slices"
 	"strconv"
@@ -282,19 +281,6 @@ func intersects(left, right map[string]struct{}) bool {
 // The per-tree walk is EachRef, which reads every keyword a subschema can
 // hide under. Its reference locations go unused here.
 func Collect(doc any) (*Distinct, error) {
-	// walker.Walk compares Document against nil, which a typed nil pointer is
-	// not, so it reaches the traversal and is dereferenced there.
-	switch typed := doc.(type) {
-	case *parser.OAS2Document:
-		if typed == nil {
-			return nil, errors.New("schemarefs: nil *parser.OAS2Document")
-		}
-	case *parser.OAS3Document:
-		if typed == nil {
-			return nil, errors.New("schemarefs: nil *parser.OAS3Document")
-		}
-	}
-
 	d := &Distinct{trees: make(map[string]map[string]struct{})}
 	trees := 0
 	err := walker.Walk(&parser.ParseResult{Document: doc},
