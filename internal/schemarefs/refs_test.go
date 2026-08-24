@@ -442,3 +442,49 @@ func TestCollectLeavesAnUnresolvableTokenAlone(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, [][]string{{"Alpha", "Bravo"}}, d.Split([]string{"Alpha", "Bravo"}))
 }
+
+// A reference can name a place inside a component. The component it enters is
+// what a caller cares about, so the pointer that follows is dropped. Without
+// that, two schemas one tree reaches into can still merge, and the merge
+// deletes a schema the remaining references name.
+func TestSchemaNameDropsAPointerIntoTheComponent(t *testing.T) {
+	tests := []struct {
+		name string
+		ref  string
+		want string
+	}{
+		{name: "oas2 property", ref: "#/definitions/Origin/properties/postcode", want: "Origin"},
+		{name: "oas3 property", ref: "#/components/schemas/Origin/properties/postcode", want: "Origin"},
+		{name: "oas2 items", ref: "#/definitions/Batch/items", want: "Batch"},
+		{name: "escaped name then pointer", ref: "#/definitions/pkg~1Pet/properties/id", want: "pkg~1Pet"},
+		{name: "no pointer", ref: "#/definitions/Origin", want: "Origin"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, SchemaName(tt.ref))
+		})
+	}
+}
+
+// The whole point of dropping the pointer: a tree reaching into two
+// same-shaped components still holds them apart.
+func TestCollectCountsAReferenceIntoAComponent(t *testing.T) {
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Definitions: map[string]*parser.Schema{
+			"Shipment": {Properties: map[string]*parser.Schema{
+				"fromCode": {Ref: "#/definitions/Origin/properties/postcode"},
+				"toCode":   {Ref: "#/definitions/Destination/properties/postcode"},
+			}},
+			"Origin":      {Type: "object"},
+			"Destination": {Type: "object"},
+		},
+		OASVersion: parser.OASVersion20,
+	}
+
+	d, err := Collect(doc)
+	require.NoError(t, err)
+	assert.Equal(t, [][]string{{"Destination"}, {"Origin"}},
+		d.Split([]string{"Origin", "Destination"}))
+}

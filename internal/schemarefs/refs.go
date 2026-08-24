@@ -28,15 +28,28 @@ func SchemaName(ref string) string {
 
 	// OAS 3.x: #/components/schemas/Name
 	if name, found := strings.CutPrefix(ref, "#/components/schemas/"); found {
-		return name
+		return firstToken(name)
 	}
 
 	// OAS 2.0: #/definitions/Name
 	if name, found := strings.CutPrefix(ref, "#/definitions/"); found {
-		return name
+		return firstToken(name)
 	}
 
 	return ""
+}
+
+// firstToken returns the component token of a reference suffix, dropping any
+// pointer into the component that follows it.
+//
+// A reference can name a place inside a schema, as
+// `#/definitions/Origin/properties/postcode` does, and it is the component it
+// enters that a caller cares about. RFC 6901 escapes a literal "/" in a name
+// as "~1", so an unescaped "/" here is always a separator and never part of
+// the name.
+func firstToken(suffix string) string {
+	token, _, _ := strings.Cut(suffix, "/")
+	return token
 }
 
 // EachRef calls visit for every reference to a component schema within schema,

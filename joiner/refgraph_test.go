@@ -1287,3 +1287,38 @@ func TestRefGraphLeavesAnUnresolvableTokenAlone(t *testing.T) {
 		"an unresolvable token still keys the graph by itself")
 	assert.Empty(t, graph.ResolveLineage("Present"))
 }
+
+// The OAS 3 builder resolves tokens the same way, against
+// components.schemas rather than definitions.
+func TestRefGraphResolvesEscapedReferenceTokens_OAS3(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.0.3",
+		Paths: parser.Paths{"/store/pet": &parser.PathItem{Get: &parser.Operation{
+			OperationID: "getStorePet",
+			Responses: &parser.Responses{Codes: map[string]*parser.Response{
+				"200": {Content: map[string]*parser.MediaType{
+					"application/json": {Schema: &parser.Schema{
+						Ref: "#/components/schemas/pkg~1Pet",
+					}},
+				}},
+			}},
+		}}},
+		Components: &parser.Components{Schemas: map[string]*parser.Schema{
+			"pkg/Pet": {Properties: map[string]*parser.Schema{
+				"category": {Ref: "#/components/schemas/pkg~1Category"},
+			}},
+			"pkg/Category": {Type: "object"},
+		}},
+		OASVersion: parser.OASVersion303,
+	}
+
+	graph := buildRefGraphOAS3(doc, parser.OASVersion303)
+
+	lineage := graph.ResolveLineage("pkg/Pet")
+	require.Len(t, lineage, 1, "the operation referencing pkg/Pet was not found")
+	assert.Equal(t, "getStorePet", lineage[0].OperationID)
+
+	nested := graph.ResolveLineage("pkg/Category")
+	require.Len(t, nested, 1, "lineage through pkg/Pet was not followed")
+	assert.Equal(t, "getStorePet", nested[0].OperationID)
+}
