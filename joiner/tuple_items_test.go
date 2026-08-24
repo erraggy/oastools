@@ -83,7 +83,7 @@ func TestTupleItemsRefsAreRecordedInTheRefGraph(t *testing.T) {
 			{Type: "string"},
 			{Ref: "#/definitions/Third"},
 		},
-	}, "")
+	})
 
 	locationsFor := func(name string) []string {
 		out := make([]string, 0, len(g.schemaRefs[name]))
@@ -107,7 +107,7 @@ func TestTupleItemsRefsAreRecordedForAdditionalItems(t *testing.T) {
 	g.recordSchemaRefs("PetTuple", &parser.Schema{
 		Type:            "array",
 		AdditionalItems: []*parser.Schema{{Ref: "#/definitions/Extra"}},
-	}, "")
+	})
 
 	require.Len(t, g.schemaRefs["Extra"], 1)
 	assert.Equal(t, "additionalItems[0]", g.schemaRefs["Extra"][0].RefLocation)
@@ -123,7 +123,7 @@ func TestNewlyTraversedFieldsAreRecordedInTheRefGraph(t *testing.T) {
 		AdditionalItems:       []*parser.Schema{{Ref: "#/definitions/AddItems"}},
 		UnevaluatedProperties: &parser.Schema{Ref: "#/definitions/UnevProps"},
 		UnevaluatedItems:      []*parser.Schema{{Ref: "#/definitions/UnevItems"}},
-	}, "")
+	})
 
 	for name, wantLocation := range map[string]string{
 		"AddProps":  "additionalProperties[0]",

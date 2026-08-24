@@ -5,6 +5,7 @@ import (
 	"math"
 	"slices"
 
+	"github.com/erraggy/oastools/internal/schemarefs"
 	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
@@ -114,11 +115,11 @@ func (j *Joiner) joinOAS2Documents(docs []parser.ParseResult) (*JoinResult, erro
 		}
 		config := schemautil.DefaultDeduplicationConfig()
 		config.Outranks = outranksGenerated(result.generated)
-		distinct, err := collectDistinctSchemaNames(joined)
+		distinct, err := schemarefs.Collect(joined)
 		if err != nil {
 			return nil, fmt.Errorf("joiner: failed to record schema references before semantic deduplication: %w", err)
 		}
-		config.Split = distinct.split
+		config.Split = distinct.Split
 		deduper := schemautil.NewSchemaDeduplicator(config, compare)
 		dedupeResult, err := deduper.Deduplicate(joined.Definitions)
 		if err != nil {

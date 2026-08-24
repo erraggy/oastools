@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/erraggy/oastools/internal/fileutil"
+	"github.com/erraggy/oastools/internal/schemarefs"
 	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/joiner"
 	"github.com/erraggy/oastools/parser"
@@ -168,12 +169,12 @@ func (b *Builder) DeduplicateSchemas() *Builder {
 	// Two schemas a single schema references are two things however alike
 	// their shapes are, so consolidating them would lose what only their names
 	// carried.
-	split, err := joiner.DistinctSchemaNames(b.referenceSnapshot())
+	split, err := schemarefs.Collect(b.referenceSnapshot())
 	if err != nil {
 		b.errors = append(b.errors, fmt.Errorf("builder: reading schema references for deduplication failed: %w", err))
 		return b
 	}
-	config.Split = split
+	config.Split = split.Split
 
 	deduper := schemautil.NewSchemaDeduplicator(config, compare)
 

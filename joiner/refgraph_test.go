@@ -1123,41 +1123,6 @@ func TestBuildRefGraphOAS3_SchemaRefLocations(t *testing.T) {
 	assert.Equal(t, "items", listItemRefs[0].RefLocation)
 }
 
-func TestJoinLocation(t *testing.T) {
-	tests := []struct {
-		name     string
-		base     string
-		segment  string
-		expected string
-	}{
-		{
-			name:     "empty base",
-			base:     "",
-			segment:  "properties.name",
-			expected: "properties.name",
-		},
-		{
-			name:     "non-empty base",
-			base:     "properties.address",
-			segment:  "properties.street",
-			expected: "properties.address.properties.street",
-		},
-		{
-			name:     "both non-empty",
-			base:     "allOf[0]",
-			segment:  "properties.id",
-			expected: "allOf[0].properties.id",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := joinLocation(tt.base, tt.segment)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
 // =============================================================================
 // OAS 2.0 Specific Tests
 // =============================================================================

@@ -1,7 +1,6 @@
 package joiner
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
@@ -234,124 +233,6 @@ func TestJoiner_SemanticDeduplication_MergesAcrossSeparateSchemaTrees(t *testing
 
 	assert.Equal(t, []string{"CreateShipmentRequest"}, sortedSchemaNames(t, res.Document))
 	assert.NotEmpty(t, res.Warnings, "a consolidation is reported")
-}
-
-// A name can be interchangeable with the one a part settled on and still be
-// held apart from another of its members, so a part is judged by every tree it
-// has taken on rather than by the first name in it.
-func TestDistinctSchemaNames_SplitWeighsEveryMemberOfAPart(t *testing.T) {
-	// One tree references Location and Place. Address is referenced by no tree,
-	// so nothing holds it apart from either of them.
-	d := &distinctSchemaNames{trees: map[string]map[string]struct{}{
-		"Location": {"7": {}},
-		"Place":    {"7": {}},
-	}}
-
-	assert.Equal(t, [][]string{{"Address", "Location"}, {"Place"}},
-		d.split([]string{"Address", "Location", "Place"}))
-}
-
-// The deduplicator hands over a group in whatever order it hashed the names in,
-// so the partition has to settle the same way whatever that order was.
-func TestDistinctSchemaNames_SplitDoesNotDependOnGroupOrder(t *testing.T) {
-	d := &distinctSchemaNames{trees: map[string]map[string]struct{}{
-		"Location": {"7": {}},
-		"Place":    {"7": {}},
-	}}
-	want := [][]string{{"Address", "Location"}, {"Place"}}
-
-	for _, group := range [][]string{
-		{"Address", "Location", "Place"},
-		{"Place", "Location", "Address"},
-		{"Location", "Place", "Address"},
-		{"Place", "Address", "Location"},
-	} {
-		assert.Equal(t, want, d.split(group), "group order %v", group)
-	}
-}
-
-// recordSchemaRefs walks the subschema keywords by hand, and semantic
-// deduplication now depends on it: a keyword it does not read is one whose
-// references go uncounted, letting two names a document distinguishes under
-// that keyword be merged. Reflection asks the question directly. With a
-// reference sitting under one field and nothing else set, is it found?
-//
-// The typed schema fields are enumerated rather than listed, so a new one is
-// covered the day it is added. The schema-or-bool fields are declared any and
-// share that type with Default and Const, which hold no schema, so those are
-// named.
-func TestRecordSchemaRefsReadsEverySubschemaField(t *testing.T) {
-	const target = "#/definitions/Target"
-	child := func() *parser.Schema { return &parser.Schema{Ref: target} }
-
-	found := func(t *testing.T, schema *parser.Schema) bool {
-		t.Helper()
-		g := newRefGraph()
-		g.recordSchemaRefs("tree", schema, "")
-		_, ok := g.schemaRefs["Target"]
-		return ok
-	}
-
-	schemaType := reflect.TypeOf(parser.Schema{})
-	covered := 0
-	for i := range schemaType.NumField() {
-		f := schemaType.Field(i)
-		if !f.IsExported() {
-			continue
-		}
-
-		var value reflect.Value
-		switch f.Type {
-		case reflect.TypeOf((*parser.Schema)(nil)):
-			value = reflect.ValueOf(child())
-		case reflect.TypeOf([]*parser.Schema{}):
-			value = reflect.ValueOf([]*parser.Schema{child()})
-		case reflect.TypeOf(map[string]*parser.Schema{}):
-			value = reflect.ValueOf(map[string]*parser.Schema{"key": child()})
-		default:
-			continue
-		}
-
-		covered++
-		t.Run(f.Name, func(t *testing.T) {
-			schema := &parser.Schema{}
-			reflect.ValueOf(schema).Elem().Field(i).Set(value)
-			assert.True(t, found(t, schema),
-				"a reference under Schema.%s is not read, so two names it "+
-					"distinguishes can still be merged", f.Name)
-		})
-	}
-	require.NotZero(t, covered, "no schema-bearing fields were reached")
-
-	// The schema-or-bool fields, which are any and so cannot be told from the
-	// fields holding plain values by their type alone.
-	for name, set := range map[string]func(*parser.Schema){
-		"Items":                 func(s *parser.Schema) { s.Items = child() },
-		"ItemsTuple":            func(s *parser.Schema) { s.Items = []*parser.Schema{child()} },
-		"AdditionalProperties":  func(s *parser.Schema) { s.AdditionalProperties = child() },
-		"AdditionalItems":       func(s *parser.Schema) { s.AdditionalItems = child() },
-		"UnevaluatedProperties": func(s *parser.Schema) { s.UnevaluatedProperties = child() },
-		"UnevaluatedItems":      func(s *parser.Schema) { s.UnevaluatedItems = child() },
-	} {
-		t.Run(name, func(t *testing.T) {
-			schema := &parser.Schema{}
-			set(schema)
-			assert.True(t, found(t, schema),
-				"a reference under Schema.%s is not read", name)
-		})
-	}
-}
-
-// The worked example in split's doc comment, kept honest.
-func TestDistinctSchemaNames_SplitMatchesItsDocumentedExample(t *testing.T) {
-	d := &distinctSchemaNames{trees: map[string]map[string]struct{}{
-		"OriginAddress":      {"shipmentTree": {}},
-		"DestinationAddress": {"shipmentTree": {}},
-	}}
-
-	assert.Equal(t,
-		[][]string{{"BillingAddress", "DestinationAddress"}, {"OriginAddress"}},
-		d.split([]string{"OriginAddress", "DestinationAddress", "BillingAddress"}))
 }
 
 // shipmentTreeOAS2 puts two references to the same address shape in one schema
