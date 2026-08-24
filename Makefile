@@ -13,7 +13,7 @@ GOLANGCI_VERSION=v2.12.2
 # Allow go commands to automatically download the toolchain version declared in
 # go.mod when the local Go binary is older. This is the portable alternative to
 # pinning GOROOT/PATH to a specific SDK path.
-QUALITY_TARGETS := tidy fmt test test-quick test-race test-full test-coverage test-corpus test-corpus-short integration-test integration-test-debug count-tests count-benchmarks lint vet check
+QUALITY_TARGETS := tidy fmt test test-quick test-race test-full test-coverage test-corpus test-corpus-short integration-test integration-test-debug count-tests count-benchmarks lint vet build-examples check
 $(QUALITY_TARGETS): export GOTOOLCHAIN = auto
 
 # Default target
@@ -194,6 +194,29 @@ vet:
 	@echo "Running go vet..."
 	go vet ./...
 
+## build-examples: Build every example module
+.PHONY: build-examples
+build-examples:
+	@echo "Building example modules..."
+	@modules=$$(find examples -name go.mod | xargs -n1 dirname | sort) || exit 1; \
+	if [ -z "$$modules" ]; then \
+		echo "No example modules found under examples/."; \
+		exit 1; \
+	fi; \
+	failed=""; \
+	for dir in $$modules; do \
+		if ! go -C "$$dir" build -o /dev/null ./... 2>&1; then \
+			failed="$$failed $$dir"; \
+		fi; \
+	done; \
+	if [ -n "$$failed" ]; then \
+		echo "Example modules failed to build:"; \
+		for dir in $$failed; do echo "  $$dir"; done; \
+		echo "Run 'go -C <dir> mod tidy' to refresh a stale go.sum."; \
+		exit 1; \
+	fi; \
+	echo "All $$(echo $$modules | wc -w | tr -d ' ') example modules build."
+
 ## lint-md: Lint markdown files
 .PHONY: lint-md
 lint-md:
@@ -204,9 +227,9 @@ lint-md:
 		echo "npx not found (Node.js required). Skipping markdown lint."; \
 	fi
 
-## check: Run tidy, fmt, lint, lint-md, test, and git status
+## check: Run tidy, fmt, lint, lint-md, build-examples, test, and git status
 .PHONY: check
-check: tidy fmt lint lint-md test
+check: tidy fmt lint lint-md build-examples test
 	@echo "Running git status..."
 	@git status
 
