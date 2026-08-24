@@ -37,3 +37,43 @@ func deepCopyStrings(v []string) []string {
 func deepCopyScopes(v map[string]string) map[string]string {
 	return maps.Clone(v)
 }
+
+// deepCopyValue deep copies an arbitrary value (used for schema Default field).
+// Handles strings, numbers, booleans, slices, and maps. Returns nil for nil input.
+func deepCopyValue(v any) any {
+	if v == nil {
+		return nil
+	}
+	switch val := v.(type) {
+	case string, float64, bool:
+		// Primitives are immutable in Go semantics
+		return v
+	case []any:
+		cp := make([]any, len(val))
+		for i, elem := range val {
+			cp[i] = deepCopyValue(elem)
+		}
+		return cp
+	case map[string]any:
+		cp := make(map[string]any, len(val))
+		for k, elem := range val {
+			cp[k] = deepCopyValue(elem)
+		}
+		return cp
+	default:
+		// For unknown types, return as-is
+		return v
+	}
+}
+
+// deepCopyEnumValues deep copies an Enum slice ([]any values).
+func deepCopyEnumValues(v []any) []any {
+	if v == nil {
+		return nil
+	}
+	cp := make([]any, len(v))
+	for i, elem := range v {
+		cp[i] = deepCopyValue(elem)
+	}
+	return cp
+}

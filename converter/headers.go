@@ -292,8 +292,8 @@ func (c *Converter) oas2ItemsFromSchema(schema *parser.Schema, subject string, r
 	items := &parser.Items{
 		Type:        c.oas2PrimitiveType(schemautil.GetPrimaryType(elem), subject+" items", result, path),
 		Format:      elem.Format,
-		Default:     elem.Default,
-		Enum:        elem.Enum,
+		Default:     deepCopyValue(elem.Default),
+		Enum:        deepCopyEnumValues(elem.Enum),
 		Maximum:     elem.Maximum,
 		Minimum:     elem.Minimum,
 		MaxLength:   elem.MaxLength,

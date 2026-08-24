@@ -498,9 +498,16 @@
 //	spec.DeduplicateSchemas()
 //	doc, _ := spec.BuildOAS3()
 //
-// Deduplication compares schemas structurally, ignoring metadata fields (title, description,
-// example, deprecated). When duplicates are found, the alphabetically first name becomes
-// canonical, and all references are automatically rewritten.
+// Deduplication compares schemas structurally, and counts the documentation and advisory
+// fields as part of that comparison, so two schemas differing only in title or description
+// are kept apart. When duplicates are found, the alphabetically first name becomes canonical
+// (unless a name was invented by a rename, in which case an original name from the documents
+// wins). All references are automatically rewritten.
+//
+// Schema names that one schema tree references are held apart, because a schema referencing
+// two of them tells them apart by name alone: a Shipment carrying both an OriginAddress and
+// a DestinationAddress keeps both. See the "Semantic Deduplication" section of
+// joiner/deep_dive.md for the full rule.
 //
 // # Server Builder
 //

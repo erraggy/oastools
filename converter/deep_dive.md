@@ -487,7 +487,7 @@ requestBody:
 |---------|---------|-------|
 | `servers[0]` | `host`, `basePath`, `schemes` | Only first server used |
 | `components.schemas` | `definitions` | Reference paths updated |
-| `requestBody` | `consumes` + body parameter | Single media type selected |
+| `requestBody` | `consumes` + body parameter | One media type kept, chosen by rank rather than by map order |
 | `webhooks` | Dropped | Critical issue logged |
 | `callbacks` | Dropped | Critical issue logged |
 | `links` | Dropped | Critical issue logged |
@@ -519,10 +519,14 @@ schemes:
 
 | OAS 3.0 | OAS 3.1 | Notes |
 |---------|---------|-------|
-| `nullable: true` | `type: ["string", "null"]` | Type becomes array |
-| `example` | `examples` (preferred) | Can use either |
-| N/A | `webhooks` | Now available |
-| `exclusiveMinimum: true` | `exclusiveMinimum: <value>` | JSON Schema alignment |
+| `nullable: true` | `type: ["string", "null"]` | Type becomes array; nullability preserved |
+| `example` | Promoted to `examples` array | Single example wrapped in `example` field |
+| N/A | `webhooks` | New in 3.1; not available in 3.0 |
+| `exclusiveMinimum: true` + `minimum` | `exclusiveMinimum: <value>` | JSON Schema Draft 2020-12 alignment |
+| `exclusiveMaximum: true` + `maximum` | `exclusiveMaximum: <value>` | JSON Schema Draft 2020-12 alignment |
+| N/A | `unevaluatedProperties` | New JSON Schema keyword in 3.1 |
+| N/A | `prefixItems` | Replaces `items` array tuple form in 3.1 |
+| N/A | `contentEncoding`, `contentMediaType` | For non-JSON schema content |
 
 ### OAS 3.2 -> OAS 3.0 / 3.1
 
@@ -568,10 +572,15 @@ against the target version before shipping it.
 
 | OAS 3.1 | OAS 3.0 | Notes |
 |---------|---------|-------|
-| `type: ["string", "null"]` | `type: string` + `nullable: true` | Array to boolean |
-| `webhooks` | Dropped | Critical issue logged |
-| `$comment` | Dropped | JSON Schema keyword |
-| `unevaluatedProperties` | Dropped | JSON Schema keyword |
+| `type: ["string", "null"]` | `type: string` + `nullable: true` | Array to boolean; nullability preserved |
+| `webhooks` | Critical loss | No equivalent in OAS 3.0; must be removed |
+| `examples.example` | Single `example` value | Only first example retained if multiple |
+| `exclusiveMinimum: <value>` | `exclusiveMinimum: true` + `minimum` | Numeric to boolean + value pair |
+| `exclusiveMaximum: <value>` | `exclusiveMaximum: true` + `maximum` | Numeric to boolean + value pair |
+| `$comment` | Dropped | JSON Schema keyword with no OAS 3.0 equivalent |
+| `unevaluatedProperties` | Dropped | JSON Schema keyword with no OAS 3.0 equivalent |
+| `prefixItems` | Converted to `items` schema | Tuple validation loses positional semantics |
+| `contentEncoding`, `contentMediaType` | Dropped | No OAS 3.0 equivalent for content metadata |
 
 [Back to top](#top)
 
@@ -758,7 +767,7 @@ requestBody:
       schema: {...}
 ```
 
-When downgrading to 2.0, only one content type is preserved (typically `application/json`). A warning issue is logged.
+When downgrading to 2.0, only one content type is preserved. The choice is deterministic: `application/json` wins, then any media type with a `+json` suffix, then the alphabetically first of the rest. A media type carrying no schema is skipped rather than selected. A warning issue is logged.
 
 **Solution:** Review warnings and ensure the selected content type is appropriate:
 
@@ -817,10 +826,17 @@ Understanding what information is lost during conversion is crucial for making i
 | Links | Complete loss | Document relationships externally |
 | Cookie params | Complete loss | Use header params if possible |
 | Multiple servers | Only first used | Document others externally |
-| Multiple content types | First used | Ensure JSON is first if preferred |
+| Multiple content types | Deterministic selection | `application/json` wins, then any `+json` suffix type, then the alphabetically first of the rest |
 | TRACE method | Dropped | Use custom extension if needed |
 | Schema keywords (`writeOnly`, `deprecated`, `if`/`then`/`else`, `prefixItems`, `contains`, `propertyNames`) | No equivalent | Warning issued; document constraints externally |
 | `discriminator.mapping` and its extensions | Complete loss | Warning issued; rename target definitions to match discriminator values |
+| Header `content` field | Dropped | OAS 2.0 headers use primitive types only |
+| Header `style`/`explode` | Dropped | OAS 2.0 uses `collectionFormat` for array serialization |
+| Header `required` (response) | Dropped | OAS 2.0 has no way to mark response headers required |
+| Header `deprecated` | Dropped | OAS 2.0 has no way to mark response headers deprecated |
+| Header `$ref` | Dropped | A Swagger 2.0 Header Object has no `$ref` member; the reference is reported and removed |
+| Header or non-body parameter of a tuple type | First position only | `items` naming several positions cannot be spelled here; the count is reported |
+| Header or non-body parameter of a type OAS 2.0 cannot name | Recorded as `string` | Only string, number, integer, boolean and array are available |
 
 ### OAS 2.0 -> OAS 3.0 (Minimal Loss)
 

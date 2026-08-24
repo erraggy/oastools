@@ -747,12 +747,13 @@ func (b *Builder) AddOperation(method, path string, opts ...OperationOption) *Bu
 
 		// OAS 2.0: Convert requestBody to body parameter
 		if b.version == parser.OASVersion20 {
-			// Extract the first media type's schema (OAS 2.0 doesn't support multiple content types in body)
+			// Extract the preferred media type's schema (OAS 2.0 doesn't support multiple content types in body)
 			var bodySchema *parser.Schema
-			for _, mediaType := range requestBody.Content {
-				if mediaType.Schema != nil {
+			ordered := schemautil.SortedContentTypes(requestBody.Content)
+			if len(ordered) > 0 {
+				mediaType := requestBody.Content[ordered[0]]
+				if mediaType != nil && mediaType.Schema != nil {
 					bodySchema = mediaType.Schema
-					break
 				}
 			}
 

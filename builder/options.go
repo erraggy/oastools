@@ -228,8 +228,11 @@ func WithGenericApplyBaseCasing(apply bool) BuilderOption {
 // and consolidates them to a single canonical schema. All references to
 // duplicate schemas are rewritten to point to the canonical schema.
 //
-// The canonical schema name is selected alphabetically (e.g., if "Address"
-// and "Location" are identical, "Address" becomes canonical).
+// Schema names that one schema tree references are held apart (e.g., if Shipment
+// requires both OriginAddress and DestinationAddress, both persist even if
+// structurally identical). Other equivalent schemas merge to a canonical name
+// selected alphabetically (e.g., if "Address" and "Location" are identical,
+// "Address" becomes canonical).
 //
 // This option reduces document size when multiple types converge to the
 // same structure. It is disabled by default.

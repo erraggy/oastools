@@ -339,6 +339,13 @@
 // the merged document are automatically rewritten. See the "Which Name Survives" section of
 // joiner/deep_dive.md for the full rule.
 //
+// One important exception: schema names that one schema tree references are held apart.
+// If a Shipment requires both an OriginAddress and a DestinationAddress, both names persist
+// even when the two schemas are structurally identical, because consolidating them would
+// leave the Shipment saying that its origin is its destination. The unit is the schema tree,
+// a schema with no schema above it, so an equivalent name sharing a tree with neither still
+// consolidates with one of them.
+//
 // Empty schemas (those with no structural constraints like type, properties, format, or
 // validation rules) are automatically excluded from deduplication. Empty schemas serve
 // different semantic purposes depending on context -- as placeholders, "any type" markers,

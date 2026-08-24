@@ -518,7 +518,11 @@ func WithCollisionReport(enabled bool) Option {
 // WithSemanticDeduplication enables or disables semantic schema deduplication.
 // When enabled, after merging all documents, the joiner identifies semantically
 // identical schemas and consolidates them to a single canonical schema.
-// The canonical name is selected alphabetically (e.g., "Address" beats "Location").
+//
+// Schema names that one schema tree references are held apart (e.g., if Shipment
+// requires both OriginAddress and DestinationAddress, both persist even if
+// structurally identical). Other equivalent schemas merge to a canonical name
+// selected alphabetically (e.g., "Address" beats "Location").
 // All references to duplicate schemas are rewritten to the canonical name.
 // Default: false
 func WithSemanticDeduplication(enabled bool) Option {
