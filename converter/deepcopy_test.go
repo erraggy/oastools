@@ -60,6 +60,22 @@ func TestDeepCopyValueCopiesTypedContainers(t *testing.T) {
 		assert.Equal(t, [1][]string{{"a"}}, source, "the slice inside the array must be copied")
 	})
 
+	t.Run("pointer to a map", func(t *testing.T) {
+		inner := map[string]string{"k": "v"}
+		copied, ok := deepCopyValue(&inner).(*map[string]string)
+		require.True(t, ok)
+		require.NotSame(t, &inner, copied)
+		(*copied)["k"] = "mutated"
+		assert.Equal(t, map[string]string{"k": "v"}, inner)
+	})
+
+	t.Run("nil pointer stays nil", func(t *testing.T) {
+		var p *map[string]string
+		copied, ok := deepCopyValue(p).(*map[string]string)
+		require.True(t, ok)
+		assert.Nil(t, copied)
+	})
+
 	t.Run("nil typed slice keeps its nilness", func(t *testing.T) {
 		var source []string
 		copied, ok := deepCopyValue(source).([]string)

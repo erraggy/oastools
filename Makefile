@@ -211,7 +211,7 @@ build-examples:
 		fi; \
 		for pkg in $$pkgs; do \
 			if ! go -C "$$dir" build -o /dev/null "$$pkg" 2>&1; then \
-				failed="$$failed $$dir"; \
+				failed="$$failed $$dir($$pkg)"; \
 				break; \
 			fi; \
 		done; \
@@ -219,7 +219,8 @@ build-examples:
 	if [ -n "$$failed" ]; then \
 		echo "Example modules failed to build:"; \
 		for dir in $$failed; do echo "  $$dir"; done; \
-		echo "Run 'go -C <dir> mod tidy' to refresh a stale go.sum."; \
+		echo "A stale go.sum is the usual cause: run 'go -C <dir> mod tidy'."; \
+		echo "Any other error above is a real fault in the example itself."; \
 		exit 1; \
 	fi; \
 	echo "All $$(echo $$modules | wc -w | tr -d ' ') example modules build."

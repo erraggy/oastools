@@ -72,9 +72,14 @@ func deepCopyValue(v any) any {
 // returning those unchanged leaves the converted document sharing the source's
 // backing array.
 //
-// Anything that is not a slice or a map is returned as-is: the remaining kinds
-// are either immutable in Go semantics or a pointer whose identity the caller
-// chose deliberately.
+// A pointer is followed and its target copied, since a *map or a *[]string
+// shares its contents as readily as the bare form does.
+//
+// A struct is returned as-is, deliberately. Copying one field by field through
+// reflection cannot reach unexported fields, so the result would be a silent
+// partial copy, and the alternative is unsafe. A struct reaching Default or
+// Enum is already outside what a parsed document produces; the fields that
+// matter for conversion are the JSON shapes above.
 func deepCopyReflected(v any) any {
 	rv := reflect.ValueOf(v)
 	switch rv.Kind() {
@@ -92,6 +97,13 @@ func deepCopyReflected(v any) any {
 		for i := range rv.Len() {
 			copyReflectedInto(cp.Index(i), rv.Index(i))
 		}
+		return cp.Interface()
+	case reflect.Pointer:
+		if rv.IsNil() {
+			return v
+		}
+		cp := reflect.New(rv.Type().Elem())
+		copyReflectedInto(cp.Elem(), rv.Elem())
 		return cp.Interface()
 	case reflect.Map:
 		if rv.IsNil() {
