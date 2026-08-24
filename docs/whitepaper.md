@@ -638,6 +638,8 @@ The fixer detects duplicate `operationId` values and automatically generates uni
 
 Enum values specified as comma-separated strings are automatically expanded to proper typed arrays.
 
+The expansion reaches every place an enum may be declared, not only a schema. In OAS 2.0 a non-body parameter, a response header, and either one's `items` carry `type` and `enum` on the object itself, and those declarations are expanded alongside the ones a schema holds.
+
 ### 6.8 ⚠️ Mutable Input Mode (v1.48.0+)
 
 For performance-critical scenarios, `WithMutableInput(true)` skips the defensive deep copy of the input document. This is particularly useful when chaining multiple fix passes.
