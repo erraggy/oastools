@@ -397,3 +397,89 @@ func TestBuilder_DeduplicateSchemas_KeepsNamesASchemaDistinguishes_OAS2(t *testi
 	assert.Len(t, b.schemas, 3)
 	assert.Empty(t, b.schemaAliases)
 }
+
+// TestBuilder_DeduplicateSchemas_ParentReferencesBoth covers the rule that a
+// name's meaning can come from where it is referenced rather than from its
+// shape. Order tells its two address fields apart only by the names they
+// reference, so consolidating those names would leave both fields pointing at
+// one schema (#501).
+func TestBuilder_DeduplicateSchemas_ParentReferencesBoth(t *testing.T) {
+	address := func() *parser.Schema {
+		return &parser.Schema{
+			Type:       "object",
+			Properties: map[string]*parser.Schema{"street": {Type: "string"}},
+		}
+	}
+
+	b := New(parser.OASVersion320, WithSemanticDeduplication(true))
+	b.addSchema("Address", address())
+	b.addSchema("ShippingAddress", address())
+	b.addSchema("Order", &parser.Schema{
+		Type: "object",
+		Properties: map[string]*parser.Schema{
+			"billTo": {Ref: "#/components/schemas/Address"},
+			"shipTo": {Ref: "#/components/schemas/ShippingAddress"},
+		},
+	})
+
+	doc, err := b.BuildOAS3()
+	require.NoError(t, err)
+
+	assert.Len(t, doc.Components.Schemas, 3, "Order references both names, so both survive")
+	assert.Contains(t, doc.Components.Schemas, "Address")
+	assert.Contains(t, doc.Components.Schemas, "ShippingAddress")
+
+	order := doc.Components.Schemas["Order"]
+	assert.Equal(t, "#/components/schemas/Address", order.Properties["billTo"].Ref)
+	assert.Equal(t, "#/components/schemas/ShippingAddress", order.Properties["shipTo"].Ref)
+	assert.Empty(t, b.schemaAliases)
+}
+
+// TestBuilder_DeduplicateSchemas_UnreferencedTogetherStillMerges is the other
+// half of the rule: holding two names apart does not exempt a third equivalent
+// name that shares a schema tree with neither of them.
+func TestBuilder_DeduplicateSchemas_UnreferencedTogetherStillMerges(t *testing.T) {
+	address := func() *parser.Schema {
+		return &parser.Schema{
+			Type:       "object",
+			Properties: map[string]*parser.Schema{"street": {Type: "string"}},
+		}
+	}
+
+	b := New(parser.OASVersion320, WithSemanticDeduplication(true))
+	b.addSchema("Address", address())
+	b.addSchema("ShippingAddress", address())
+	b.addSchema("WarehouseAddress", address())
+	b.addSchema("Order", &parser.Schema{
+		Type: "object",
+		Properties: map[string]*parser.Schema{
+			"billTo": {Ref: "#/components/schemas/Address"},
+			"shipTo": {Ref: "#/components/schemas/ShippingAddress"},
+		},
+	})
+	b.addSchema("Warehouse", &parser.Schema{
+		Type: "object",
+		Properties: map[string]*parser.Schema{
+			"located": {Ref: "#/components/schemas/WarehouseAddress"},
+		},
+	})
+
+	doc, err := b.BuildOAS3()
+	require.NoError(t, err)
+
+	// WarehouseAddress shares a tree with neither of the others, so it joins
+	// one of them and five schemas come out as four.
+	assert.Len(t, doc.Components.Schemas, 4)
+	assert.Contains(t, doc.Components.Schemas, "Address")
+	assert.Contains(t, doc.Components.Schemas, "ShippingAddress")
+	assert.NotContains(t, doc.Components.Schemas, "WarehouseAddress")
+
+	// The part that absorbed it is the one the split settled on first, so
+	// Warehouse now reaches the name that part kept.
+	warehouse := doc.Components.Schemas["Warehouse"]
+	assert.Equal(t, "#/components/schemas/Address", warehouse.Properties["located"].Ref)
+
+	order := doc.Components.Schemas["Order"]
+	assert.Equal(t, "#/components/schemas/Address", order.Properties["billTo"].Ref)
+	assert.Equal(t, "#/components/schemas/ShippingAddress", order.Properties["shipTo"].Ref)
+}
