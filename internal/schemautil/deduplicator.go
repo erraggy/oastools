@@ -81,9 +81,11 @@ func (d *SchemaDeduplicator) buildEquivalenceGroups(
 			continue
 		}
 
-		// Verify equivalence and split into true equivalence groups
-		subGroups := d.verifyEquivalence(schemas, names)
-		equivalenceGroups = append(equivalenceGroups, subGroups...)
+		// Verify equivalence and split into true equivalence groups, then hand
+		// each to the caller, which may hold some of its names apart.
+		for _, group := range d.verifyEquivalence(schemas, names) {
+			equivalenceGroups = append(equivalenceGroups, d.split(group)...)
+		}
 	}
 
 	return equivalenceGroups
@@ -125,6 +127,15 @@ func (d *SchemaDeduplicator) verifyEquivalence(
 	}
 
 	return groups
+}
+
+// split applies the configured SplitFunc to one equivalence group, leaving the
+// group whole when there is none.
+func (d *SchemaDeduplicator) split(group []string) [][]string {
+	if d.config.Split == nil || len(group) < 2 {
+		return [][]string{group}
+	}
+	return d.config.Split(group)
 }
 
 // buildResult creates the final deduplication result.

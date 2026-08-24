@@ -15,6 +15,20 @@ import "github.com/erraggy/oastools/parser"
 // one.
 type OutranksFunc func(name, candidate string) bool
 
+// SplitFunc partitions a group of names whose schemas all compare equal into
+// the parts that may each be consolidated to a single name. Deduplicate calls
+// it once per group and consolidates each part it returns on its own.
+//
+// It exists because equivalence is a question about shape and this one is not.
+// Only a caller that can see how the names are referenced can say that two
+// same-shaped schemas describe different things (#501).
+//
+// Every name in group must come back in exactly one part. Returning group
+// unchanged consolidates it whole, which is what a nil SplitFunc does. Parts
+// are consolidated independently, so a SplitFunc that drops or repeats a name
+// drops or duplicates a schema.
+type SplitFunc func(group []string) [][]string
+
 // DeduplicationConfig configures semantic schema deduplication behavior.
 type DeduplicationConfig struct {
 	// EquivalenceMode controls comparison depth ("deep" recommended).
@@ -24,6 +38,10 @@ type DeduplicationConfig struct {
 	// Outranks chooses the canonical name of an equivalence group. When nil,
 	// the alphabetically first name wins.
 	Outranks OutranksFunc
+
+	// Split holds names apart within a group of equivalent schemas. When nil,
+	// each group is consolidated whole.
+	Split SplitFunc
 }
 
 // DefaultDeduplicationConfig returns a DeduplicationConfig with sensible defaults.

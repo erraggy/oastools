@@ -1,6 +1,7 @@
 package schemautil
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/erraggy/oastools/parser"
@@ -334,4 +335,120 @@ func TestSchemaDeduplicator_Outranks(t *testing.T) {
 			assert.Equal(t, tt.aliases, group[1:], "the rest stay sorted")
 		})
 	}
+}
+
+// splitHoldingApart builds a SplitFunc that keeps the named groups separate,
+// standing in for the joiner's partition without its reference bookkeeping.
+// Any name not listed joins the first part.
+func splitHoldingApart(apart ...[]string) SplitFunc {
+	return func(group []string) [][]string {
+		parts := make([][]string, 0, len(apart)+1)
+		rest := make([]string, 0, len(group))
+		for _, name := range group {
+			part := -1
+			for i, names := range apart {
+				if slices.Contains(names, name) {
+					part = i
+					break
+				}
+			}
+			if part < 0 {
+				rest = append(rest, name)
+				continue
+			}
+			for len(parts) <= part {
+				parts = append(parts, nil)
+			}
+			parts[part] = append(parts[part], name)
+		}
+		if len(rest) > 0 {
+			parts = append(parts, rest)
+		}
+		return parts
+	}
+}
+
+func TestSchemaDeduplicator_Split(t *testing.T) {
+	schemas := map[string]*parser.Schema{
+		"Address":  {Type: "object"},
+		"Location": {Type: "object"},
+		"Place":    {Type: "object"},
+	}
+
+	tests := []struct {
+		name   string
+		split  SplitFunc
+		groups [][]string
+	}{
+		{
+			name:   "nil consolidates the group whole",
+			split:  nil,
+			groups: [][]string{{"Address", "Location", "Place"}},
+		},
+		{
+			name:   "a name held apart keeps its own name",
+			split:  splitHoldingApart([]string{"Location"}),
+			groups: [][]string{{"Address", "Place"}, {"Location"}},
+		},
+		{
+			name:   "two names held together still consolidate",
+			split:  splitHoldingApart([]string{"Location", "Place"}),
+			groups: [][]string{{"Address"}, {"Location", "Place"}},
+		},
+		{
+			name: "every name held apart leaves every name standing",
+			split: splitHoldingApart(
+				[]string{"Address"}, []string{"Location"}, []string{"Place"}),
+			groups: [][]string{{"Address"}, {"Location"}, {"Place"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := DefaultDeduplicationConfig()
+			config.Split = tt.split
+			deduper := NewSchemaDeduplicator(config, alwaysEqual)
+
+			result, err := deduper.Deduplicate(schemas)
+			require.NoError(t, err)
+
+			require.Len(t, result.CanonicalSchemas, len(tt.groups))
+			removed := 0
+			for _, group := range tt.groups {
+				canonical := group[0]
+				require.Contains(t, result.CanonicalSchemas, canonical)
+				assert.Equal(t, group, result.EquivalenceGroups[canonical])
+				for _, alias := range group[1:] {
+					assert.Equal(t, canonical, result.CanonicalName(alias))
+					removed++
+				}
+			}
+			assert.Equal(t, removed, result.RemovedCount)
+		})
+	}
+}
+
+// A group only one schema falls into is never handed to the SplitFunc, so a
+// caller cannot be asked to partition something with nothing to partition.
+func TestSchemaDeduplicator_SplitSkipsSingletons(t *testing.T) {
+	schemas := map[string]*parser.Schema{
+		"Address": {Type: "object"},
+		"Count":   {Type: "integer"},
+	}
+
+	var asked [][]string
+	config := DefaultDeduplicationConfig()
+	config.Split = func(group []string) [][]string {
+		asked = append(asked, group)
+		return [][]string{group}
+	}
+	deduper := NewSchemaDeduplicator(config, func(left, right *parser.Schema) bool {
+		return left.Type == right.Type
+	})
+
+	result, err := deduper.Deduplicate(schemas)
+	require.NoError(t, err)
+
+	assert.Empty(t, asked, "neither name shares a group with another")
+	assert.Len(t, result.CanonicalSchemas, 2)
 }

@@ -228,6 +228,11 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 		}
 		config := schemautil.DefaultDeduplicationConfig()
 		config.Outranks = outranksGenerated(result.generated)
+		distinct, err := collectDistinctSchemaNames(joined)
+		if err != nil {
+			return nil, fmt.Errorf("joiner: failed to record schema references before semantic deduplication: %w", err)
+		}
+		config.Split = distinct.split
 		deduper := schemautil.NewSchemaDeduplicator(config, compare)
 		dedupeResult, err := deduper.Deduplicate(joined.Components.Schemas)
 		if err != nil {
