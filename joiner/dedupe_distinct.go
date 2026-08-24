@@ -140,3 +140,26 @@ func collectDistinctSchemaNames(doc any) (*distinctSchemaNames, error) {
 	}
 	return d, nil
 }
+
+// DistinctSchemaNames reports which component schema names in doc must not be
+// consolidated with one another, as a function that partitions a group of
+// equivalent names into the parts that may each collapse to a single name.
+//
+// Two names are held apart when one schema tree references both: whatever
+// their shapes have in common, a schema that references both is treating them
+// as two things. Pass the result to semantic deduplication, which consolidates
+// each part on its own.
+//
+// doc is read and not modified. It may be a *parser.OAS2Document or a
+// *parser.OAS3Document, and need not be complete: a caller holding a document
+// it has not assembled yet can pass the parts it has, and every reference
+// those parts contain is counted.
+//
+// Example_deduplicationDistinctNames shows the behavior this produces.
+func DistinctSchemaNames(doc any) (func(group []string) [][]string, error) {
+	d, err := collectDistinctSchemaNames(doc)
+	if err != nil {
+		return nil, err
+	}
+	return d.split, nil
+}
