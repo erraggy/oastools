@@ -80,6 +80,13 @@ func deepCopyValue(v any) any {
 // the whole of what a JSON-serializable value carries. Unexported fields keep
 // whatever the shallow copy gave them: reflection cannot set them without
 // unsafe, and leaving them is never worse than returning the struct untouched.
+//
+// One shape is therefore still shared: a struct embedding an unexported type,
+// whose exported fields JSON does marshal but reflection cannot set, because
+// the embedded field itself is unsettable. Reaching it needs a document built
+// in Go rather than parsed, holding such a struct in Default or Enum. Closing
+// it would take unsafe or a per-type copy, and neither is worth carrying for
+// a shape no parsed document produces.
 func deepCopyReflected(v any) any {
 	rv := reflect.ValueOf(v)
 	switch rv.Kind() {
