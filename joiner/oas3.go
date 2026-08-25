@@ -79,6 +79,17 @@ func (j *Joiner) joinOAS3Documents(docs []parser.ParseResult) (*JoinResult, erro
 	joined.Components.PathItems = make(map[string]*parser.PathItem)
 	joined.Components.MediaTypes = make(map[string]*parser.MediaType)
 
+	// Before any merging, so a rename is checked against the names every
+	// document declares rather than only the ones merged ahead of it (#547).
+	result.reserveNames = func() map[string]bool {
+		return j.reserveDeclaredNames(sourcePaths(docs), func(docIndex int) map[string]*parser.Schema {
+			if sources[docIndex].Components == nil {
+				return nil
+			}
+			return sources[docIndex].Components.Schemas
+		})
+	}
+
 	graphs := newRefGraphs(j.config.OperationContext, func(docIndex int) *RefGraph {
 		src := sources[docIndex]
 		return buildRefGraphOAS3(src, src.OASVersion)
@@ -416,7 +427,7 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 				} else {
 					newName = j.generateRenamedSchemaName(effectiveName, leftOrigin.filePath, leftOrigin.docIndex, graphs.forDoc(leftOrigin.docIndex))
 				}
-				newName = uniqueSchemaName(target, newName)
+				newName = uniqueSchemaName(target, result.reservedNames(), newName)
 
 				// Move existing schema to new name
 				target[newName] = target[effectiveName]
@@ -438,7 +449,7 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 				// interchangeable depends on where their references resolve, and
 				// documents still to be merged can move those targets, so the
 				// verdict cannot be reached here (#487).
-				newName := uniqueSchemaName(target, j.renamedRightName(name, effectiveName, sourcePrefix, ctx, sourceGraph))
+				newName := uniqueSchemaName(target, result.reservedNames(), j.renamedRightName(name, effectiveName, sourcePrefix, ctx, sourceGraph))
 
 				target[newName] = schema
 				result.recordOrigin(sectionSchemas, newName, ctx)
@@ -461,7 +472,7 @@ func (j *Joiner) mergeSchemas(target, source map[string]*parser.Schema, strategy
 			case StrategyRenameRight:
 				// Rename the new (right) schema and keep existing (left) schema under original name
 				// sourceGraph gives the template operation-aware context for the right/new schema
-				newName := uniqueSchemaName(target, j.renamedRightName(name, effectiveName, sourcePrefix, ctx, sourceGraph))
+				newName := uniqueSchemaName(target, result.reservedNames(), j.renamedRightName(name, effectiveName, sourcePrefix, ctx, sourceGraph))
 
 				// Add new schema under renamed name
 				target[newName] = schema

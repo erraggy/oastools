@@ -95,8 +95,9 @@ func (s *renameScope) generatedNames() map[string]bool {
 	if s == nil {
 		return nil
 	}
-	// Every rename target qualifies: uniqueSchemaName picks a name no other
-	// entry holds, so no document can have spelled it.
+	// Every rename target qualifies: uniqueSchemaName picks a name no document
+	// declares, checked against all of them rather than only the ones merged
+	// ahead of the rename, so no document can have spelled it (#547).
 	generated := make(map[string]bool)
 	for _, renames := range s.byDoc {
 		for _, destination := range renames {
