@@ -72,7 +72,7 @@ func (f *Fixer) fixPathItemCSVEnumsOAS2(pathItem *parser.PathItem, path string, 
 // reporting each fix by the parameter's position.
 func (f *Fixer) fixParametersCSVEnumsOAS2(params []*parser.Parameter, path string, result *FixResult) {
 	for i, param := range params {
-		f.fixParameterCSVEnumsOAS2(param, fmt.Sprintf("%s.parameters[%d]", path, i), result)
+		f.fixParameterCSVEnumsOAS2(param, path+".parameters["+strconv.Itoa(i)+"]", result)
 	}
 }
 
@@ -207,7 +207,7 @@ func (f *Fixer) fixPathItemCSVEnumsOAS3(pathItem *parser.PathItem, path string, 
 // reporting each fix by the parameter's position.
 func (f *Fixer) fixParametersCSVEnumsOAS3(params []*parser.Parameter, path string, result *FixResult) {
 	for i, param := range params {
-		f.fixParameterCSVEnumsOAS3(param, fmt.Sprintf("%s.parameters[%d]", path, i), result)
+		f.fixParameterCSVEnumsOAS3(param, path+".parameters["+strconv.Itoa(i)+"]", result)
 	}
 }
 
@@ -270,7 +270,7 @@ func (f *Fixer) fixSchemaCSVEnums(schema *parser.Schema, path string, result *Fi
 
 	// Recurse into nested schemas
 	for propName, propSchema := range schema.Properties {
-		f.fixSchemaCSVEnums(propSchema, fmt.Sprintf("%s.properties.%s", path, propName), result)
+		f.fixSchemaCSVEnums(propSchema, path+".properties."+propName, result)
 	}
 
 	for i, itemsSchema := range schemautil.SchemaOrBoolSchemas(schema.Items) {
@@ -282,15 +282,15 @@ func (f *Fixer) fixSchemaCSVEnums(schema *parser.Schema, path string, result *Fi
 	}
 
 	for i, allOf := range schema.AllOf {
-		f.fixSchemaCSVEnums(allOf, fmt.Sprintf("%s.allOf[%d]", path, i), result)
+		f.fixSchemaCSVEnums(allOf, path+".allOf["+strconv.Itoa(i)+"]", result)
 	}
 
 	for i, anyOf := range schema.AnyOf {
-		f.fixSchemaCSVEnums(anyOf, fmt.Sprintf("%s.anyOf[%d]", path, i), result)
+		f.fixSchemaCSVEnums(anyOf, path+".anyOf["+strconv.Itoa(i)+"]", result)
 	}
 
 	for i, oneOf := range schema.OneOf {
-		f.fixSchemaCSVEnums(oneOf, fmt.Sprintf("%s.oneOf[%d]", path, i), result)
+		f.fixSchemaCSVEnums(oneOf, path+".oneOf["+strconv.Itoa(i)+"]", result)
 	}
 
 	if schema.Not != nil {
