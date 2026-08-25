@@ -56,7 +56,15 @@ func IsValidDeduplicationScope(scope string) bool {
 // names a rename generated. It returns nil when every name may fold, which is
 // what schemautil reads as "draw no distinction".
 func foldableForScope(scope string, generated map[string]bool) func(name string) bool {
-	if DeduplicationScope(scope) != DeduplicationScopeGeneratedOnly {
+	// An unrecognized value reads as the default, which is how
+	// buildCompareOptions treats EquivalenceDocs: JoinerConfig is a struct a
+	// caller can fill in directly, so New never sees the validation that the
+	// option and the CLI flag each apply on the way in.
+	resolved := DeduplicationScope(scope)
+	if !IsValidDeduplicationScope(scope) {
+		resolved = DeduplicationScopeAll
+	}
+	if resolved != DeduplicationScopeGeneratedOnly {
 		return nil
 	}
 	return func(name string) bool {

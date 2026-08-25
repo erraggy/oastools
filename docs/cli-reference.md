@@ -626,7 +626,7 @@ oastools join [flags] <file1> <file2> [file3...]
 | `--operation-context` | | Enable operation-aware schema renaming |
 | `--primary-operation-policy` | | Policy for selecting primary operation: `first`, `most-specific`, `alphabetical` (default: `first`) |
 | `--semantic-dedup` | | Enable semantic deduplication to consolidate identical schemas. Equivalent names that one schema tree references are kept apart |
-| `--dedup-scope` | `all` | Which names semantic deduplication may fold into the survivor: `all`, or `generated-only` to keep every name a source document declared |
+| `--dedup-scope` | | Which names semantic deduplication may fold into the survivor: `all` (default), or `generated-only` to keep every name a source document declared |
 | `--dedup-report` | | List each consolidation and whether a collision rename generated every folded name |
 | `--equivalence-mode` | | Schema comparison mode for deduplication: `none`, `shallow`, `deep` (default: `none`) |
 | `--equivalence-docs` | | Whether `title`, `description`, `example`, and `examples` participate in schema equivalence: `include` (default, strict), `ignore` (legacy loose) |

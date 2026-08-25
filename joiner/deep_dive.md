@@ -1813,6 +1813,8 @@ type JoinerConfig struct {
     
     // Post-processing
     SemanticDeduplication bool  // Consolidate identical schemas across documents
+    DeduplicationScope  string  // "all" (default) or "generated-only"
+    DeduplicationReport bool    // Record each consolidation and its provenance
 }
 ```
 
