@@ -770,7 +770,10 @@ func TestFix_CSVEnumExpansion_OAS3Headers(t *testing.T) {
 	assert.Equal(t, []any{int64(10), int64(20)}, fixed.Components.Headers["X-Rate-Limit"].Schema.Enum)
 	assert.Equal(t, []any{int64(25), int64(50)},
 		fixed.Paths["/items"].Get.Responses.Codes["200"].Headers["X-Page-Size"].Schema.Enum)
-	assert.Len(t, result.Fixes, 2)
+
+	require.Len(t, result.Fixes, 2)
+	assert.Equal(t, "components.headers.X-Rate-Limit.schema", result.Fixes[0].Path)
+	assert.Equal(t, "paths./items.get.responses.200.headers.X-Page-Size.schema", result.Fixes[1].Path)
 }
 
 // TestFix_CSVEnumExpansion_OAS3ParameterContent tests a parameter that
@@ -807,4 +810,142 @@ func TestFix_CSVEnumExpansion_OAS3ParameterContent(t *testing.T) {
 	assert.Equal(t, []any{int64(1), int64(2), int64(3)}, schema.Enum)
 	require.Len(t, result.Fixes, 1)
 	assert.Equal(t, "components.parameters.Status.content.application/json.schema", result.Fixes[0].Path)
+}
+
+// TestFix_CSVEnumExpansion_OAS3Callbacks tests the path items a callback holds,
+// which carry operations as capable of declaring an enum as the document's own
+// paths are.
+func TestFix_CSVEnumExpansion_OAS3Callbacks(t *testing.T) {
+	callback := parser.Callback{
+		"{$request.body#/url}": {
+			Post: &parser.Operation{
+				OperationID: "onEvent",
+				Parameters: []*parser.Parameter{
+					{Name: "attempt", In: "query", Schema: &parser.Schema{Type: "integer", Enum: []any{"1,2,3"}}},
+				},
+			},
+		},
+	}
+	doc := &parser.OAS3Document{
+		OpenAPI:    "3.0.3",
+		OASVersion: parser.OASVersion303,
+		Info:       &parser.Info{Title: "Test", Version: "1.0.0"},
+		Paths: map[string]*parser.PathItem{
+			"/subscribe": {
+				Post: &parser.Operation{
+					OperationID: "subscribe",
+					Callbacks:   map[string]*parser.Callback{"onEvent": &callback},
+				},
+			},
+		},
+	}
+
+	f := New()
+	f.EnabledFixes = []FixType{FixTypeEnumCSVExpanded}
+	result, err := f.FixParsed(parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion303,
+		Version:    "3.0.3",
+	})
+	require.NoError(t, err)
+
+	fixed := result.Document.(*parser.OAS3Document)
+	fixedCallback := fixed.Paths["/subscribe"].Post.Callbacks["onEvent"]
+	param := (*fixedCallback)["{$request.body#/url}"].Post.Parameters[0]
+	assert.Equal(t, []any{int64(1), int64(2), int64(3)}, param.Schema.Enum)
+
+	require.Len(t, result.Fixes, 1)
+	assert.Equal(t,
+		"paths./subscribe.post.callbacks.onEvent.{$request.body#/url}.post.parameters[0].schema",
+		result.Fixes[0].Path)
+}
+
+// TestFix_CSVEnumExpansion_OAS3EncodingHeaders tests the headers an encoding
+// declares, including the encodings OAS 3.2 lets one nest.
+func TestFix_CSVEnumExpansion_OAS3EncodingHeaders(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI:    "3.2.0",
+		OASVersion: parser.OASVersion320,
+		Info:       &parser.Info{Title: "Test", Version: "1.0.0"},
+		Paths: map[string]*parser.PathItem{
+			"/upload": {
+				Post: &parser.Operation{
+					OperationID: "upload",
+					RequestBody: &parser.RequestBody{
+						Content: map[string]*parser.MediaType{
+							"multipart/form-data": {
+								Encoding: map[string]*parser.Encoding{
+									"profile": {
+										Headers: map[string]*parser.Header{
+											"X-Part-Size": {Schema: &parser.Schema{Type: "integer", Enum: []any{"1,2"}}},
+										},
+										ItemEncoding: &parser.Encoding{
+											Headers: map[string]*parser.Header{
+												"X-Item-Size": {Schema: &parser.Schema{Type: "integer", Enum: []any{"3,4"}}},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	f := New()
+	f.EnabledFixes = []FixType{FixTypeEnumCSVExpanded}
+	result, err := f.FixParsed(parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion320,
+		Version:    "3.2.0",
+	})
+	require.NoError(t, err)
+
+	fixed := result.Document.(*parser.OAS3Document)
+	encoding := fixed.Paths["/upload"].Post.RequestBody.Content["multipart/form-data"].Encoding["profile"]
+	assert.Equal(t, []any{int64(1), int64(2)}, encoding.Headers["X-Part-Size"].Schema.Enum)
+	assert.Equal(t, []any{int64(3), int64(4)}, encoding.ItemEncoding.Headers["X-Item-Size"].Schema.Enum)
+	assert.Len(t, result.Fixes, 2)
+}
+
+// TestFix_CSVEnumExpansion_SortedProperties tests that the fixes a schema's
+// properties produce are recorded in a stable order, which ranging over the
+// map would leave to chance.
+func TestFix_CSVEnumExpansion_SortedProperties(t *testing.T) {
+	names := []string{"alpha", "bravo", "charlie", "delta", "echo"}
+
+	for range 8 {
+		properties := make(map[string]*parser.Schema, len(names))
+		for _, name := range names {
+			properties[name] = &parser.Schema{Type: "integer", Enum: []any{"1,2"}}
+		}
+		doc := &parser.OAS2Document{
+			Swagger:     "2.0",
+			Info:        &parser.Info{Title: "Test", Version: "1.0.0"},
+			Definitions: map[string]*parser.Schema{"Pet": {Type: "object", Properties: properties}},
+		}
+
+		f := New()
+		f.EnabledFixes = []FixType{FixTypeEnumCSVExpanded}
+		result, err := f.FixParsed(parser.ParseResult{
+			Document:   doc,
+			OASVersion: parser.OASVersion20,
+			Version:    "2.0",
+		})
+		require.NoError(t, err)
+
+		paths := make([]string, 0, len(result.Fixes))
+		for _, fix := range result.Fixes {
+			paths = append(paths, fix.Path)
+		}
+		assert.Equal(t, []string{
+			"definitions.Pet.properties.alpha",
+			"definitions.Pet.properties.bravo",
+			"definitions.Pet.properties.charlie",
+			"definitions.Pet.properties.delta",
+			"definitions.Pet.properties.echo",
+		}, paths)
+	}
 }

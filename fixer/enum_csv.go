@@ -157,6 +157,8 @@ func (f *Fixer) fixCSVEnumsOAS3(doc *parser.OAS3Document, result *FixResult) {
 			f.fixMediaTypeCSVEnums(comp.MediaTypes[name], "components.mediaTypes."+name, result)
 		}
 
+		f.fixCallbacksCSVEnums(comp.Callbacks, "components.callbacks", doc.OASVersion, result)
+
 		for _, name := range maputil.SortedKeys(comp.PathItems) {
 			f.fixPathItemCSVEnumsOAS3(comp.PathItems[name], "components.pathItems."+name, doc.OASVersion, result)
 		}
@@ -193,6 +195,8 @@ func (f *Fixer) fixPathItemCSVEnumsOAS3(pathItem *parser.PathItem, path string, 
 		if op.RequestBody != nil {
 			f.fixContentCSVEnums(op.RequestBody.Content, basePath+".requestBody.content", result)
 		}
+
+		f.fixCallbacksCSVEnums(op.Callbacks, basePath+".callbacks", version, result)
 
 		if op.Responses != nil {
 			f.fixResponseCSVEnumsOAS3(op.Responses.Default, basePath+".responses.default", result)
@@ -258,6 +262,58 @@ func (f *Fixer) fixMediaTypeCSVEnums(mediaType *parser.MediaType, path string, r
 	}
 	f.fixSchemaCSVEnums(mediaType.Schema, path+".schema", result)
 	f.fixSchemaCSVEnums(mediaType.ItemSchema, path+".itemSchema", result)
+	f.fixEncodingsCSVEnums(mediaType.Encoding, mediaType.ItemEncoding, mediaType.PrefixEncoding, path, result)
+}
+
+// fixEncodingCSVEnums fixes CSV enums in one encoding: the headers it declares
+// for the part it encodes, and the encodings it nests.
+func (f *Fixer) fixEncodingCSVEnums(encoding *parser.Encoding, path string, result *FixResult) {
+	if encoding == nil {
+		return
+	}
+	for _, name := range maputil.SortedKeys(encoding.Headers) {
+		f.fixHeaderCSVEnumsOAS3(encoding.Headers[name], path+".headers."+name, result)
+	}
+	f.fixEncodingsCSVEnums(encoding.Encoding, encoding.ItemEncoding, encoding.PrefixEncoding, path, result)
+}
+
+// fixEncodingsCSVEnums fixes CSV enums in the three places an encoding may
+// nest another, which a media type and an encoding hold alike: by property
+// name, for each item of a sequence, and positionally for its leading items.
+func (f *Fixer) fixEncodingsCSVEnums(
+	byName map[string]*parser.Encoding,
+	item *parser.Encoding,
+	prefix []*parser.Encoding,
+	path string,
+	result *FixResult,
+) {
+	for _, name := range maputil.SortedKeys(byName) {
+		f.fixEncodingCSVEnums(byName[name], path+".encoding."+name, result)
+	}
+	f.fixEncodingCSVEnums(item, path+".itemEncoding", result)
+	for i, encoding := range prefix {
+		f.fixEncodingCSVEnums(encoding, path+".prefixEncoding["+strconv.Itoa(i)+"]", result)
+	}
+}
+
+// fixCallbacksCSVEnums fixes CSV enums in a callbacks map. Each callback holds
+// path items keyed by a runtime expression, so an enum may be declared as
+// deeply inside one as inside the document's own paths.
+func (f *Fixer) fixCallbacksCSVEnums(
+	callbacks map[string]*parser.Callback,
+	path string,
+	version parser.OASVersion,
+	result *FixResult,
+) {
+	for _, name := range maputil.SortedKeys(callbacks) {
+		callback := callbacks[name]
+		if callback == nil {
+			continue
+		}
+		for _, expression := range maputil.SortedKeys(*callback) {
+			f.fixPathItemCSVEnumsOAS3((*callback)[expression], path+"."+name+"."+expression, version, result)
+		}
+	}
 }
 
 // fixSchemaCSVEnums recursively fixes CSV enum values in a schema.
@@ -269,8 +325,8 @@ func (f *Fixer) fixSchemaCSVEnums(schema *parser.Schema, path string, result *Fi
 	f.fixTypedCSVEnum(getSchemaType(schema), &schema.Enum, path, result)
 
 	// Recurse into nested schemas
-	for propName, propSchema := range schema.Properties {
-		f.fixSchemaCSVEnums(propSchema, path+".properties."+propName, result)
+	for _, propName := range maputil.SortedKeys(schema.Properties) {
+		f.fixSchemaCSVEnums(schema.Properties[propName], path+".properties."+propName, result)
 	}
 
 	for i, itemsSchema := range schemautil.SchemaOrBoolSchemas(schema.Items) {
