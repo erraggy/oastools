@@ -638,7 +638,7 @@ The fixer detects duplicate `operationId` values and automatically generates uni
 
 Enum values specified as comma-separated strings are automatically expanded to proper typed arrays.
 
-Expansion applies only where the declared type is `integer` or `number`. A comma inside a `string` enum value is legitimate, so such values are left as the document wrote them.
+Expansion applies only where the declared type is `integer` or `number`, including an OAS 3.1 type array such as `["integer", "null"]`, whose first non-null entry decides. A comma inside a `string` enum value is legitimate, so such values are left as the document wrote them.
 
 The expansion reaches every place an enum may be declared, not only a schema. In OAS 2.0 a non-body parameter, a response header, and either one's `items` carry `type` and `enum` on the object itself, and those declarations are expanded alongside the ones a schema holds.
 
