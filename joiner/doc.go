@@ -341,7 +341,7 @@
 //
 // WithDeduplicationScope narrows which names may be folded into that survivor:
 //
-//	joiner.WithDeduplicationScope(string(joiner.DeduplicationScopeGeneratedOnly))
+//	joiner.WithDeduplicationScope(joiner.DeduplicationScopeGeneratedOnly)
 //
 // Under "generated-only" a name a document declared is never folded away, while
 // the names a collision rename generated still fold into it. That suits a

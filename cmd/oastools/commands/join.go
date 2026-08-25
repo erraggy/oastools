@@ -271,7 +271,7 @@ func HandleJoin(args []string) error {
 	config.CollisionReport = flags.CollisionReport
 	config.SemanticDeduplication = flags.SemanticDedup
 	if flags.DedupScope != "" {
-		config.DeduplicationScope = flags.DedupScope
+		config.DeduplicationScope = joiner.DeduplicationScope(flags.DedupScope)
 	}
 	config.DeduplicationReport = flags.DedupReport
 

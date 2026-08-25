@@ -86,7 +86,7 @@ func handleJoin(_ context.Context, _ *mcp.CallToolRequest, input joinInput) (*mc
 		opts = append(opts, joiner.WithSemanticDeduplication(true))
 	}
 	if input.DedupScope != "" {
-		opts = append(opts, joiner.WithDeduplicationScope(input.DedupScope))
+		opts = append(opts, joiner.WithDeduplicationScope(joiner.DeduplicationScope(input.DedupScope)))
 	}
 
 	result, err := joiner.JoinWithOptions(opts...)

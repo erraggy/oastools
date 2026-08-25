@@ -18,17 +18,15 @@ const (
 	DeduplicationScopeAll DeduplicationScope = "all"
 
 	// DeduplicationScopeGeneratedOnly folds only the names a collision rename
-	// generated, leaving every name a document declared under its own name.
+	// generated. A name a document declared keeps its own schema, whether or
+	// not an equivalent name survives beside it:
 	//
-	// A generated name is one nothing upstream refers to, so consolidating it
-	// is invisible to a consumer of the joined document. A declared name is
-	// part of a published contract, and removing it is a breaking change for a
-	// client generated from that document (#543).
+	//	{Common, Api_Common}      all: Common      generated-only: Common
+	//	{Zebra, Api_Common}       all: Zebra       generated-only: Zebra
+	//	{Inventory, Stock}        all: Inventory   generated-only: Inventory, Stock
 	//
-	// A group that mixes the two still consolidates: the generated names fold
-	// into the declared name that outranks them, which is the survivor
-	// StrategyDeduplicateOrRename would have chosen. Only a second declared
-	// name in the same group is withdrawn.
+	// The survivor is chosen the same way under both scopes, so a group mixing
+	// the two still folds its generated names into the declared one.
 	DeduplicationScopeGeneratedOnly DeduplicationScope = "generated-only"
 )
 
@@ -55,13 +53,11 @@ func IsValidDeduplicationScope(scope string) bool {
 // foldableForScope returns the FoldableFunc a scope calls for, given the set of
 // names a rename generated. It returns nil when every name may fold, which is
 // what schemautil reads as "draw no distinction".
-func foldableForScope(scope string, generated map[string]bool) func(name string) bool {
-	// An unrecognized value reads as the default, which is how
-	// buildCompareOptions treats EquivalenceDocs: JoinerConfig is a struct a
-	// caller can fill in directly, so New never sees the validation that the
-	// option and the CLI flag each apply on the way in.
-	resolved := DeduplicationScope(scope)
-	if !IsValidDeduplicationScope(scope) {
+func foldableForScope(scope DeduplicationScope, generated map[string]bool) func(name string) bool {
+	// JoinerConfig is a struct a caller can fill in directly, so an
+	// unrecognized value reaches here and reads as the default.
+	resolved := scope
+	if !IsValidDeduplicationScope(string(scope)) {
 		resolved = DeduplicationScopeAll
 	}
 	if resolved != DeduplicationScopeGeneratedOnly {
@@ -89,7 +85,10 @@ type Consolidation struct {
 
 // FoldedName is one name a Consolidation removed, and where the name came from.
 type FoldedName struct {
-	// Name is the removed name, as the joined document spelled it.
+	// Name is the removed name as it stood in the joined document when
+	// deduplication ran, which is after renames are applied. A generated name
+	// was never in a source document, and a declared name that a collision
+	// renamed reads here under the name the rename produced.
 	Name string
 	// Generated reports whether a collision rename produced this name rather
 	// than a document declaring it. Under

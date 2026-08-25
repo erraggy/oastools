@@ -118,10 +118,9 @@ type JoinerConfig struct {
 	SemanticDeduplication bool
 
 	// DeduplicationScope selects which names SemanticDeduplication may fold
-	// into another. Valid values: "all" (default), "generated-only".
-	// The empty string means "all", so a config that never set one keeps the
-	// behavior it had before the scope existed.
-	DeduplicationScope string
+	// into another. The zero value means DeduplicationScopeAll, so a config
+	// that never set one keeps the behavior it had before the scope existed.
+	DeduplicationScope DeduplicationScope
 
 	// DeduplicationReport enables per-consolidation reporting, recording each
 	// survivor, the names folded into it, and whether a rename generated each.
@@ -157,7 +156,7 @@ func DefaultConfig() JoinerConfig {
 		EquivalenceDocs:   string(EquivalenceDocsInclude),
 		CollisionReport:   false,
 
-		DeduplicationScope:  string(DeduplicationScopeAll),
+		DeduplicationScope:  DeduplicationScopeAll,
 		DeduplicationReport: false,
 	}
 }

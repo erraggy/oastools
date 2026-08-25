@@ -34,7 +34,7 @@ type joinConfig struct {
 	equivalenceDocs        *string
 	collisionReport        *bool
 	semanticDeduplication  *bool
-	deduplicationScope     *string
+	deduplicationScope     *DeduplicationScope
 	deduplicationReport    *bool
 	operationContext       *bool
 	primaryOperationPolicy *PrimaryOperationPolicy
@@ -96,7 +96,7 @@ func JoinWithOptions(opts ...Option) (*JoinResult, error) {
 		EquivalenceDocs:       stringValueOrDefault(cfg.equivalenceDocs, defaults.EquivalenceDocs),
 		CollisionReport:       boolValueOrDefault(cfg.collisionReport, defaults.CollisionReport),
 		SemanticDeduplication: boolValueOrDefault(cfg.semanticDeduplication, defaults.SemanticDeduplication),
-		DeduplicationScope:    stringValueOrDefault(cfg.deduplicationScope, defaults.DeduplicationScope),
+		DeduplicationScope:    valueOrDefault(cfg.deduplicationScope, defaults.DeduplicationScope),
 		DeduplicationReport:   boolValueOrDefault(cfg.deduplicationReport, defaults.DeduplicationReport),
 	}
 	if cfg.operationContext != nil {
@@ -324,7 +324,7 @@ func applyOptions(opts ...Option) (*joinConfig, error) {
 }
 
 // Helper functions for option defaults
-func valueOrDefault(ptr *CollisionStrategy, defaultVal CollisionStrategy) CollisionStrategy {
+func valueOrDefault[T any](ptr *T, defaultVal T) T {
 	if ptr == nil {
 		return defaultVal
 	}
@@ -632,9 +632,9 @@ func WithCollisionHandlerFor(handler CollisionHandler, types ...CollisionType) O
 //
 // A group mixing the two still consolidates. The generated names fold into the
 // declared name that outranks them; only a second declared name is withdrawn.
-func WithDeduplicationScope(scope string) Option {
+func WithDeduplicationScope(scope DeduplicationScope) Option {
 	return func(cfg *joinConfig) error {
-		if !IsValidDeduplicationScope(scope) {
+		if !IsValidDeduplicationScope(string(scope)) {
 			return fmt.Errorf("invalid deduplication scope %q: valid values are %s",
 				scope, strings.Join(ValidDeduplicationScopes(), ", "))
 		}

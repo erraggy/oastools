@@ -162,16 +162,16 @@ The two populations differ in who can see them. A generated name exists because 
 ```go
 config := joiner.DefaultConfig()
 config.SemanticDeduplication = true
-config.DeduplicationScope = string(joiner.DeduplicationScopeGeneratedOnly)
+config.DeduplicationScope = joiner.DeduplicationScopeGeneratedOnly
 ```
 
-Or as an option, where `WithDeduplicationScope` rejects a value it does not recognize rather than reading it as the default:
+Or as an option, which rejects a value it does not recognize rather than reading it as the default:
 
 ```go
 result, err := joiner.JoinWithOptions(
     joiner.WithFilePaths("users-api.yaml", "orders-api.yaml"),
     joiner.WithSemanticDeduplication(true),
-    joiner.WithDeduplicationScope(string(joiner.DeduplicationScopeGeneratedOnly)),
+    joiner.WithDeduplicationScope(joiner.DeduplicationScopeGeneratedOnly),
 )
 ```
 
@@ -1813,7 +1813,7 @@ type JoinerConfig struct {
     
     // Post-processing
     SemanticDeduplication bool  // Consolidate identical schemas across documents
-    DeduplicationScope  string  // "all" (default) or "generated-only"
+    DeduplicationScope  DeduplicationScope  // DeduplicationScopeAll (default) or ...GeneratedOnly
     DeduplicationReport bool    // Record each consolidation and its provenance
 }
 ```
@@ -1829,7 +1829,7 @@ type JoinerConfig struct {
 | `WithSchemaStrategy(CollisionStrategy)` | Strategy for schema collisions |
 | `WithComponentStrategy(CollisionStrategy)` | Strategy for other components |
 | `WithSemanticDeduplication(bool)` | Enable cross-document deduplication |
-| `WithDeduplicationScope(string)` | Which names deduplication may fold: `all`, `generated-only` |
+| `WithDeduplicationScope(DeduplicationScope)` | Which names deduplication may fold: `all`, `generated-only` |
 | `WithDeduplicationReport(bool)` | Record each consolidation and the provenance of every folded name |
 | `WithCollisionHandler(handler)` | Register collision handler callback |
 | `WithCollisionHandlerFor(handler, types...)` | Register handler for specific collision types |

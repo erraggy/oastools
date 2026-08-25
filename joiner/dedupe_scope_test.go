@@ -23,7 +23,7 @@ func scopeDocs() []parser.ParseResult {
 	}
 }
 
-func scopeConfig(scope string) JoinerConfig {
+func scopeConfig(scope DeduplicationScope) JoinerConfig {
 	config := DefaultConfig()
 	config.SchemaStrategy = StrategyDeduplicateOrRename
 	config.EquivalenceMode = string(EquivalenceModeDeep)
@@ -33,7 +33,7 @@ func scopeConfig(scope string) JoinerConfig {
 	return config
 }
 
-func joinWithScope(t *testing.T, scope string, docs []parser.ParseResult) *JoinResult {
+func joinWithScope(t *testing.T, scope DeduplicationScope, docs []parser.ParseResult) *JoinResult {
 	t.Helper()
 	result, err := New(scopeConfig(scope)).JoinParsed(docs)
 	require.NoError(t, err)
@@ -43,8 +43,8 @@ func joinWithScope(t *testing.T, scope string, docs []parser.ParseResult) *JoinR
 // TestDeduplicationScopeDefaultUnchanged covers R5: the zero value and an
 // explicit "all" both keep the behavior that predates the scope.
 func TestDeduplicationScopeDefaultUnchanged(t *testing.T) {
-	for _, scope := range []string{"", string(DeduplicationScopeAll)} {
-		t.Run("scope="+scope, func(t *testing.T) {
+	for _, scope := range []DeduplicationScope{"", DeduplicationScopeAll} {
+		t.Run("scope="+string(scope), func(t *testing.T) {
 			definitions := definitionsOf(t, joinWithScope(t, scope, scopeDocs()))
 			assert.Contains(t, definitions, "Inventory")
 			assert.NotContains(t, definitions, "Stock",
@@ -56,7 +56,7 @@ func TestDeduplicationScopeDefaultUnchanged(t *testing.T) {
 // TestDeduplicationScopeGeneratedOnlyKeepsDeclaredNames covers R1: a declared
 // name is left alone even when an equivalent declared name survives beside it.
 func TestDeduplicationScopeGeneratedOnlyKeepsDeclaredNames(t *testing.T) {
-	definitions := definitionsOf(t, joinWithScope(t, string(DeduplicationScopeGeneratedOnly), scopeDocs()))
+	definitions := definitionsOf(t, joinWithScope(t, DeduplicationScopeGeneratedOnly, scopeDocs()))
 
 	assert.Contains(t, definitions, "Inventory")
 	assert.Contains(t, definitions, "Stock",
@@ -75,7 +75,7 @@ func TestDeduplicationScopeGeneratedOnlyStillFoldsGenerated(t *testing.T) {
 		oas2With("c", map[string]*parser.Schema{"Zebra": object("shared")}),
 	}
 
-	definitions := definitionsOf(t, joinWithScope(t, string(DeduplicationScopeGeneratedOnly), docs))
+	definitions := definitionsOf(t, joinWithScope(t, DeduplicationScopeGeneratedOnly, docs))
 
 	assert.Contains(t, definitions, "Zebra", "the declared name survives")
 	assert.NotContains(t, definitions, "Common_b", "the generated alias still folds into it")
@@ -90,8 +90,8 @@ func TestDeduplicationScopeKeepsDeclaredSurvivor(t *testing.T) {
 		oas2With("c", map[string]*parser.Schema{"Zebra": object("shared")}),
 	}
 
-	for _, scope := range []string{string(DeduplicationScopeAll), string(DeduplicationScopeGeneratedOnly)} {
-		t.Run("scope="+scope, func(t *testing.T) {
+	for _, scope := range []DeduplicationScope{DeduplicationScopeAll, DeduplicationScopeGeneratedOnly} {
+		t.Run("scope="+string(scope), func(t *testing.T) {
 			config := scopeConfig(scope)
 			config.RenameTemplate = aliasFirstTemplate // Api_{{.Name}} sorts before Zebra
 			result, err := New(config).JoinParsed(docs)
@@ -108,7 +108,7 @@ func TestDeduplicationScopeKeepsDeclaredSurvivor(t *testing.T) {
 // TestDeduplicationReport covers R3: each consolidation names its survivor, the
 // names folded into it, and where each name came from.
 func TestDeduplicationReport(t *testing.T) {
-	config := scopeConfig(string(DeduplicationScopeAll))
+	config := scopeConfig(DeduplicationScopeAll)
 	config.DeduplicationReport = true
 
 	result, err := New(config).JoinParsed(scopeDocs())
@@ -132,7 +132,7 @@ func TestDeduplicationReportRecordsGeneratedProvenance(t *testing.T) {
 		oas2With("c", map[string]*parser.Schema{"Zebra": object("shared")}),
 	}
 
-	config := scopeConfig(string(DeduplicationScopeGeneratedOnly))
+	config := scopeConfig(DeduplicationScopeGeneratedOnly)
 	config.DeduplicationReport = true
 
 	result, err := New(config).JoinParsed(docs)
@@ -146,7 +146,7 @@ func TestDeduplicationReportRecordsGeneratedProvenance(t *testing.T) {
 // TestDeduplicationReportOffByDefault covers the other half of R5: the report
 // costs nothing until it is asked for.
 func TestDeduplicationReportOffByDefault(t *testing.T) {
-	result := joinWithScope(t, string(DeduplicationScopeAll), scopeDocs())
+	result := joinWithScope(t, DeduplicationScopeAll, scopeDocs())
 	assert.Empty(t, result.Consolidations)
 }
 
@@ -164,8 +164,8 @@ func TestDeduplicationScopeRejectsUnknownValue(t *testing.T) {
 // TestDeduplicationScopeHoldsReferencedNamesApart covers R4: the guarantee that
 // names one schema tree references stay distinct does not depend on the scope.
 func TestDeduplicationScopeHoldsReferencedNamesApart(t *testing.T) {
-	for _, scope := range []string{string(DeduplicationScopeAll), string(DeduplicationScopeGeneratedOnly)} {
-		t.Run("scope="+scope, func(t *testing.T) {
+	for _, scope := range []DeduplicationScope{DeduplicationScopeAll, DeduplicationScopeGeneratedOnly} {
+		t.Run("scope="+string(scope), func(t *testing.T) {
 			config := scopeConfig(scope)
 			result, err := New(config).JoinParsed([]parser.ParseResult{
 				emptyCombined(parser.OASVersion20),
@@ -184,7 +184,7 @@ func TestDeduplicationScopeHoldsReferencedNamesApart(t *testing.T) {
 // TestDeduplicationScopeComposesWithOperationContext covers R4 for the options
 // the reporter uses together.
 func TestDeduplicationScopeComposesWithOperationContext(t *testing.T) {
-	config := scopeConfig(string(DeduplicationScopeGeneratedOnly))
+	config := scopeConfig(DeduplicationScopeGeneratedOnly)
 	config.OperationContext = true
 	config.RenameTemplate = "{{.Name}}_{{.Source}}"
 
