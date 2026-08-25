@@ -270,9 +270,6 @@ func HandleJoin(args []string) error {
 	}
 	config.CollisionReport = flags.CollisionReport
 	config.SemanticDeduplication = flags.SemanticDedup
-	if flags.DedupScope != "" {
-		config.DeduplicationScope = joiner.DeduplicationScope(flags.DedupScope)
-	}
 	config.DeduplicationReport = flags.DedupReport
 
 	// Apply namespace prefix configuration
@@ -300,6 +297,9 @@ func HandleJoin(args []string) error {
 	}
 	if err := ValidateDeduplicationScope(flags.DedupScope); err != nil {
 		return err
+	}
+	if flags.DedupScope != "" {
+		config.DeduplicationScope = joiner.DeduplicationScope(flags.DedupScope)
 	}
 	if err := ValidatePrimaryOperationPolicy(flags.PrimaryOperationPolicy); err != nil {
 		return err

@@ -1,6 +1,9 @@
 package commands
 
 import (
+	"bytes"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/erraggy/oastools/joiner"
@@ -313,4 +316,167 @@ func TestHandleJoin_NonexistentPostOverlay(t *testing.T) {
 		"../../testdata/oas3/petstore.yaml",
 	})
 	assert.Error(t, err)
+}
+
+// writeDedupReportSpecs writes two documents that both declare an equivalent
+// Inventory and Stock, so semantic deduplication has a consolidation to report.
+func writeDedupReportSpecs(t *testing.T) (string, string) {
+	t.Helper()
+	dir := t.TempDir()
+
+	first := filepath.Join(dir, "first.json")
+	require.NoError(t, os.WriteFile(first, []byte(`{
+  "swagger": "2.0",
+  "info": { "title": "first", "version": "1.0.0" },
+  "paths": {
+    "/inventory": { "get": { "operationId": "getInventory", "responses": { "200": { "description": "ok", "schema": { "$ref": "#/definitions/Inventory" } } } } },
+    "/stock": { "get": { "operationId": "getStock", "responses": { "200": { "description": "ok", "schema": { "$ref": "#/definitions/Stock" } } } } }
+  },
+  "definitions": {
+    "Inventory": { "type": "object", "properties": { "sku": { "type": "string" } } },
+    "Stock": { "type": "object", "properties": { "sku": { "type": "string" } } }
+  }
+}`), 0o600))
+
+	second := filepath.Join(dir, "second.json")
+	require.NoError(t, os.WriteFile(second, []byte(`{
+  "swagger": "2.0",
+  "info": { "title": "second", "version": "1.0.0" },
+  "paths": {
+    "/other": { "get": { "operationId": "getOther", "responses": { "200": { "description": "ok", "schema": { "$ref": "#/definitions/Other" } } } } }
+  },
+  "definitions": {
+    "Other": { "type": "object", "properties": { "id": { "type": "integer" } } }
+  }
+}`), 0o600))
+
+	return first, second
+}
+
+// captureJoinStderr runs a join and returns what it wrote to stderr, which is
+// where the diagnostics go so stdout stays pipeable.
+func captureJoinStderr(t *testing.T, args []string) string {
+	t.Helper()
+
+	oldStderr := os.Stderr
+	reader, writer, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stderr = writer
+
+	joinErr := HandleJoin(args)
+
+	_ = writer.Close()
+	os.Stderr = oldStderr
+	require.NoError(t, joinErr)
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(reader)
+	return buf.String()
+}
+
+func TestHandleJoin_DedupReport(t *testing.T) {
+	first, second := writeDedupReportSpecs(t)
+	output := filepath.Join(t.TempDir(), "joined.json")
+
+	stderr := captureJoinStderr(t, []string{
+		"--schema-strategy", "deduplicate-or-rename",
+		"--equivalence-mode", "deep",
+		"--semantic-dedup",
+		"--dedup-report",
+		"-o", output,
+		first, second,
+	})
+
+	assert.Contains(t, stderr, "Consolidations (1):")
+	assert.Contains(t, stderr, "Inventory (declared)")
+	assert.Contains(t, stderr, "<- Stock (declared)")
+}
+
+func TestHandleJoin_DedupReportOmittedWhenNotRequested(t *testing.T) {
+	first, second := writeDedupReportSpecs(t)
+	output := filepath.Join(t.TempDir(), "joined.json")
+
+	stderr := captureJoinStderr(t, []string{
+		"--schema-strategy", "deduplicate-or-rename",
+		"--equivalence-mode", "deep",
+		"--semantic-dedup",
+		"-o", output,
+		first, second,
+	})
+
+	assert.NotContains(t, stderr, "Consolidations",
+		"the report costs nothing until it is asked for")
+}
+
+func TestHandleJoin_DedupScopeGeneratedOnlyKeepsDeclaredNames(t *testing.T) {
+	first, second := writeDedupReportSpecs(t)
+	output := filepath.Join(t.TempDir(), "joined.json")
+
+	stderr := captureJoinStderr(t, []string{
+		"--schema-strategy", "deduplicate-or-rename",
+		"--equivalence-mode", "deep",
+		"--semantic-dedup",
+		"--dedup-scope", "generated-only",
+		"--dedup-report",
+		"-o", output,
+		first, second,
+	})
+
+	assert.NotContains(t, stderr, "Consolidations",
+		"nothing folds when both equivalent names were declared")
+
+	joined, err := os.ReadFile(output) //nolint:gosec // path is built by the test
+	require.NoError(t, err)
+	assert.Contains(t, string(joined), `"Stock"`, "the declared name survives")
+}
+
+func TestHandleJoin_InvalidDedupScope(t *testing.T) {
+	err := HandleJoin([]string{"--dedup-scope", "generated_only", "f1.yaml", "f2.yaml"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "generated-only", "the error lists the valid scopes")
+}
+
+func TestHandleJoin_DedupReportNamesAGeneratedFold(t *testing.T) {
+	dir := t.TempDir()
+
+	// first declares Common with one shape, plus an Inventory equal to the
+	// shape second uses, so second's Common is renamed and then folds into a
+	// declared name.
+	first := filepath.Join(dir, "first.json")
+	require.NoError(t, os.WriteFile(first, []byte(`{
+  "swagger": "2.0",
+  "info": { "title": "first", "version": "1.0.0" },
+  "paths": {
+    "/common": { "get": { "operationId": "getCommon", "responses": { "200": { "description": "ok", "schema": { "$ref": "#/definitions/Common" } } } } },
+    "/inventory": { "get": { "operationId": "getInventory", "responses": { "200": { "description": "ok", "schema": { "$ref": "#/definitions/Inventory" } } } } }
+  },
+  "definitions": {
+    "Common": { "type": "object", "properties": { "id": { "type": "integer" } } },
+    "Inventory": { "type": "object", "properties": { "sku": { "type": "string" } } }
+  }
+}`), 0o600))
+
+	second := filepath.Join(dir, "second.json")
+	require.NoError(t, os.WriteFile(second, []byte(`{
+  "swagger": "2.0",
+  "info": { "title": "second", "version": "1.0.0" },
+  "paths": {
+    "/second/common": { "get": { "operationId": "getCommonToo", "responses": { "200": { "description": "ok", "schema": { "$ref": "#/definitions/Common" } } } } }
+  },
+  "definitions": {
+    "Common": { "type": "object", "properties": { "sku": { "type": "string" } } }
+  }
+}`), 0o600))
+
+	stderr := captureJoinStderr(t, []string{
+		"--schema-strategy", "deduplicate-or-rename",
+		"--equivalence-mode", "deep",
+		"--semantic-dedup",
+		"--dedup-report",
+		"-o", filepath.Join(dir, "joined.json"),
+		first, second,
+	})
+
+	assert.Contains(t, stderr, "Inventory (declared)", "the declared name survives")
+	assert.Contains(t, stderr, "(generated)", "and the rename that folded into it is named as generated")
 }

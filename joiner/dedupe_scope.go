@@ -53,7 +53,7 @@ func IsValidDeduplicationScope(scope string) bool {
 // foldableForScope returns the FoldableFunc a scope calls for, given the set of
 // names a rename generated. It returns nil when every name may fold, which is
 // what schemautil reads as "draw no distinction".
-func foldableForScope(scope DeduplicationScope, generated map[string]bool) func(name string) bool {
+func foldableForScope(scope DeduplicationScope, generated map[string]bool) schemautil.FoldableFunc {
 	// JoinerConfig is a struct a caller can fill in directly, so an
 	// unrecognized value reaches here and reads as the default.
 	resolved := scope
