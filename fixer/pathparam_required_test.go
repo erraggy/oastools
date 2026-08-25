@@ -489,3 +489,99 @@ func TestBuildPathParamRequiredDescription(t *testing.T) {
 	assert.Equal(t, "Set required: true on path parameter",
 		buildPathParamRequiredDescription(""))
 }
+
+// TestFix_AdditionalOperationsPathSegment tests that every pass building a fix
+// path from a parser.GetOperations key names an OAS 3.2 custom method the way
+// the document spells it, under additionalOperations, as walker and validator
+// both do.
+func TestFix_AdditionalOperationsPathSegment(t *testing.T) {
+	tests := []struct {
+		name     string
+		fixType  FixType
+		pathItem func() *parser.PathItem
+		wantPath string
+	}{
+		{
+			name:    "missing path parameter",
+			fixType: FixTypeMissingPathParameter,
+			pathItem: func() *parser.PathItem {
+				return &parser.PathItem{
+					AdditionalOperations: map[string]*parser.Operation{
+						"PURGE": {OperationID: "purgeItem"},
+					},
+				}
+			},
+			wantPath: "paths./items/{id}.additionalOperations.PURGE.parameters",
+		},
+		{
+			name:    "path parameter missing required",
+			fixType: FixTypePathParameterNotRequired,
+			pathItem: func() *parser.PathItem {
+				return &parser.PathItem{
+					AdditionalOperations: map[string]*parser.Operation{
+						"PURGE": {
+							OperationID: "purgeItem",
+							Parameters: []*parser.Parameter{
+								{Name: "id", In: "path", Schema: &parser.Schema{Type: "string"}},
+							},
+						},
+					},
+				}
+			},
+			wantPath: "paths./items/{id}.additionalOperations.PURGE.parameters[0]",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			doc := &parser.OAS3Document{
+				OpenAPI:    "3.2.0",
+				OASVersion: parser.OASVersion320,
+				Info:       &parser.Info{Title: "Test", Version: "1.0.0"},
+				Paths:      map[string]*parser.PathItem{"/items/{id}": tt.pathItem()},
+			}
+
+			f := New()
+			f.EnabledFixes = []FixType{tt.fixType}
+			result, err := f.FixParsed(parser.ParseResult{
+				Document:   doc,
+				OASVersion: parser.OASVersion320,
+				Version:    "3.2.0",
+			})
+			require.NoError(t, err)
+
+			require.Len(t, result.Fixes, 1)
+			assert.Equal(t, tt.wantPath, result.Fixes[0].Path)
+		})
+	}
+}
+
+// TestFix_AdditionalOperationsDuplicateOperationId tests the same for the
+// duplicate operationId pass, which needs two operations to have a duplicate.
+func TestFix_AdditionalOperationsDuplicateOperationId(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI:    "3.2.0",
+		OASVersion: parser.OASVersion320,
+		Info:       &parser.Info{Title: "Test", Version: "1.0.0"},
+		Paths: map[string]*parser.PathItem{
+			"/items": {
+				Get: &parser.Operation{OperationID: "handleItems"},
+				AdditionalOperations: map[string]*parser.Operation{
+					"PURGE": {OperationID: "handleItems"},
+				},
+			},
+		},
+	}
+
+	f := New()
+	f.EnabledFixes = []FixType{FixTypeDuplicateOperationId}
+	result, err := f.FixParsed(parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion320,
+		Version:    "3.2.0",
+	})
+	require.NoError(t, err)
+
+	require.Len(t, result.Fixes, 1)
+	assert.Equal(t, "paths./items.additionalOperations.PURGE.operationId", result.Fixes[0].Path)
+}

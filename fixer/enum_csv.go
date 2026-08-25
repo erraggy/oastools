@@ -212,17 +212,6 @@ func (f *Fixer) fixPathItemCSVEnumsOAS3(pathItem *parser.PathItem, path string, 
 	}
 }
 
-// operationPathSegment returns the path segment naming one operation of a path
-// item. parser.GetOperations flattens the custom methods OAS 3.2 allows into
-// the same map as the standard ones, but the document spells them under
-// additionalOperations, which is where the rest of oastools reports them.
-func operationPathSegment(pathItem *parser.PathItem, method string) string {
-	if _, custom := pathItem.AdditionalOperations[method]; custom {
-		return "additionalOperations." + method
-	}
-	return method
-}
-
 // fixParametersCSVEnumsOAS3 fixes CSV enums in one OAS 3.x parameter list,
 // reporting each fix by the parameter's position.
 func (f *Fixer) fixParametersCSVEnumsOAS3(params []*parser.Parameter, path string, result *FixResult) {

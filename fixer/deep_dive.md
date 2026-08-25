@@ -89,12 +89,45 @@ validator, so what `validate` reports is exactly what `fix` repairs. A parity te
 validates a defective spec, fixes it, and re-validates to assert no
 `required: true` error survives.
 
+**Where `FixTypeEnumCSVExpanded` applies**
+
+An enum written as one comma joined string is expanded only where the type
+resolves to `integer` or `number`. An OAS 3.1 type array counts, its first
+non-null entry deciding, so `["integer", "null"]` expands. A comma inside a
+`string` enum value is legitimate, so those are left as the document wrote them.
+
+The enum does not have to be in a schema. OAS 2.0 gives a non-body parameter no
+schema at all: `type` and `enum` sit on the parameter object itself, as they do
+on a response header and on either one's `items` chain. This pass reaches every
+declaration in both versions:
+
+| Site | Reported path |
+|---|---|
+| OAS 2.0 `definitions` | `definitions.{name}` |
+| OAS 2.0 root-level `parameters` and `responses` | `parameters.{name}`, `responses.{name}` |
+| OAS 2.0 parameter or header declaring type and enum itself | `...parameters[{i}]`, `...headers.{name}` |
+| OAS 2.0 items chain, at any depth | `...parameters[{i}].items[.items...]` |
+| OAS 3.x `components.schemas`, `parameters`, `headers`, `requestBodies`, `responses` | `components.{section}.{name}...` |
+| OAS 3.x `components.pathItems` | `components.pathItems.{name}...` |
+| Path item parameters, both versions | `paths.{path}.parameters[{i}]` |
+| Operation parameters, request body, responses | `paths.{path}.{method}...` |
+| Parameter or header using `content` instead of `schema` | `....content.{mediaType}.schema` |
+| Media type `itemSchema` and `encoding` headers | `....itemSchema`, `....encoding.{name}.headers.{name}.schema` |
+| Callbacks and webhooks | `....callbacks.{name}.{expression}...`, `webhooks.{name}...` |
+| OAS 3.2 custom methods | `paths.{path}.additionalOperations.{METHOD}...` |
+
+A path item's parameters are visited once, not once per operation it holds. Every
+map is walked in sorted key order, so the fixes one document produces are
+reported in the same sequence on every run.
+
 **Why are some fixes disabled by default?**
 
 Disabled fixes fall into two categories:
 
 - **Performance-sensitive**: Schema renaming (`FixTypeRenamedGenericSchema`) and pruning (`FixTypePrunedUnusedSchema`, `FixTypePrunedEmptyPath`) walk all references and compute unused schemas, which can significantly slow processing of large specifications.
 - **Behavioral impact**: `FixTypeDuplicateOperationId` renames operation IDs that clients and SDK generators may already depend on. `FixTypeStubMissingRef` injects synthetic placeholder content into the document. Both are opt-in to avoid unexpected breakage.
+
+`FixTypeEnumCSVExpanded` belongs to both categories. It walks the whole document, including callbacks, webhooks and encoding chains, and it rewrites values a client may already send. It also encodes a guess: that a comma in a numeric enum was meant to separate values rather than to be part of one.
 
 [Back to top](#top)
 

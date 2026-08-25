@@ -143,7 +143,7 @@ func (f *Fixer) fixDuplicateOperationIdsUnified(
 
 				fix := Fix{
 					Type: FixTypeDuplicateOperationId,
-					Path: fmt.Sprintf("%s.%s.%s.operationId", pathType, actualPath, method),
+					Path: fmt.Sprintf("%s.%s.%s.operationId", pathType, actualPath, operationPathSegment(pathItem, method)),
 					Description: fmt.Sprintf(
 						"renamed duplicate operationId %q to %q (first occurrence at %s %s)",
 						opId, newName, strings.ToUpper(loc.method), loc.path,
@@ -217,7 +217,7 @@ func (f *Fixer) fixDuplicateOperationIdsInPathItems(
 
 				fix := Fix{
 					Type: FixTypeDuplicateOperationId,
-					Path: fmt.Sprintf("%s.%s.%s.operationId", pathType, key, method),
+					Path: fmt.Sprintf("%s.%s.%s.operationId", pathType, key, operationPathSegment(pathItem, method)),
 					Description: fmt.Sprintf(
 						"renamed duplicate operationId %q to %q (first occurrence at %s %s)",
 						opId, newName, strings.ToUpper(loc.method), loc.path,
