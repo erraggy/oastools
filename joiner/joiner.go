@@ -236,6 +236,24 @@ type JoinResult struct {
 	// deduplication rank names by it, so the two cannot disagree about which
 	// name a document actually wrote (#498).
 	generated map[string]bool
+	// reserved is every schema name any source document declares, under the
+	// name it will be merged as. uniqueSchemaName refuses these, so a rename
+	// cannot take a name a document merged later goes on to declare (#547).
+	// Read it through reservedNames, which fills it on first use.
+	reserved map[string]bool
+	// reserveNames builds reserved. It is deferred because a join that renames
+	// nothing never needs the set, and building it walks every schema name in
+	// every source document.
+	reserveNames func() map[string]bool
+}
+
+// reservedNames returns the names no rename may take, building the set on the
+// first rename that asks for it.
+func (r *JoinResult) reservedNames() map[string]bool {
+	if r.reserved == nil && r.reserveNames != nil {
+		r.reserved = r.reserveNames()
+	}
+	return r.reserved
 }
 
 // deferredRename is one collision StrategyDeduplicateOrRename renamed its way
@@ -714,17 +732,30 @@ func (j *Joiner) renamedRightName(sourceName, effectiveName, sourcePrefix string
 // candidate_3 and so on. A rename template can generate a name that is already
 // taken, and storing the schema there would drop the one under it (#483). The
 // rename warning reports the name that was used.
-func uniqueSchemaName(taken map[string]*parser.Schema, candidate string) string {
-	if _, exists := taken[candidate]; !exists {
+func uniqueSchemaName(taken map[string]*parser.Schema, reserved map[string]bool, candidate string) string {
+	if nameAvailable(taken, reserved, candidate) {
 		return candidate
 	}
-	// One of the first len(taken)+2 names is free.
+	// One of the first len(taken)+len(reserved)+2 names is free.
 	for n := 2; ; n++ {
 		name := candidate + "_" + strconv.Itoa(n)
-		if _, exists := taken[name]; !exists {
+		if nameAvailable(taken, reserved, name) {
 			return name
 		}
 	}
+}
+
+// nameAvailable reports whether a rename may store a schema under name.
+//
+// taken is what the join holds so far. reserved is what the source documents
+// declare, including the ones not merged yet: without it a rename picks a name
+// only against the documents behind it, and a document merged later that
+// declares that same name is renamed out of its own spelling (#547).
+func nameAvailable(taken map[string]*parser.Schema, reserved map[string]bool, name string) bool {
+	if _, exists := taken[name]; exists {
+		return false
+	}
+	return !reserved[name]
 }
 
 // recordCollisionEvent records a collision event if reporting is enabled
@@ -844,4 +875,39 @@ func (j *Joiner) getLocationPtr(filePath, jsonPath string) *SourceLocation {
 		return nil
 	}
 	return &SourceLocation{Line: line, Column: col}
+}
+
+// reserveDeclaredNames returns every schema name the source documents declare,
+// under the name each will be merged as.
+//
+// declaredNames yields one document's schema names; the caller supplies it
+// because OAS 2.0 keeps them in definitions and OAS 3.x under
+// components.schemas. paths gives each document's source path, which is what
+// selects its namespace prefix.
+//
+// A prefixed document is spelled as the prefix will spell it, since that is the
+// name the merge stores and therefore the name a rename must not take. Callers
+// that configure no prefix at all get the declared names unchanged.
+func (j *Joiner) reserveDeclaredNames(paths []string, declaredNames func(docIndex int) map[string]*parser.Schema) map[string]bool {
+	reserved := make(map[string]bool)
+	for i, path := range paths {
+		prefix := j.getNamespacePrefix(path)
+		applyPrefix := j.config.AlwaysApplyPrefix && prefix != ""
+		for name := range declaredNames(i) {
+			if applyPrefix {
+				name = j.generatePrefixedSchemaName(name, prefix)
+			}
+			reserved[name] = true
+		}
+	}
+	return reserved
+}
+
+// sourcePaths returns each document's source path, in document order.
+func sourcePaths(docs []parser.ParseResult) []string {
+	paths := make([]string, len(docs))
+	for i, doc := range docs {
+		paths[i] = doc.SourcePath
+	}
+	return paths
 }

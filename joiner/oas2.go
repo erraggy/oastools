@@ -68,6 +68,14 @@ func (j *Joiner) joinOAS2Documents(docs []parser.ParseResult) (*JoinResult, erro
 		OASVersion:          baseDoc.OASVersion,
 	}
 
+	// Before any merging, so a rename is checked against the names every
+	// document declares rather than only the ones merged ahead of it (#547).
+	result.reserveNames = func() map[string]bool {
+		return j.reserveDeclaredNames(sourcePaths(docs), func(docIndex int) map[string]*parser.Schema {
+			return sources[docIndex].Definitions
+		})
+	}
+
 	graphs := newRefGraphs(j.config.OperationContext, func(docIndex int) *RefGraph {
 		return buildRefGraphOAS2(sources[docIndex])
 	})
@@ -287,7 +295,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 				} else {
 					newName = j.generateRenamedSchemaName(effectiveName, leftOrigin.filePath, leftOrigin.docIndex, graphs.forDoc(leftOrigin.docIndex))
 				}
-				newName = uniqueSchemaName(joined.Definitions, newName)
+				newName = uniqueSchemaName(joined.Definitions, result.reservedNames(), newName)
 
 				// Move existing definition to new name
 				joined.Definitions[newName] = joined.Definitions[effectiveName]
@@ -309,7 +317,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 				// interchangeable depends on where their references resolve, and
 				// documents still to be merged can move those targets, so the
 				// verdict cannot be reached here (#487).
-				newName := uniqueSchemaName(joined.Definitions,
+				newName := uniqueSchemaName(joined.Definitions, result.reservedNames(),
 					j.renamedRightName(name, effectiveName, sourcePrefix, ctx, sourceGraph))
 
 				joined.Definitions[newName] = schema
@@ -332,7 +340,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 
 			case StrategyRenameRight:
 				// Rename the new (right) definition and keep existing (left) definition under original name
-				newName := uniqueSchemaName(joined.Definitions,
+				newName := uniqueSchemaName(joined.Definitions, result.reservedNames(),
 					j.renamedRightName(name, effectiveName, sourcePrefix, ctx, sourceGraph))
 
 				// Add new definition under renamed name

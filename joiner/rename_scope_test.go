@@ -791,10 +791,22 @@ func TestUniqueSchemaName(t *testing.T) {
 		"Unrelat": {},
 	}
 
-	assert.Equal(t, "Cat", uniqueSchemaName(taken, "Cat"), "a free name is returned unchanged")
-	assert.Equal(t, "Pet_4", uniqueSchemaName(taken, "Pet"), "the first free suffix is used")
-	assert.Equal(t, "Pet_2_2", uniqueSchemaName(taken, "Pet_2"), "suffixing is applied to the candidate as given")
-	assert.Equal(t, "Cat", uniqueSchemaName(map[string]*parser.Schema{}, "Cat"))
+	assert.Equal(t, "Cat", uniqueSchemaName(taken, nil, "Cat"), "a free name is returned unchanged")
+	assert.Equal(t, "Pet_4", uniqueSchemaName(taken, nil, "Pet"), "the first free suffix is used")
+	assert.Equal(t, "Pet_2_2", uniqueSchemaName(taken, nil, "Pet_2"), "suffixing is applied to the candidate as given")
+	assert.Equal(t, "Cat", uniqueSchemaName(map[string]*parser.Schema{}, nil, "Cat"))
+}
+
+func TestUniqueSchemaNameReserved(t *testing.T) {
+	taken := map[string]*parser.Schema{"Pet": {}}
+	reserved := map[string]bool{"Cat": true, "Cat_2": true, "Pet_2": true}
+
+	assert.Equal(t, "Cat_3", uniqueSchemaName(taken, reserved, "Cat"),
+		"a name a document declares is refused even though nothing holds it yet")
+	assert.Equal(t, "Pet_3", uniqueSchemaName(taken, reserved, "Pet"),
+		"suffixing skips past both what is taken and what is reserved")
+	assert.Equal(t, "Dog", uniqueSchemaName(taken, reserved, "Dog"),
+		"a name neither taken nor reserved is returned unchanged")
 }
 
 func definitionNames(doc *parser.OAS2Document) []string {
