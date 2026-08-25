@@ -168,6 +168,11 @@ func (f *Fixer) fixCSVEnumsOAS3(doc *parser.OAS3Document, result *FixResult) {
 	for _, path := range maputil.SortedKeys(doc.Paths) {
 		f.fixPathItemCSVEnumsOAS3(doc.Paths[path], "paths."+path, doc.OASVersion, result)
 	}
+
+	// Fix webhooks, which OAS 3.1 places alongside paths rather than under them
+	for _, name := range maputil.SortedKeys(doc.Webhooks) {
+		f.fixPathItemCSVEnumsOAS3(doc.Webhooks[name], "webhooks."+name, doc.OASVersion, result)
+	}
 }
 
 // fixPathItemCSVEnumsOAS3 fixes CSV enums in an OAS 3.x path item. The version

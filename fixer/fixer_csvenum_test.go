@@ -884,8 +884,14 @@ func TestFix_CSVEnumExpansion_OAS3EncodingHeaders(t *testing.T) {
 												"X-Item-Size": {Schema: &parser.Schema{Type: "integer", Enum: []any{"3,4"}}},
 											},
 										},
+										PrefixEncoding: []*parser.Encoding{{
+											Headers: map[string]*parser.Header{
+												"X-Lead-Size": {Schema: &parser.Schema{Type: "integer", Enum: []any{"5,6"}}},
+											},
+										}},
 									},
 								},
+								ItemSchema: &parser.Schema{Type: "integer", Enum: []any{"7,8"}},
 							},
 						},
 					},
@@ -907,7 +913,96 @@ func TestFix_CSVEnumExpansion_OAS3EncodingHeaders(t *testing.T) {
 	encoding := fixed.Paths["/upload"].Post.RequestBody.Content["multipart/form-data"].Encoding["profile"]
 	assert.Equal(t, []any{int64(1), int64(2)}, encoding.Headers["X-Part-Size"].Schema.Enum)
 	assert.Equal(t, []any{int64(3), int64(4)}, encoding.ItemEncoding.Headers["X-Item-Size"].Schema.Enum)
-	assert.Len(t, result.Fixes, 2)
+	assert.Equal(t, []any{int64(5), int64(6)}, encoding.PrefixEncoding[0].Headers["X-Lead-Size"].Schema.Enum)
+
+	mediaType := fixed.Paths["/upload"].Post.RequestBody.Content["multipart/form-data"]
+	assert.Equal(t, []any{int64(7), int64(8)}, mediaType.ItemSchema.Enum)
+
+	paths := make([]string, 0, len(result.Fixes))
+	for _, fix := range result.Fixes {
+		paths = append(paths, fix.Path)
+	}
+	const content = "paths./upload.post.requestBody.content.multipart/form-data"
+	assert.Equal(t, []string{
+		content + ".itemSchema",
+		content + ".encoding.profile.headers.X-Part-Size.schema",
+		content + ".encoding.profile.itemEncoding.headers.X-Item-Size.schema",
+		content + ".encoding.profile.prefixEncoding[0].headers.X-Lead-Size.schema",
+	}, paths)
+}
+
+// TestFix_CSVEnumExpansion_OAS3Webhooks tests the path items OAS 3.1 places in
+// webhooks, a sibling of paths rather than an entry under it.
+func TestFix_CSVEnumExpansion_OAS3Webhooks(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI:    "3.1.0",
+		OASVersion: parser.OASVersion310,
+		Info:       &parser.Info{Title: "Test", Version: "1.0.0"},
+		Webhooks: map[string]*parser.PathItem{
+			"petCreated": {
+				Post: &parser.Operation{
+					OperationID: "petCreated",
+					Parameters: []*parser.Parameter{
+						{Name: "attempt", In: "query", Schema: &parser.Schema{Type: "integer", Enum: []any{"1,2,3"}}},
+					},
+				},
+			},
+		},
+	}
+
+	f := New()
+	f.EnabledFixes = []FixType{FixTypeEnumCSVExpanded}
+	result, err := f.FixParsed(parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion310,
+		Version:    "3.1.0",
+	})
+	require.NoError(t, err)
+
+	fixed := result.Document.(*parser.OAS3Document)
+	param := fixed.Webhooks["petCreated"].Post.Parameters[0]
+	assert.Equal(t, []any{int64(1), int64(2), int64(3)}, param.Schema.Enum)
+
+	require.Len(t, result.Fixes, 1)
+	assert.Equal(t, "webhooks.petCreated.post.parameters[0].schema", result.Fixes[0].Path)
+}
+
+// TestFix_CSVEnumExpansion_OAS3ComponentsPathItems tests the path items OAS 3.1
+// lets components hold, which no path reaches except through a $ref.
+func TestFix_CSVEnumExpansion_OAS3ComponentsPathItems(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI:    "3.1.0",
+		OASVersion: parser.OASVersion310,
+		Info:       &parser.Info{Title: "Test", Version: "1.0.0"},
+		Components: &parser.Components{
+			PathItems: map[string]*parser.PathItem{
+				"Shared": {
+					Get: &parser.Operation{
+						OperationID: "shared",
+						Parameters: []*parser.Parameter{
+							{Name: "status", In: "query", Schema: &parser.Schema{Type: "integer", Enum: []any{"1,2"}}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	f := New()
+	f.EnabledFixes = []FixType{FixTypeEnumCSVExpanded}
+	result, err := f.FixParsed(parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion310,
+		Version:    "3.1.0",
+	})
+	require.NoError(t, err)
+
+	fixed := result.Document.(*parser.OAS3Document)
+	param := fixed.Components.PathItems["Shared"].Get.Parameters[0]
+	assert.Equal(t, []any{int64(1), int64(2)}, param.Schema.Enum)
+
+	require.Len(t, result.Fixes, 1)
+	assert.Equal(t, "components.pathItems.Shared.get.parameters[0].schema", result.Fixes[0].Path)
 }
 
 // TestFix_CSVEnumExpansion_SortedProperties tests that the fixes a schema's
