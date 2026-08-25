@@ -539,6 +539,15 @@ func TestFix_CSVEnumExpansion_OAS2ItemsEnum(t *testing.T) {
 							Type:  "array",
 							Items: &parser.Items{Type: "number", Enum: []any{"1.5,2.5"}},
 						},
+						{
+							Name: "grid",
+							In:   "query",
+							Type: "array",
+							Items: &parser.Items{
+								Type:  "array",
+								Items: &parser.Items{Type: "integer", Enum: []any{"1,2"}},
+							},
+						},
 					},
 				},
 			},
@@ -555,9 +564,13 @@ func TestFix_CSVEnumExpansion_OAS2ItemsEnum(t *testing.T) {
 	require.NoError(t, err)
 
 	fixed := result.Document.(*parser.OAS2Document)
-	assert.Equal(t, []any{1.5, 2.5}, fixed.Paths["/items"].Get.Parameters[0].Items.Enum)
-	require.Len(t, result.Fixes, 1)
+	params := fixed.Paths["/items"].Get.Parameters
+	assert.Equal(t, []any{1.5, 2.5}, params[0].Items.Enum)
+	assert.Equal(t, []any{int64(1), int64(2)}, params[1].Items.Items.Enum)
+
+	require.Len(t, result.Fixes, 2)
 	assert.Equal(t, "paths./items.get.parameters[0].items", result.Fixes[0].Path)
+	assert.Equal(t, "paths./items.get.parameters[1].items.items", result.Fixes[1].Path)
 }
 
 // TestFix_CSVEnumExpansion_OAS2ResponseHeader tests that an OAS 2.0 response
