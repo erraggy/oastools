@@ -1044,3 +1044,125 @@ func TestFix_CSVEnumExpansion_SortedProperties(t *testing.T) {
 		}, paths)
 	}
 }
+
+// TestFix_CSVEnumExpansion_OAS2StringTypeUnchanged tests that the restriction
+// to numeric types holds at the declarations a parameter and its items make
+// directly. A comma inside a string enum value is legitimate, so it is left as
+// the document wrote it.
+func TestFix_CSVEnumExpansion_OAS2StringTypeUnchanged(t *testing.T) {
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Paths: map[string]*parser.PathItem{
+			"/items": {
+				Get: &parser.Operation{
+					OperationID: "listItems",
+					Parameters: []*parser.Parameter{
+						{Name: "city", In: "query", Type: "string", Enum: []any{"Austin,TX"}},
+						{
+							Name:  "cities",
+							In:    "query",
+							Type:  "array",
+							Items: &parser.Items{Type: "string", Enum: []any{"Austin,TX"}},
+						},
+					},
+					Responses: &parser.Responses{
+						Codes: map[string]*parser.Response{
+							"200": {
+								Description: "OK",
+								Headers: map[string]*parser.Header{
+									"X-Region": {Type: "string", Enum: []any{"us,east"}},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	f := New()
+	f.EnabledFixes = []FixType{FixTypeEnumCSVExpanded}
+	result, err := f.FixParsed(parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion20,
+		Version:    "2.0",
+	})
+	require.NoError(t, err)
+
+	fixed := result.Document.(*parser.OAS2Document)
+	op := fixed.Paths["/items"].Get
+	assert.Equal(t, []any{"Austin,TX"}, op.Parameters[0].Enum)
+	assert.Equal(t, []any{"Austin,TX"}, op.Parameters[1].Items.Enum)
+	assert.Equal(t, []any{"us,east"}, op.Responses.Codes["200"].Headers["X-Region"].Enum)
+	assert.Empty(t, result.Fixes)
+}
+
+// TestFix_CSVEnumExpansion_OAS32AdditionalOperations tests that a custom OAS
+// 3.2 method is reported under additionalOperations, the segment the document
+// spells it in, and that the version comes from the parse result when the
+// document does not carry one.
+func TestFix_CSVEnumExpansion_OAS32AdditionalOperations(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI: "3.2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Paths: map[string]*parser.PathItem{
+			"/items": {
+				AdditionalOperations: map[string]*parser.Operation{
+					"PURGE": {
+						OperationID: "purgeItems",
+						Parameters: []*parser.Parameter{
+							{Name: "status", In: "query", Schema: &parser.Schema{Type: "integer", Enum: []any{"1,2"}}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	f := New()
+	f.EnabledFixes = []FixType{FixTypeEnumCSVExpanded}
+	result, err := f.FixParsed(parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion320,
+		Version:    "3.2.0",
+	})
+	require.NoError(t, err)
+
+	fixed := result.Document.(*parser.OAS3Document)
+	param := fixed.Paths["/items"].AdditionalOperations["PURGE"].Parameters[0]
+	assert.Equal(t, []any{int64(1), int64(2)}, param.Schema.Enum)
+
+	require.Len(t, result.Fixes, 1)
+	assert.Equal(t, "paths./items.additionalOperations.PURGE.parameters[0].schema", result.Fixes[0].Path)
+}
+
+// TestFix_CSVEnumExpansion_OAS31TypeArrayOfStrings tests a type spelled as
+// []string rather than []any, which the shared accessor understands and the
+// local helper it replaced did not.
+func TestFix_CSVEnumExpansion_OAS31TypeArrayOfStrings(t *testing.T) {
+	doc := &parser.OAS3Document{
+		OpenAPI:    "3.1.0",
+		OASVersion: parser.OASVersion310,
+		Info:       &parser.Info{Title: "Test", Version: "1.0.0"},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"Status": {Type: []string{"null", "integer"}, Enum: []any{"1,2,3"}},
+			},
+		},
+	}
+
+	f := New()
+	f.EnabledFixes = []FixType{FixTypeEnumCSVExpanded}
+	result, err := f.FixParsed(parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion310,
+		Version:    "3.1.0",
+	})
+	require.NoError(t, err)
+
+	fixed := result.Document.(*parser.OAS3Document)
+	assert.Equal(t, []any{int64(1), int64(2), int64(3)}, fixed.Components.Schemas["Status"].Enum)
+	require.Len(t, result.Fixes, 1)
+	assert.Equal(t, "components.schemas.Status", result.Fixes[0].Path)
+}

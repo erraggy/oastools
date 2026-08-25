@@ -27,6 +27,14 @@ func (f *Fixer) fixOAS3(parseResult parser.ParseResult, result *FixResult) (*Fix
 		doc = srcDoc.DeepCopy()
 	}
 
+	// Every pass reads the version from the document, so a document built by
+	// hand rather than parsed would leave them all treating it as the oldest
+	// OAS 3: no TRACE, no QUERY, no additionalOperations. FixParsed already
+	// routed on the version the parse result carries, so adopt it here.
+	if doc.OASVersion == parser.Unknown {
+		doc.OASVersion = parseResult.OASVersion
+	}
+
 	// Apply fixes using shared pipeline
 	f.applyFixPipeline(doc, result, oas3Pipeline)
 

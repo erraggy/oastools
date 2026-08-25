@@ -193,7 +193,7 @@ func (f *Fixer) fixPathItemCSVEnumsOAS3(pathItem *parser.PathItem, path string, 
 		if op == nil {
 			continue
 		}
-		basePath := path + "." + method
+		basePath := path + "." + operationPathSegment(pathItem, method)
 
 		f.fixParametersCSVEnumsOAS3(op.Parameters, basePath, result)
 
@@ -210,6 +210,17 @@ func (f *Fixer) fixPathItemCSVEnumsOAS3(pathItem *parser.PathItem, path string, 
 			}
 		}
 	}
+}
+
+// operationPathSegment returns the path segment naming one operation of a path
+// item. parser.GetOperations flattens the custom methods OAS 3.2 allows into
+// the same map as the standard ones, but the document spells them under
+// additionalOperations, which is where the rest of oastools reports them.
+func operationPathSegment(pathItem *parser.PathItem, method string) string {
+	if _, custom := pathItem.AdditionalOperations[method]; custom {
+		return "additionalOperations." + method
+	}
+	return method
 }
 
 // fixParametersCSVEnumsOAS3 fixes CSV enums in one OAS 3.x parameter list,
@@ -327,7 +338,7 @@ func (f *Fixer) fixSchemaCSVEnums(schema *parser.Schema, path string, result *Fi
 		return
 	}
 
-	f.fixTypedCSVEnum(getSchemaType(schema), &schema.Enum, path, result)
+	f.fixTypedCSVEnum(schemautil.GetPrimaryType(schema), &schema.Enum, path, result)
 
 	// Recurse into nested schemas
 	for _, propName := range maputil.SortedKeys(schema.Properties) {
@@ -409,25 +420,6 @@ func isCSVEnumCandidate(schemaType string, enum []any) bool {
 	}
 
 	return false
-}
-
-// getSchemaType extracts the type from a schema, handling OAS 3.1+ type arrays.
-func getSchemaType(schema *parser.Schema) string {
-	if schema.Type == nil {
-		return ""
-	}
-	switch t := schema.Type.(type) {
-	case string:
-		return t
-	case []any:
-		// For type arrays, look for non-null type
-		for _, v := range t {
-			if s, ok := v.(string); ok && s != "null" {
-				return s
-			}
-		}
-	}
-	return ""
 }
 
 // expandCSVEnumValues expands CSV strings in enum values to individual values.
