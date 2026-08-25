@@ -339,6 +339,18 @@
 // the merged document are automatically rewritten. See the "Which Name Survives" section of
 // joiner/deep_dive.md for the full rule.
 //
+// WithDeduplicationScope narrows which names may be folded into that survivor:
+//
+//	joiner.WithDeduplicationScope(string(joiner.DeduplicationScopeGeneratedOnly))
+//
+// Under "generated-only" a name a document declared is never folded away, while
+// the names a collision rename generated still fold into it. That suits a
+// caller publishing the joined document to consumers that refer to its schema
+// names, where removing a declared name is a breaking change and removing a
+// generated alias is invisible (#543). WithDeduplicationReport records what
+// each consolidation removed, and whether a rename generated it, so the impact
+// can be measured before a scope is chosen.
+//
 // One important exception: schema names that one schema tree references are held apart.
 // If a Shipment requires both an OriginAddress and a DestinationAddress, both names persist
 // even when the two schemas are structurally identical, because consolidating them would

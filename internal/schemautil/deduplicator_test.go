@@ -1,6 +1,7 @@
 package schemautil
 
 import (
+	"maps"
 	"slices"
 	"testing"
 
@@ -537,4 +538,51 @@ func TestSchemaDeduplicator_SplitCannotEditTheGroupItIsCheckedAgainst(t *testing
 	require.Error(t, err, "a group the callback edited must not be accepted")
 	assert.Contains(t, err.Error(), "0 times")
 	assert.Nil(t, result)
+}
+
+func TestDeduplicateWithdrawsUnfoldableNames(t *testing.T) {
+	schemas := map[string]*parser.Schema{
+		"Alias":    {Type: "object"},
+		"Declared": {Type: "object"},
+		"Other":    {Type: "object"},
+	}
+
+	config := DefaultDeduplicationConfig()
+	// Only Alias may fold, which is the shape a caller protecting the names its
+	// documents declared configures.
+	config.Foldable = func(name string) bool { return name == "Alias" }
+
+	deduper := NewSchemaDeduplicator(config, func(left, right *parser.Schema) bool { return true })
+	result, err := deduper.Deduplicate(schemas)
+	require.NoError(t, err)
+
+	// Alias sorts first and no Outranks is set, so it is the canonical name and
+	// the two withdrawn names keep their own schemas beside it.
+	assert.Equal(t, map[string]string{}, result.Aliases,
+		"nothing folds when the only foldable name is the canonical one")
+	assert.Equal(t, 0, result.RemovedCount)
+	assert.ElementsMatch(t, []string{"Alias", "Declared", "Other"}, slices.Sorted(maps.Keys(result.CanonicalSchemas)))
+	assert.Equal(t, []string{"Declared"}, result.EquivalenceGroups["Declared"],
+		"a withdrawn name is reported as a group of its own")
+}
+
+func TestDeduplicateFoldsIntoAProtectedCanonical(t *testing.T) {
+	schemas := map[string]*parser.Schema{
+		"Zebra":     {Type: "object"},
+		"Api_Alias": {Type: "object"},
+	}
+
+	config := DefaultDeduplicationConfig()
+	config.Foldable = func(name string) bool { return name == "Api_Alias" }
+	// Zebra outranks, the way joiner ranks a declared name over a generated one.
+	config.Outranks = func(name, candidate string) bool { return name == "Zebra" }
+
+	deduper := NewSchemaDeduplicator(config, func(left, right *parser.Schema) bool { return true })
+	result, err := deduper.Deduplicate(schemas)
+	require.NoError(t, err)
+
+	assert.Equal(t, map[string]string{"Api_Alias": "Zebra"}, result.Aliases)
+	assert.Equal(t, 1, result.RemovedCount)
+	assert.Equal(t, []string{"Zebra", "Api_Alias"}, result.EquivalenceGroups["Zebra"],
+		"the survivor is reported first, then what folded into it")
 }

@@ -626,6 +626,8 @@ oastools join [flags] <file1> <file2> [file3...]
 | `--operation-context` | | Enable operation-aware schema renaming |
 | `--primary-operation-policy` | | Policy for selecting primary operation: `first`, `most-specific`, `alphabetical` (default: `first`) |
 | `--semantic-dedup` | | Enable semantic deduplication to consolidate identical schemas. Equivalent names that one schema tree references are kept apart |
+| `--dedup-scope` | `all` | Which names semantic deduplication may fold into the survivor: `all`, or `generated-only` to keep every name a source document declared |
+| `--dedup-report` | | List each consolidation and whether a collision rename generated every folded name |
 | `--equivalence-mode` | | Schema comparison mode for deduplication: `none`, `shallow`, `deep` (default: `none`) |
 | `--equivalence-docs` | | Whether `title`, `description`, `example`, and `examples` participate in schema equivalence: `include` (default, strict), `ignore` (legacy loose) |
 | `--collision-report` | | Generate detailed collision analysis report |
@@ -774,6 +776,12 @@ oastools join --semantic-dedup -o merged.yaml api1.yaml api2.yaml
 
 # Semantic dedup with legacy loose mode (ignore title/description/example differences)
 oastools join --semantic-dedup --equivalence-docs ignore -o merged.yaml api1.yaml api2.yaml
+
+# Consolidate only the names collisions generated, keeping every declared name
+oastools join --semantic-dedup --dedup-scope generated-only -o merged.yaml api1.yaml api2.yaml
+
+# Size the impact first: which names would be removed, and did anyone declare them
+oastools join --semantic-dedup --dedup-report -o merged.yaml api1.yaml api2.yaml
 
 # Rename colliding schemas with source file suffix
 oastools join --schema-strategy rename-right \

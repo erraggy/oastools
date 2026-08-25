@@ -18,6 +18,7 @@ type joinInput struct {
 	PathStrategy   string      `json:"path_strategy,omitempty"       jsonschema:"Strategy for path collisions: accept-left or accept-right or fail or fail-on-paths"`
 	SchemaStrategy string      `json:"schema_strategy,omitempty"     jsonschema:"Strategy for schema collisions: accept-left or accept-right or fail or rename-left or rename-right or deduplicate or deduplicate-or-rename"`
 	SemanticDedup  bool        `json:"semantic_dedup,omitempty"      jsonschema:"Enable semantic deduplication of equivalent schemas. Equivalent names that one schema tree references stay distinct from each other; equivalent names in unrelated trees still merge"`
+	DedupScope     string      `json:"dedup_scope,omitempty"         jsonschema:"Which names semantic deduplication may fold: all (default) or generated-only. generated-only leaves every name a source document declared and folds only the names a collision rename generated"`
 	Output         string      `json:"output,omitempty"              jsonschema:"File path to write joined document. If omitted the result is returned inline."`
 }
 
@@ -83,6 +84,9 @@ func handleJoin(_ context.Context, _ *mcp.CallToolRequest, input joinInput) (*mc
 	}
 	if input.SemanticDedup {
 		opts = append(opts, joiner.WithSemanticDeduplication(true))
+	}
+	if input.DedupScope != "" {
+		opts = append(opts, joiner.WithDeduplicationScope(input.DedupScope))
 	}
 
 	result, err := joiner.JoinWithOptions(opts...)

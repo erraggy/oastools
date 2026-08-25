@@ -148,6 +148,63 @@ Both choose the same way, by these two rules in order:
 
 Rule 1 matters because rule 2 alone gives an answer that depends on your rename template. `Api_Common` sorts before `Common`, `Common.api` sorts after it, and neither ordering has anything to do with which name your API actually uses. Rule 1 settles it the same way whatever the template (#498).
 
+### Which Names May Be Folded
+
+The rules above pick a survivor. `DeduplicationScope` decides which of the other names are allowed to fold into it.
+
+| Scope | Folds |
+|-------|-------|
+| `all` (default) | any equivalent name |
+| `generated-only` | only names a collision rename generated |
+
+The two populations differ in who can see them. A generated name exists because two documents collided, so nothing upstream refers to it and removing it changes nothing for a consumer. A declared name is part of a published contract, and removing it breaks a client generated from that document.
+
+```go
+config := joiner.DefaultConfig()
+config.SemanticDeduplication = true
+config.DeduplicationScope = string(joiner.DeduplicationScopeGeneratedOnly)
+```
+
+Or as an option, where `WithDeduplicationScope` rejects a value it does not recognize rather than reading it as the default:
+
+```go
+result, err := joiner.JoinWithOptions(
+    joiner.WithFilePaths("users-api.yaml", "orders-api.yaml"),
+    joiner.WithSemanticDeduplication(true),
+    joiner.WithDeduplicationScope(string(joiner.DeduplicationScopeGeneratedOnly)),
+)
+```
+
+`generated-only` does not stop a group from consolidating. The generated names still fold into the declared name that outranks them, which is the point of enabling the pass. What it withdraws is a *second* declared name in the same group:
+
+| Group | `all` | `generated-only` |
+|-------|-------|------------------|
+| `Common`, `Api_Common` | `Common` | `Common` |
+| `Inventory`, `Stock` | `Inventory` | `Inventory`, `Stock` |
+| `Zebra`, `Api_Common` | `Zebra` | `Zebra` |
+
+Everything else is unchanged by the scope: the equivalence comparison, the survivor rules, and the guarantee that names one schema tree references are held apart all behave the same under both.
+
+### Sizing the Impact
+
+`DeduplicationReport` records what each consolidation removed, so you can tell a generated alias from a declared name before committing to a scope. Diffing the joined document against its inputs cannot: a missing name looks the same either way.
+
+```go
+config.DeduplicationReport = true            // or joiner.WithDeduplicationReport(true)
+// result.Consolidations[i].Survivor, .SurvivorGenerated
+// result.Consolidations[i].Folded[j].Name, .Generated
+```
+
+On the command line, `--dedup-report` prints the same thing to stderr:
+
+```text
+Consolidations (1):
+  store.Inventory (declared)
+    <- store.Stock (declared)
+```
+
+It is off by default, since a large join consolidates enough names that recording them all is worth asking for.
+
 ### Reference Rewriting
 
 When schemas are renamed or deduplicated, `$ref` references are updated automatically.
@@ -1770,6 +1827,8 @@ type JoinerConfig struct {
 | `WithSchemaStrategy(CollisionStrategy)` | Strategy for schema collisions |
 | `WithComponentStrategy(CollisionStrategy)` | Strategy for other components |
 | `WithSemanticDeduplication(bool)` | Enable cross-document deduplication |
+| `WithDeduplicationScope(string)` | Which names deduplication may fold: `all`, `generated-only` |
+| `WithDeduplicationReport(bool)` | Record each consolidation and the provenance of every folded name |
 | `WithCollisionHandler(handler)` | Register collision handler callback |
 | `WithCollisionHandlerFor(handler, types...)` | Register handler for specific collision types |
 | `WithPreJoinOverlayFile(string)` | Overlay applied to each input |

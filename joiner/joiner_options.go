@@ -3,6 +3,7 @@ package joiner
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/erraggy/oastools/overlay"
 	"github.com/erraggy/oastools/parser"
@@ -33,6 +34,8 @@ type joinConfig struct {
 	equivalenceDocs        *string
 	collisionReport        *bool
 	semanticDeduplication  *bool
+	deduplicationScope     *string
+	deduplicationReport    *bool
 	operationContext       *bool
 	primaryOperationPolicy *PrimaryOperationPolicy
 
@@ -93,6 +96,8 @@ func JoinWithOptions(opts ...Option) (*JoinResult, error) {
 		EquivalenceDocs:       stringValueOrDefault(cfg.equivalenceDocs, defaults.EquivalenceDocs),
 		CollisionReport:       boolValueOrDefault(cfg.collisionReport, defaults.CollisionReport),
 		SemanticDeduplication: boolValueOrDefault(cfg.semanticDeduplication, defaults.SemanticDeduplication),
+		DeduplicationScope:    stringValueOrDefault(cfg.deduplicationScope, defaults.DeduplicationScope),
+		DeduplicationReport:   boolValueOrDefault(cfg.deduplicationReport, defaults.DeduplicationReport),
 	}
 	if cfg.operationContext != nil {
 		joinerCfg.OperationContext = *cfg.operationContext
@@ -382,6 +387,8 @@ func WithConfig(config JoinerConfig) Option {
 		cfg.equivalenceDocs = &config.EquivalenceDocs
 		cfg.collisionReport = &config.CollisionReport
 		cfg.semanticDeduplication = &config.SemanticDeduplication
+		cfg.deduplicationScope = &config.DeduplicationScope
+		cfg.deduplicationReport = &config.DeduplicationReport
 		cfg.operationContext = &config.OperationContext
 		cfg.primaryOperationPolicy = &config.PrimaryOperationPolicy
 		return nil
@@ -605,6 +612,47 @@ func WithCollisionHandlerFor(handler CollisionHandler, types ...CollisionType) O
 		for _, t := range types {
 			cfg.collisionHandlerTypes[t] = true
 		}
+		return nil
+	}
+}
+
+// WithDeduplicationScope selects which names semantic deduplication may fold
+// into another. It has no effect unless WithSemanticDeduplication is enabled.
+//
+// Valid values:
+//
+//   - "all" (default): fold any equivalent name.
+//   - "generated-only": fold only names a collision rename generated, leaving
+//     every name a document declared under its own name.
+//
+// "generated-only" suits a caller publishing the joined document to consumers
+// that refer to its schema names, such as a generated client SDK: a generated
+// alias is a name nothing upstream refers to, while removing a declared name
+// is a breaking change (#543).
+//
+// A group mixing the two still consolidates. The generated names fold into the
+// declared name that outranks them; only a second declared name is withdrawn.
+func WithDeduplicationScope(scope string) Option {
+	return func(cfg *joinConfig) error {
+		if !IsValidDeduplicationScope(scope) {
+			return fmt.Errorf("invalid deduplication scope %q: valid values are %s",
+				scope, strings.Join(ValidDeduplicationScopes(), ", "))
+		}
+		cfg.deduplicationScope = &scope
+		return nil
+	}
+}
+
+// WithDeduplicationReport enables per-consolidation reporting on
+// JoinResult.Consolidations: each surviving name, the names folded into it, and
+// whether a rename generated each.
+//
+// It exists because diffing the joined document against its inputs cannot tell
+// a generated alias from a declared name some other pass removed. Default:
+// false.
+func WithDeduplicationReport(enabled bool) Option {
+	return func(cfg *joinConfig) error {
+		cfg.deduplicationReport = &enabled
 		return nil
 	}
 }

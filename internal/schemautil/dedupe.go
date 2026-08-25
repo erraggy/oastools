@@ -32,6 +32,20 @@ type OutranksFunc func(name, candidate string) bool
 // same-shaped schemas describe different things (#501).
 type SplitFunc func(group []string) [][]string
 
+// FoldableFunc reports whether name may be folded into its group's canonical
+// name. Deduplicate calls it for every name a group would consolidate, and a
+// name it refuses keeps its own schema under its own name.
+//
+// It runs after the canonical name is chosen, because the choice is what says
+// which name the rest would fold into: a caller that protects one population of
+// names still wants the other folded into a survivor drawn from the protected
+// one. Deciding eligibility in a SplitFunc cannot express that, since a
+// SplitFunc runs before the ranking and sees only names.
+//
+// A nil FoldableFunc folds every name, which is what a caller drawing no
+// distinction between its names wants.
+type FoldableFunc func(name string) bool
+
 // DeduplicationConfig configures semantic schema deduplication behavior.
 type DeduplicationConfig struct {
 	// EquivalenceMode controls comparison depth ("deep" recommended).
@@ -45,6 +59,10 @@ type DeduplicationConfig struct {
 	// Split holds names apart within a group of equivalent schemas. When nil,
 	// each group is consolidated whole.
 	Split SplitFunc
+
+	// Foldable reports whether a name may be folded into its group's canonical
+	// name. When nil every name may fold.
+	Foldable FoldableFunc
 }
 
 // DefaultDeduplicationConfig returns a DeduplicationConfig with sensible defaults.
