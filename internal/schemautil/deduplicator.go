@@ -40,8 +40,8 @@ func NewSchemaDeduplicator(config DeduplicationConfig, compare CompareFunc) *Sch
 //  2. Verify equivalence within each group using deep comparison
 //  3. Select canonical name for each equivalence group, by
 //     DeduplicationConfig.Outranks or alphabetically when it is nil
-//  4. Withdraw the names DeduplicationConfig.Foldable refuses, each keeping its
-//     own schema
+//  4. Give each name DeduplicationConfig.Foldable refuses a group of its own,
+//     so it keeps its own schema
 //  5. Build alias mapping and return only canonical schemas
 func (d *SchemaDeduplicator) Deduplicate(schemas map[string]*parser.Schema) (*DeduplicationResult, error) {
 	if len(schemas) < 2 {
@@ -213,8 +213,8 @@ func (d *SchemaDeduplicator) buildResult(
 				continue
 			}
 			if !d.foldable(name) {
-				// Withdrawn: it keeps its own schema under its own name, which
-				// is a group of one rather than an alias of the canonical.
+				// Refused: it keeps its own schema under its own name, which is
+				// a group of one rather than an alias of the canonical.
 				result.CanonicalSchemas[name] = schemas[name]
 				result.EquivalenceGroups[name] = []string{name}
 				continue

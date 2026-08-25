@@ -630,8 +630,9 @@ func WithCollisionHandlerFor(handler CollisionHandler, types ...CollisionType) O
 // alias is a name nothing upstream refers to, while removing a declared name
 // is a breaking change (#543).
 //
-// A group mixing the two still consolidates. The generated names fold into the
-// declared name that outranks them; only a second declared name is withdrawn.
+// A group mixing the two still consolidates: the generated names fold into the
+// declared name that outranks them, and every declared name keeps its own
+// schema.
 func WithDeduplicationScope(scope DeduplicationScope) Option {
 	return func(cfg *joinConfig) error {
 		if !IsValidDeduplicationScope(string(scope)) {

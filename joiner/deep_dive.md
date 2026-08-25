@@ -175,7 +175,7 @@ result, err := joiner.JoinWithOptions(
 )
 ```
 
-`generated-only` does not stop a group from consolidating. The generated names still fold into the declared name that outranks them, which is the point of enabling the pass. What it withdraws is a *second* declared name in the same group:
+`generated-only` does not stop a group from consolidating. The generated names still fold into the declared name that outranks them, which is the point of enabling the pass. A *second* declared name in the same group keeps its own schema instead:
 
 | Group | `all` | `generated-only` |
 |-------|-------|------------------|

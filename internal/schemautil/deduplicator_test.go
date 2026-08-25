@@ -540,7 +540,7 @@ func TestSchemaDeduplicator_SplitCannotEditTheGroupItIsCheckedAgainst(t *testing
 	assert.Nil(t, result)
 }
 
-func TestDeduplicateWithdrawsUnfoldableNames(t *testing.T) {
+func TestDeduplicateKeepsUnfoldableNames(t *testing.T) {
 	schemas := map[string]*parser.Schema{
 		"Alias":    {Type: "object"},
 		"Declared": {Type: "object"},
@@ -563,7 +563,7 @@ func TestDeduplicateWithdrawsUnfoldableNames(t *testing.T) {
 	assert.Equal(t, 0, result.RemovedCount)
 	assert.ElementsMatch(t, []string{"Alias", "Declared", "Other"}, slices.Sorted(maps.Keys(result.CanonicalSchemas)))
 	assert.Equal(t, []string{"Declared"}, result.EquivalenceGroups["Declared"],
-		"a withdrawn name is reported as a group of its own")
+		"a refused name is reported as a group of its own")
 }
 
 func TestDeduplicateFoldsIntoAProtectedCanonical(t *testing.T) {
