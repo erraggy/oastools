@@ -74,10 +74,12 @@ func BenchmarkOperation(b *testing.B) {
 - HTTP Methods: `httputil.MethodGet`, `httputil.MethodPost`, etc.
 - Severity Levels: `severity.SeverityError`, `severity.SeverityWarning`, etc.
 
-There are no constants for HTTP status codes, so write the code as a string literal
-(`"200"`). That is how `httputil.StandardHTTPStatusCodes` stores its own keys. Use
-`httputil.IsStatusCode`, `httputil.IsSuccessStatusCode`, or `httputil.IsStandardStatusCode`
-to check a code the document supplies, rather than to write one.
+HTTP status codes have no string constants. The standard library's are `int`
+(`http.StatusOK`), which is what an int-taking API wants, including `builder.WithResponse`.
+An OAS document keys responses by string, so write the literal there (`"200"`), which is how
+`httputil.StandardHTTPStatusCodes` stores its own keys. Use `httputil.IsStatusCode`,
+`httputil.IsSuccessStatusCode`, or `httputil.IsStandardStatusCode` to check a code a document
+supplies.
 
 **Format preservation:**
 
