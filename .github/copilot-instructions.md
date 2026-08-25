@@ -172,8 +172,14 @@ Format detection:
 **IMPORTANT: Use package-level constants instead of string literals.**
 
 - HTTP Methods: `httputil.MethodGet`, `httputil.MethodPost`, etc.
-- HTTP Status Codes: `httputil.ValidateStatusCode()`, `httputil.StandardHTTPStatusCodes`
 - Severity Levels: `severity.SeverityError`, `severity.SeverityWarning`, etc.
+
+HTTP status codes have no string constants. The standard library's are `int`
+(`http.StatusOK`), which is what an int-taking API wants, including `builder.WithResponse`.
+An OAS document keys responses by string, so write the literal there (`"200"`), which is how
+`httputil.StandardHTTPStatusCodes` stores its own keys. Use `httputil.IsStatusCode`,
+`httputil.IsSuccessStatusCode`, or `httputil.IsStandardStatusCode` to check a code a document
+supplies.
 
 ### Testing Requirements
 
