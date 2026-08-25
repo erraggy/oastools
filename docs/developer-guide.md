@@ -871,6 +871,7 @@ config := joiner.DefaultConfig()
 config.SemanticDeduplication = true
 config.DeduplicationReport = true
 
+j := joiner.New(config)
 result, err := j.Join([]string{"api1.yaml", "api2.yaml"})
 if err != nil {
     log.Fatal(err)
