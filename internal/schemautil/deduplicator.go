@@ -40,7 +40,9 @@ func NewSchemaDeduplicator(config DeduplicationConfig, compare CompareFunc) *Sch
 //  2. Verify equivalence within each group using deep comparison
 //  3. Select canonical name for each equivalence group, by
 //     DeduplicationConfig.Outranks or alphabetically when it is nil
-//  4. Build alias mapping and return only canonical schemas
+//  4. Give each name DeduplicationConfig.Foldable refuses a group of its own,
+//     so it keeps its own schema
+//  5. Build alias mapping and return only canonical schemas
 func (d *SchemaDeduplicator) Deduplicate(schemas map[string]*parser.Schema) (*DeduplicationResult, error) {
 	if len(schemas) < 2 {
 		// Nothing to deduplicate
@@ -204,21 +206,36 @@ func (d *SchemaDeduplicator) buildResult(
 		sort.Strings(group)
 		canonical := d.canonicalName(group)
 
-		// Store canonical schema
-		result.CanonicalSchemas[canonical] = schemas[canonical]
-		result.EquivalenceGroups[canonical] = canonicalFirst(group, canonical)
-
-		// Record aliases (all names except canonical)
-		for _, alias := range group {
-			if alias == canonical {
+		// group is sorted and canonical is skipped, so folded comes out sorted.
+		folded := make([]string, 0, len(group))
+		for _, name := range group {
+			if name == canonical {
 				continue
 			}
-			result.Aliases[alias] = canonical
+			if !d.foldable(name) {
+				// Refused: it keeps its own schema under its own name, which is
+				// a group of one rather than an alias of the canonical.
+				result.CanonicalSchemas[name] = schemas[name]
+				result.EquivalenceGroups[name] = []string{name}
+				continue
+			}
+			result.Aliases[name] = canonical
 			result.RemovedCount++
+			folded = append(folded, name)
 		}
+
+		// Store canonical schema
+		result.CanonicalSchemas[canonical] = schemas[canonical]
+		result.EquivalenceGroups[canonical] = append([]string{canonical}, folded...)
 	}
 
 	return result
+}
+
+// foldable reports whether name may be folded into its group's canonical name,
+// which an absent FoldableFunc allows for every name.
+func (d *SchemaDeduplicator) foldable(name string) bool {
+	return d.config.Foldable == nil || d.config.Foldable(name)
 }
 
 // canonicalName picks the name an equivalence group keeps. group must be
@@ -234,20 +251,6 @@ func (d *SchemaDeduplicator) canonicalName(group []string) string {
 		}
 	}
 	return canonical
-}
-
-// canonicalFirst returns group with canonical moved to the front, which is
-// where DeduplicationResult.EquivalenceGroups reports it. The rest stay in
-// order, so the result is the sorted group whenever canonical is already first.
-func canonicalFirst(group []string, canonical string) []string {
-	ordered := make([]string, 0, len(group))
-	ordered = append(ordered, canonical)
-	for _, name := range group {
-		if name != canonical {
-			ordered = append(ordered, name)
-		}
-	}
-	return ordered
 }
 
 // CanonicalName returns the canonical name for a schema name.

@@ -117,6 +117,17 @@ type JoinerConfig struct {
 	// Name Survives" section of joiner/deep_dive.md.
 	SemanticDeduplication bool
 
+	// DeduplicationScope selects which names SemanticDeduplication may fold
+	// into another. The zero value means DeduplicationScopeAll, so a config
+	// that never set one keeps the behavior it had before the scope existed.
+	DeduplicationScope DeduplicationScope
+
+	// DeduplicationReport enables per-consolidation reporting, recording each
+	// survivor, the names folded into it, and whether a rename generated each.
+	// Off by default: a large join consolidates enough names that recording
+	// them all is worth asking for rather than paying for.
+	DeduplicationReport bool
+
 	// OperationContext enables operation-aware context in rename templates.
 	// When true, builds a reference graph to populate Path, Method, OperationID,
 	// Tags, and other operation-derived fields in the rename context.
@@ -144,6 +155,9 @@ func DefaultConfig() JoinerConfig {
 		EquivalenceMode:   "none",
 		EquivalenceDocs:   string(EquivalenceDocsInclude),
 		CollisionReport:   false,
+
+		DeduplicationScope:  DeduplicationScopeAll,
+		DeduplicationReport: false,
 	}
 }
 
@@ -221,6 +235,10 @@ type JoinResult struct {
 	Stats parser.DocumentStats
 	// CollisionDetails contains detailed collision analysis (when CollisionReport is enabled)
 	CollisionDetails *CollisionReport
+	// Consolidations records what semantic deduplication folded, one entry per
+	// surviving name, populated when DeduplicationReport is enabled. Names a
+	// scope withdrew do not appear: nothing folded into them.
+	Consolidations []Consolidation
 	// firstFilePath stores the path of the first document for error reporting
 	firstFilePath string
 	// scope accumulates schema renames per source document for reference rewriting

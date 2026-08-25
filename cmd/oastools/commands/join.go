@@ -81,6 +81,8 @@ type JoinFlags struct {
 	EquivalenceDocs string
 	CollisionReport bool
 	SemanticDedup   bool
+	DedupScope      string
+	DedupReport     bool
 	// Namespace prefix configuration
 	NamespacePrefix namespacePrefixFlag
 	AlwaysPrefix    bool
@@ -119,6 +121,10 @@ func SetupJoinFlags() (*flag.FlagSet, *JoinFlags) {
 		"whether title/description/example/examples participate in schema equivalence (include, ignore)")
 	fs.BoolVar(&flags.CollisionReport, "collision-report", false, "generate detailed collision analysis report")
 	fs.BoolVar(&flags.SemanticDedup, "semantic-dedup", false, "enable semantic deduplication to consolidate identical schemas")
+	fs.StringVar(&flags.DedupScope, "dedup-scope", "",
+		"which names semantic deduplication may fold (all, generated-only)")
+	fs.BoolVar(&flags.DedupReport, "dedup-report", false,
+		"report each semantic deduplication consolidation and the provenance of every folded name")
 
 	// Namespace prefix configuration
 	fs.Var(flags.NamespacePrefix, "namespace-prefix", "namespace prefix for source file (format: source=prefix, can be repeated)")
@@ -154,6 +160,14 @@ func SetupJoinFlags() (*flag.FlagSet, *JoinFlags) {
 		Writef(fs.Output(), "                   schemas they reference have been merged.\n")
 		Writef(fs.Output(), "  fail             Fail with an error on any collision\n")
 		Writef(fs.Output(), "  fail-on-paths    Fail only on path collisions, allow schema collisions\n")
+		Writef(fs.Output(), "\nSemantic Deduplication:\n")
+		Writef(fs.Output(), "  --semantic-dedup consolidates equivalent schemas after merging.\n")
+		Writef(fs.Output(), "  --dedup-scope controls which names may be folded into the survivor:\n")
+		Writef(fs.Output(), "    all             Fold any equivalent name (default)\n")
+		Writef(fs.Output(), "    generated-only  Fold only names a collision rename generated, keeping\n")
+		Writef(fs.Output(), "                    every name a source document declared\n")
+		Writef(fs.Output(), "  --dedup-report lists each consolidation and where every folded name\n")
+		Writef(fs.Output(), "  came from, which a diff against the inputs cannot tell you.\n")
 		Writef(fs.Output(), "\nNamespace Prefixes:\n")
 		Writef(fs.Output(), "  Use --namespace-prefix to add source-based prefixes to schema names.\n")
 		Writef(fs.Output(), "  Format: source=prefix (can be specified multiple times)\n")
@@ -256,6 +270,10 @@ func HandleJoin(args []string) error {
 	}
 	config.CollisionReport = flags.CollisionReport
 	config.SemanticDeduplication = flags.SemanticDedup
+	if flags.DedupScope != "" {
+		config.DeduplicationScope = joiner.DeduplicationScope(flags.DedupScope)
+	}
+	config.DeduplicationReport = flags.DedupReport
 
 	// Apply namespace prefix configuration
 	if len(flags.NamespacePrefix) > 0 {
@@ -278,6 +296,9 @@ func HandleJoin(args []string) error {
 		return err
 	}
 	if err := ValidateEquivalenceDocs(flags.EquivalenceDocs); err != nil {
+		return err
+	}
+	if err := ValidateDeduplicationScope(flags.DedupScope); err != nil {
 		return err
 	}
 	if err := ValidatePrimaryOperationPolicy(flags.PrimaryOperationPolicy); err != nil {
@@ -381,6 +402,17 @@ func HandleJoin(args []string) error {
 			Writef(os.Stderr, "Collisions resolved: %d\n\n", result.CollisionCount)
 		}
 
+		if len(result.Consolidations) > 0 {
+			Writef(os.Stderr, "Consolidations (%d):\n", len(result.Consolidations))
+			for _, consolidation := range result.Consolidations {
+				Writef(os.Stderr, "  %s %s\n", consolidation.Survivor, provenanceLabel(consolidation.SurvivorGenerated))
+				for _, folded := range consolidation.Folded {
+					Writef(os.Stderr, "    <- %s %s\n", folded.Name, provenanceLabel(folded.Generated))
+				}
+			}
+			Writef(os.Stderr, "\n")
+		}
+
 		if len(result.Warnings) > 0 {
 			Writef(os.Stderr, "Warnings (%d):\n", len(result.Warnings))
 			for _, warning := range result.Warnings {
@@ -426,4 +458,14 @@ func HandleJoin(args []string) error {
 	}
 
 	return nil
+}
+
+// provenanceLabel names where a schema name came from, for the deduplication
+// report. A generated name is one a collision rename produced, which nothing
+// upstream refers to; a declared name came from a source document.
+func provenanceLabel(generated bool) string {
+	if generated {
+		return "(generated)"
+	}
+	return "(declared)"
 }

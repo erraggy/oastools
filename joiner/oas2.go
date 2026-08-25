@@ -128,11 +128,14 @@ func (j *Joiner) joinOAS2Documents(docs []parser.ParseResult) (*JoinResult, erro
 			return nil, fmt.Errorf("joiner: failed to record schema references before semantic deduplication: %w", err)
 		}
 		config.Split = distinct.Split
+		config.Foldable = foldableForScope(j.config.DeduplicationScope, result.generated)
 		deduper := schemautil.NewSchemaDeduplicator(config, compare)
 		dedupeResult, err := deduper.Deduplicate(joined.Definitions)
 		if err != nil {
 			return nil, fmt.Errorf("joiner: semantic deduplication failed: %w", err)
 		}
+
+		j.recordConsolidations(result, dedupeResult)
 
 		// Apply results: replace definitions map with canonical schemas only
 		joined.Definitions = dedupeResult.CanonicalSchemas

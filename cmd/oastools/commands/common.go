@@ -98,6 +98,15 @@ func ValidateEquivalenceMode(value string) error {
 	return nil
 }
 
+// ValidateDeduplicationScope validates the dedup-scope flag and returns an
+// error if invalid. Empty values are accepted and resolved to the default.
+func ValidateDeduplicationScope(value string) error {
+	if value != "" && !joiner.IsValidDeduplicationScope(value) {
+		return fmt.Errorf("invalid dedup-scope '%s'. Valid scopes: %v", value, joiner.ValidDeduplicationScopes())
+	}
+	return nil
+}
+
 // ValidateEquivalenceDocs validates the equivalence-docs flag and returns an
 // error if invalid. Empty values are accepted and resolved to the default.
 func ValidateEquivalenceDocs(value string) error {
