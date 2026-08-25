@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/erraggy/oastools/internal/maputil"
 	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
@@ -18,66 +19,109 @@ func (f *Fixer) fixCSVEnumsOAS2(doc *parser.OAS2Document, result *FixResult) {
 	}
 
 	// Fix definitions
-	for name, schema := range doc.Definitions {
-		f.fixSchemaCSVEnums(schema, fmt.Sprintf("definitions.%s", name), result)
+	for _, name := range maputil.SortedKeys(doc.Definitions) {
+		f.fixSchemaCSVEnums(doc.Definitions[name], "definitions."+name, result)
 	}
 
 	// Fix parameters
-	for name, param := range doc.Parameters {
-		if param != nil && param.Schema != nil {
-			f.fixSchemaCSVEnums(param.Schema, fmt.Sprintf("parameters.%s.schema", name), result)
-		}
+	for _, name := range maputil.SortedKeys(doc.Parameters) {
+		f.fixParameterCSVEnumsOAS2(doc.Parameters[name], "parameters."+name, result)
+	}
+
+	// Fix responses
+	for _, name := range maputil.SortedKeys(doc.Responses) {
+		f.fixResponseCSVEnumsOAS2(doc.Responses[name], "responses."+name, result)
 	}
 
 	// Fix path operations
-	for path, pathItem := range doc.Paths {
-		if pathItem == nil {
-			continue
-		}
-		f.fixPathItemCSVEnumsOAS2(pathItem, path, result)
+	for _, path := range maputil.SortedKeys(doc.Paths) {
+		f.fixPathItemCSVEnumsOAS2(doc.Paths[path], "paths."+path, result)
 	}
 }
 
 // fixPathItemCSVEnumsOAS2 fixes CSV enums in a path item.
 func (f *Fixer) fixPathItemCSVEnumsOAS2(pathItem *parser.PathItem, path string, result *FixResult) {
-	operations := []struct {
-		method string
-		op     *parser.Operation
-	}{
-		{"get", pathItem.Get},
-		{"put", pathItem.Put},
-		{"post", pathItem.Post},
-		{"delete", pathItem.Delete},
-		{"options", pathItem.Options},
-		{"head", pathItem.Head},
-		{"patch", pathItem.Patch},
+	if pathItem == nil {
+		return
 	}
 
-	for _, entry := range operations {
-		if entry.op == nil {
+	// A path item's parameters apply to every operation it holds, so they are
+	// visited once here rather than inside the operation loop below.
+	f.fixParametersCSVEnumsOAS2(pathItem.Parameters, path, result)
+
+	operations := parser.GetOperations(pathItem, parser.OASVersion20)
+	for _, method := range maputil.SortedKeys(operations) {
+		op := operations[method]
+		if op == nil {
 			continue
 		}
-		basePath := fmt.Sprintf("paths.%s.%s", path, entry.method)
+		basePath := path + "." + method
 
-		// Fix parameters
-		for i, param := range entry.op.Parameters {
-			if param != nil && param.Schema != nil {
-				f.fixSchemaCSVEnums(param.Schema, fmt.Sprintf("%s.parameters[%d].schema", basePath, i), result)
-			}
-		}
+		f.fixParametersCSVEnumsOAS2(op.Parameters, basePath, result)
 
-		// Fix responses
-		if entry.op.Responses != nil {
-			if entry.op.Responses.Default != nil && entry.op.Responses.Default.Schema != nil {
-				f.fixSchemaCSVEnums(entry.op.Responses.Default.Schema, fmt.Sprintf("%s.responses.default.schema", basePath), result)
-			}
-			for code, resp := range entry.op.Responses.Codes {
-				if resp != nil && resp.Schema != nil {
-					f.fixSchemaCSVEnums(resp.Schema, fmt.Sprintf("%s.responses.%s.schema", basePath, code), result)
-				}
+		if op.Responses != nil {
+			f.fixResponseCSVEnumsOAS2(op.Responses.Default, basePath+".responses.default", result)
+			for _, code := range maputil.SortedKeys(op.Responses.Codes) {
+				f.fixResponseCSVEnumsOAS2(op.Responses.Codes[code], basePath+".responses."+code, result)
 			}
 		}
 	}
+}
+
+// fixParametersCSVEnumsOAS2 fixes CSV enums in one OAS 2.0 parameter list,
+// reporting each fix by the parameter's position.
+func (f *Fixer) fixParametersCSVEnumsOAS2(params []*parser.Parameter, path string, result *FixResult) {
+	for i, param := range params {
+		f.fixParameterCSVEnumsOAS2(param, path+".parameters["+strconv.Itoa(i)+"]", result)
+	}
+}
+
+// fixParameterCSVEnumsOAS2 fixes CSV enums in one OAS 2.0 parameter.
+//
+// Only a body parameter describes its values through a schema. Every other `in`
+// carries type and enum on the parameter object itself, and OAS 2.0 offers it
+// nowhere else to put them, so reaching the enum through Schema alone leaves
+// those parameters unexamined (#513).
+func (f *Fixer) fixParameterCSVEnumsOAS2(param *parser.Parameter, path string, result *FixResult) {
+	if param == nil {
+		return
+	}
+	f.fixSchemaCSVEnums(param.Schema, path+".schema", result)
+	f.fixTypedCSVEnum(param.Type, &param.Enum, path, result)
+	f.fixItemsCSVEnumsOAS2(param.Items, path+".items", result)
+}
+
+// fixResponseCSVEnumsOAS2 fixes CSV enums in one OAS 2.0 response: its schema
+// and each of its headers.
+func (f *Fixer) fixResponseCSVEnumsOAS2(resp *parser.Response, path string, result *FixResult) {
+	if resp == nil {
+		return
+	}
+	f.fixSchemaCSVEnums(resp.Schema, path+".schema", result)
+	for _, name := range maputil.SortedKeys(resp.Headers) {
+		f.fixHeaderCSVEnumsOAS2(resp.Headers[name], path+".headers."+name, result)
+	}
+}
+
+// fixHeaderCSVEnumsOAS2 fixes CSV enums in one OAS 2.0 response header, which
+// declares type and enum directly just as a non-body parameter does.
+func (f *Fixer) fixHeaderCSVEnumsOAS2(header *parser.Header, path string, result *FixResult) {
+	if header == nil {
+		return
+	}
+	f.fixTypedCSVEnum(header.Type, &header.Enum, path, result)
+	f.fixItemsCSVEnumsOAS2(header.Items, path+".items", result)
+}
+
+// fixItemsCSVEnumsOAS2 fixes CSV enums down an OAS 2.0 items chain. An array
+// parameter constrains its elements here, so this is where such a parameter's
+// enum lives.
+func (f *Fixer) fixItemsCSVEnumsOAS2(items *parser.Items, path string, result *FixResult) {
+	if items == nil {
+		return
+	}
+	f.fixTypedCSVEnum(items.Type, &items.Enum, path, result)
+	f.fixItemsCSVEnumsOAS2(items.Items, path+".items", result)
 }
 
 // fixCSVEnumsOAS3 expands CSV enum values in OAS 3.x documents.
@@ -86,107 +130,204 @@ func (f *Fixer) fixCSVEnumsOAS3(doc *parser.OAS3Document, result *FixResult) {
 		return
 	}
 
-	// Fix component schemas
-	if doc.Components != nil {
-		for name, schema := range doc.Components.Schemas {
-			f.fixSchemaCSVEnums(schema, fmt.Sprintf("components.schemas.%s", name), result)
+	if comp := doc.Components; comp != nil {
+		for _, name := range maputil.SortedKeys(comp.Schemas) {
+			f.fixSchemaCSVEnums(comp.Schemas[name], "components.schemas."+name, result)
 		}
 
-		// Fix parameters
-		for name, param := range doc.Components.Parameters {
-			if param != nil && param.Schema != nil {
-				f.fixSchemaCSVEnums(param.Schema, fmt.Sprintf("components.parameters.%s.schema", name), result)
+		for _, name := range maputil.SortedKeys(comp.Parameters) {
+			f.fixParameterCSVEnumsOAS3(comp.Parameters[name], "components.parameters."+name, result)
+		}
+
+		for _, name := range maputil.SortedKeys(comp.Headers) {
+			f.fixHeaderCSVEnumsOAS3(comp.Headers[name], "components.headers."+name, result)
+		}
+
+		for _, name := range maputil.SortedKeys(comp.RequestBodies) {
+			if reqBody := comp.RequestBodies[name]; reqBody != nil {
+				f.fixContentCSVEnums(reqBody.Content, "components.requestBodies."+name+".content", result)
 			}
 		}
 
-		// Fix request bodies
-		for name, reqBody := range doc.Components.RequestBodies {
-			if reqBody != nil && reqBody.Content != nil {
-				for mediaType, content := range reqBody.Content {
-					if content != nil && content.Schema != nil {
-						f.fixSchemaCSVEnums(content.Schema, fmt.Sprintf("components.requestBodies.%s.content.%s.schema", name, mediaType), result)
-					}
-				}
-			}
+		for _, name := range maputil.SortedKeys(comp.Responses) {
+			f.fixResponseCSVEnumsOAS3(comp.Responses[name], "components.responses."+name, result)
 		}
 
-		// Fix responses
-		for name, resp := range doc.Components.Responses {
-			if resp != nil && resp.Content != nil {
-				for mediaType, content := range resp.Content {
-					if content != nil && content.Schema != nil {
-						f.fixSchemaCSVEnums(content.Schema, fmt.Sprintf("components.responses.%s.content.%s.schema", name, mediaType), result)
-					}
-				}
-			}
+		for _, name := range maputil.SortedKeys(comp.MediaTypes) {
+			f.fixMediaTypeCSVEnums(comp.MediaTypes[name], "components.mediaTypes."+name, result)
+		}
+
+		f.fixCallbacksCSVEnums(comp.Callbacks, "components.callbacks", doc.OASVersion, result)
+
+		for _, name := range maputil.SortedKeys(comp.PathItems) {
+			f.fixPathItemCSVEnumsOAS3(comp.PathItems[name], "components.pathItems."+name, doc.OASVersion, result)
 		}
 	}
 
 	// Fix path operations
-	for path, pathItem := range doc.Paths {
-		if pathItem == nil {
-			continue
-		}
-		f.fixPathItemCSVEnumsOAS3(pathItem, path, result)
+	for _, path := range maputil.SortedKeys(doc.Paths) {
+		f.fixPathItemCSVEnumsOAS3(doc.Paths[path], "paths."+path, doc.OASVersion, result)
+	}
+
+	// Fix webhooks, which OAS 3.1 places alongside paths rather than under them
+	for _, name := range maputil.SortedKeys(doc.Webhooks) {
+		f.fixPathItemCSVEnumsOAS3(doc.Webhooks[name], "webhooks."+name, doc.OASVersion, result)
 	}
 }
 
-// fixPathItemCSVEnumsOAS3 fixes CSV enums in an OAS 3.x path item.
-func (f *Fixer) fixPathItemCSVEnumsOAS3(pathItem *parser.PathItem, path string, result *FixResult) {
-	operations := []struct {
-		method string
-		op     *parser.Operation
-	}{
-		{"get", pathItem.Get},
-		{"put", pathItem.Put},
-		{"post", pathItem.Post},
-		{"delete", pathItem.Delete},
-		{"options", pathItem.Options},
-		{"head", pathItem.Head},
-		{"patch", pathItem.Patch},
-		{"trace", pathItem.Trace},
+// fixPathItemCSVEnumsOAS3 fixes CSV enums in an OAS 3.x path item. The version
+// decides which operations the path item may hold: TRACE arrives in 3.0, QUERY
+// and additionalOperations in 3.2.
+func (f *Fixer) fixPathItemCSVEnumsOAS3(pathItem *parser.PathItem, path string, version parser.OASVersion, result *FixResult) {
+	if pathItem == nil {
+		return
 	}
 
-	for _, entry := range operations {
-		if entry.op == nil {
+	// A path item's parameters apply to every operation it holds, so they are
+	// visited once here rather than inside the operation loop below.
+	f.fixParametersCSVEnumsOAS3(pathItem.Parameters, path, result)
+
+	operations := parser.GetOperations(pathItem, version)
+	for _, method := range maputil.SortedKeys(operations) {
+		op := operations[method]
+		if op == nil {
 			continue
 		}
-		basePath := fmt.Sprintf("paths.%s.%s", path, entry.method)
+		basePath := path + "." + operationPathSegment(pathItem, method)
 
-		// Fix parameters
-		for i, param := range entry.op.Parameters {
-			if param != nil && param.Schema != nil {
-				f.fixSchemaCSVEnums(param.Schema, fmt.Sprintf("%s.parameters[%d].schema", basePath, i), result)
-			}
+		f.fixParametersCSVEnumsOAS3(op.Parameters, basePath, result)
+
+		if op.RequestBody != nil {
+			f.fixContentCSVEnums(op.RequestBody.Content, basePath+".requestBody.content", result)
 		}
 
-		// Fix request body
-		if entry.op.RequestBody != nil && entry.op.RequestBody.Content != nil {
-			for mediaType, content := range entry.op.RequestBody.Content {
-				if content != nil && content.Schema != nil {
-					f.fixSchemaCSVEnums(content.Schema, fmt.Sprintf("%s.requestBody.content.%s.schema", basePath, mediaType), result)
-				}
+		f.fixCallbacksCSVEnums(op.Callbacks, basePath+".callbacks", version, result)
+
+		if op.Responses != nil {
+			f.fixResponseCSVEnumsOAS3(op.Responses.Default, basePath+".responses.default", result)
+			for _, code := range maputil.SortedKeys(op.Responses.Codes) {
+				f.fixResponseCSVEnumsOAS3(op.Responses.Codes[code], basePath+".responses."+code, result)
 			}
 		}
+	}
+}
 
-		// Fix responses
-		if entry.op.Responses != nil {
-			if entry.op.Responses.Default != nil && entry.op.Responses.Default.Content != nil {
-				for mediaType, content := range entry.op.Responses.Default.Content {
-					if content != nil && content.Schema != nil {
-						f.fixSchemaCSVEnums(content.Schema, fmt.Sprintf("%s.responses.default.content.%s.schema", basePath, mediaType), result)
-					}
-				}
-			}
-			for code, resp := range entry.op.Responses.Codes {
-				if resp != nil && resp.Content != nil {
-					for mediaType, content := range resp.Content {
-						if content != nil && content.Schema != nil {
-							f.fixSchemaCSVEnums(content.Schema, fmt.Sprintf("%s.responses.%s.content.%s.schema", basePath, code, mediaType), result)
-						}
-					}
-				}
-			}
+// operationPathSegment returns the path segment naming one operation of a path
+// item. parser.GetOperations flattens the custom methods OAS 3.2 allows into
+// the same map as the standard ones, but the document spells them under
+// additionalOperations, which is where the rest of oastools reports them.
+func operationPathSegment(pathItem *parser.PathItem, method string) string {
+	if _, custom := pathItem.AdditionalOperations[method]; custom {
+		return "additionalOperations." + method
+	}
+	return method
+}
+
+// fixParametersCSVEnumsOAS3 fixes CSV enums in one OAS 3.x parameter list,
+// reporting each fix by the parameter's position.
+func (f *Fixer) fixParametersCSVEnumsOAS3(params []*parser.Parameter, path string, result *FixResult) {
+	for i, param := range params {
+		f.fixParameterCSVEnumsOAS3(param, path+".parameters["+strconv.Itoa(i)+"]", result)
+	}
+}
+
+// fixParameterCSVEnumsOAS3 fixes CSV enums in one OAS 3.x parameter. A
+// parameter describes its values through either schema or content, never both.
+func (f *Fixer) fixParameterCSVEnumsOAS3(param *parser.Parameter, path string, result *FixResult) {
+	if param == nil {
+		return
+	}
+	f.fixSchemaCSVEnums(param.Schema, path+".schema", result)
+	f.fixContentCSVEnums(param.Content, path+".content", result)
+}
+
+// fixHeaderCSVEnumsOAS3 fixes CSV enums in one OAS 3.x header, which takes the
+// same schema-or-content form as a parameter.
+func (f *Fixer) fixHeaderCSVEnumsOAS3(header *parser.Header, path string, result *FixResult) {
+	if header == nil {
+		return
+	}
+	f.fixSchemaCSVEnums(header.Schema, path+".schema", result)
+	f.fixContentCSVEnums(header.Content, path+".content", result)
+}
+
+// fixResponseCSVEnumsOAS3 fixes CSV enums in one OAS 3.x response: each media
+// type it offers and each of its headers.
+func (f *Fixer) fixResponseCSVEnumsOAS3(resp *parser.Response, path string, result *FixResult) {
+	if resp == nil {
+		return
+	}
+	f.fixContentCSVEnums(resp.Content, path+".content", result)
+	for _, name := range maputil.SortedKeys(resp.Headers) {
+		f.fixHeaderCSVEnumsOAS3(resp.Headers[name], path+".headers."+name, result)
+	}
+}
+
+// fixContentCSVEnums fixes CSV enums in every media type of a content map.
+func (f *Fixer) fixContentCSVEnums(content map[string]*parser.MediaType, path string, result *FixResult) {
+	for _, mediaType := range maputil.SortedKeys(content) {
+		f.fixMediaTypeCSVEnums(content[mediaType], path+"."+mediaType, result)
+	}
+}
+
+// fixMediaTypeCSVEnums fixes CSV enums in one media type: the schema of the
+// payload, and the schema of each item when the payload is sequential.
+func (f *Fixer) fixMediaTypeCSVEnums(mediaType *parser.MediaType, path string, result *FixResult) {
+	if mediaType == nil {
+		return
+	}
+	f.fixSchemaCSVEnums(mediaType.Schema, path+".schema", result)
+	f.fixSchemaCSVEnums(mediaType.ItemSchema, path+".itemSchema", result)
+	f.fixEncodingsCSVEnums(mediaType.Encoding, mediaType.ItemEncoding, mediaType.PrefixEncoding, path, result)
+}
+
+// fixEncodingCSVEnums fixes CSV enums in one encoding: the headers it declares
+// for the part it encodes, and the encodings it nests.
+func (f *Fixer) fixEncodingCSVEnums(encoding *parser.Encoding, path string, result *FixResult) {
+	if encoding == nil {
+		return
+	}
+	for _, name := range maputil.SortedKeys(encoding.Headers) {
+		f.fixHeaderCSVEnumsOAS3(encoding.Headers[name], path+".headers."+name, result)
+	}
+	f.fixEncodingsCSVEnums(encoding.Encoding, encoding.ItemEncoding, encoding.PrefixEncoding, path, result)
+}
+
+// fixEncodingsCSVEnums fixes CSV enums in the three places an encoding may
+// nest another, which a media type and an encoding hold alike: by property
+// name, for each item of a sequence, and positionally for its leading items.
+func (f *Fixer) fixEncodingsCSVEnums(
+	byName map[string]*parser.Encoding,
+	item *parser.Encoding,
+	prefix []*parser.Encoding,
+	path string,
+	result *FixResult,
+) {
+	for _, name := range maputil.SortedKeys(byName) {
+		f.fixEncodingCSVEnums(byName[name], path+".encoding."+name, result)
+	}
+	f.fixEncodingCSVEnums(item, path+".itemEncoding", result)
+	for i, encoding := range prefix {
+		f.fixEncodingCSVEnums(encoding, path+".prefixEncoding["+strconv.Itoa(i)+"]", result)
+	}
+}
+
+// fixCallbacksCSVEnums fixes CSV enums in a callbacks map. Each callback holds
+// path items keyed by a runtime expression, so an enum may be declared as
+// deeply inside one as inside the document's own paths.
+func (f *Fixer) fixCallbacksCSVEnums(
+	callbacks map[string]*parser.Callback,
+	path string,
+	version parser.OASVersion,
+	result *FixResult,
+) {
+	for _, name := range maputil.SortedKeys(callbacks) {
+		callback := callbacks[name]
+		if callback == nil {
+			continue
+		}
+		for _, expression := range maputil.SortedKeys(*callback) {
+			f.fixPathItemCSVEnumsOAS3((*callback)[expression], path+"."+name+"."+expression, version, result)
 		}
 	}
 }
@@ -197,34 +338,11 @@ func (f *Fixer) fixSchemaCSVEnums(schema *parser.Schema, path string, result *Fi
 		return
 	}
 
-	// Check if this schema has CSV enums
-	if isCSVEnumCandidate(schema) {
-		expanded, skippedParts, hadExpansion := expandCSVEnumValues(schema)
-		if hadExpansion && len(expanded) > 0 {
-			before := schema.Enum
-			schema.Enum = expanded
-
-			description := fmt.Sprintf("expanded CSV enum string to %d individual values", len(expanded))
-			if len(skippedParts) > 0 {
-				description = fmt.Sprintf("expanded CSV enum string to %d values (skipped %d invalid: %s)",
-					len(expanded), len(skippedParts), strings.Join(skippedParts, ", "))
-			}
-
-			fix := Fix{
-				Type:        FixTypeEnumCSVExpanded,
-				Path:        path,
-				Description: description,
-				Before:      before,
-				After:       expanded,
-			}
-			f.populateFixLocation(&fix)
-			result.Fixes = append(result.Fixes, fix)
-		}
-	}
+	f.fixTypedCSVEnum(schemautil.GetPrimaryType(schema), &schema.Enum, path, result)
 
 	// Recurse into nested schemas
-	for propName, propSchema := range schema.Properties {
-		f.fixSchemaCSVEnums(propSchema, fmt.Sprintf("%s.properties.%s", path, propName), result)
+	for _, propName := range maputil.SortedKeys(schema.Properties) {
+		f.fixSchemaCSVEnums(schema.Properties[propName], path+".properties."+propName, result)
 	}
 
 	for i, itemsSchema := range schemautil.SchemaOrBoolSchemas(schema.Items) {
@@ -236,15 +354,15 @@ func (f *Fixer) fixSchemaCSVEnums(schema *parser.Schema, path string, result *Fi
 	}
 
 	for i, allOf := range schema.AllOf {
-		f.fixSchemaCSVEnums(allOf, fmt.Sprintf("%s.allOf[%d]", path, i), result)
+		f.fixSchemaCSVEnums(allOf, path+".allOf["+strconv.Itoa(i)+"]", result)
 	}
 
 	for i, anyOf := range schema.AnyOf {
-		f.fixSchemaCSVEnums(anyOf, fmt.Sprintf("%s.anyOf[%d]", path, i), result)
+		f.fixSchemaCSVEnums(anyOf, path+".anyOf["+strconv.Itoa(i)+"]", result)
 	}
 
 	for i, oneOf := range schema.OneOf {
-		f.fixSchemaCSVEnums(oneOf, fmt.Sprintf("%s.oneOf[%d]", path, i), result)
+		f.fixSchemaCSVEnums(oneOf, path+".oneOf["+strconv.Itoa(i)+"]", result)
 	}
 
 	if schema.Not != nil {
@@ -252,21 +370,50 @@ func (f *Fixer) fixSchemaCSVEnums(schema *parser.Schema, path string, result *Fi
 	}
 }
 
-// isCSVEnumCandidate returns true if the schema has an enum that looks like
-// it contains CSV values that should be expanded.
-func isCSVEnumCandidate(schema *parser.Schema) bool {
-	if schema == nil || len(schema.Enum) == 0 {
+// fixTypedCSVEnum expands one enum declaration in place and records the fix.
+// The enum is addressed through a pointer because the declaration may be a
+// schema's or an OAS 2.0 parameter's, header's, or items' own, and those share
+// no type.
+func (f *Fixer) fixTypedCSVEnum(schemaType string, enum *[]any, path string, result *FixResult) {
+	expanded, skippedParts, hadExpansion := expandCSVEnumValues(schemaType, *enum)
+	if !hadExpansion || len(expanded) == 0 {
+		return
+	}
+
+	before := *enum
+	*enum = expanded
+
+	description := fmt.Sprintf("expanded CSV enum string to %d individual values", len(expanded))
+	if len(skippedParts) > 0 {
+		description = fmt.Sprintf("expanded CSV enum string to %d values (skipped %d invalid: %s)",
+			len(expanded), len(skippedParts), strings.Join(skippedParts, ", "))
+	}
+
+	fix := Fix{
+		Type:        FixTypeEnumCSVExpanded,
+		Path:        path,
+		Description: description,
+		Before:      before,
+		After:       expanded,
+	}
+	f.populateFixLocation(&fix)
+	result.Fixes = append(result.Fixes, fix)
+}
+
+// isCSVEnumCandidate returns true if the enum declared under schemaType looks
+// like it contains CSV values that should be expanded.
+func isCSVEnumCandidate(schemaType string, enum []any) bool {
+	if len(enum) == 0 {
 		return false
 	}
 
 	// Only apply to integer or number types
-	schemaType := getSchemaType(schema)
 	if schemaType != "integer" && schemaType != "number" {
 		return false
 	}
 
 	// Check if any enum value is a string containing a comma
-	for _, v := range schema.Enum {
+	for _, v := range enum {
 		if s, ok := v.(string); ok && strings.Contains(s, ",") {
 			return true
 		}
@@ -275,43 +422,16 @@ func isCSVEnumCandidate(schema *parser.Schema) bool {
 	return false
 }
 
-// getSchemaType extracts the type from a schema, handling OAS 3.1+ type arrays.
-func getSchemaType(schema *parser.Schema) string {
-	if schema.Type == nil {
-		return ""
-	}
-	switch t := schema.Type.(type) {
-	case string:
-		return t
-	case []any:
-		// For type arrays, look for non-null type
-		for _, v := range t {
-			if s, ok := v.(string); ok && s != "null" {
-				return s
-			}
-		}
-	}
-	return ""
-}
-
 // expandCSVEnumValues expands CSV strings in enum values to individual values.
 // Returns the expanded enum, any parts that were skipped due to parse errors,
 // and whether any expansion occurred. Invalid values within a CSV string
 // (e.g., non-numeric strings for integer type) are tracked in skippedParts.
-func expandCSVEnumValues(schema *parser.Schema) (expanded []any, skippedParts []string, hadExpansion bool) {
-	if schema == nil {
-		return nil, nil, false
-	}
-	if len(schema.Enum) == 0 {
-		return schema.Enum, nil, false
+func expandCSVEnumValues(schemaType string, enum []any) (expanded []any, skippedParts []string, hadExpansion bool) {
+	if !isCSVEnumCandidate(schemaType, enum) {
+		return enum, nil, false
 	}
 
-	schemaType := getSchemaType(schema)
-	if schemaType != "integer" && schemaType != "number" {
-		return schema.Enum, nil, false
-	}
-
-	for _, v := range schema.Enum {
+	for _, v := range enum {
 		switch val := v.(type) {
 		case string:
 			if strings.Contains(val, ",") {

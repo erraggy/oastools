@@ -638,6 +638,12 @@ The fixer detects duplicate `operationId` values and automatically generates uni
 
 Enum values specified as comma-separated strings are automatically expanded to proper typed arrays.
 
+Expansion applies only where the declared type is `integer` or `number`, including an OAS 3.1 type array such as `["integer", "null"]`, whose first non-null entry decides. A comma inside a `string` enum value is legitimate, so such values are left as the document wrote them.
+
+The expansion reaches every place an enum may be declared, not only a schema. In OAS 2.0 a non-body parameter, a response header, and either one's `items` carry `type` and `enum` on the object itself, and those declarations are expanded alongside the ones a schema holds.
+
+In OAS 3.x every enum still belongs to a schema, but the schema is reached through more of the document than `components.schemas`: reusable parameters, headers and responses, request bodies, media types (including `itemSchema` and the headers an `encoding` declares), the parameters a path item declares for its operations, the schema a parameter or header offers through `content`, and the path items held by `callbacks`, by `webhooks`, and by `components.pathItems`.
+
 ### 6.8 ⚠️ Mutable Input Mode (v1.48.0+)
 
 For performance-critical scenarios, `WithMutableInput(true)` skips the defensive deep copy of the input document. This is particularly useful when chaining multiple fix passes.
