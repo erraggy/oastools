@@ -72,8 +72,12 @@ func BenchmarkOperation(b *testing.B) {
 **Use package constants instead of string literals:**
 
 - HTTP Methods: `httputil.MethodGet`, `httputil.MethodPost`, etc.
-- HTTP Status Codes: `httputil.ValidateStatusCode()`, `httputil.StandardHTTPStatusCodes`
 - Severity Levels: `severity.SeverityError`, `severity.SeverityWarning`, etc.
+
+There are no constants for HTTP status codes, so write the code as a string literal
+(`"200"`). That is how `httputil.StandardHTTPStatusCodes` stores its own keys. Use
+`httputil.IsStatusCode`, `httputil.IsSuccessStatusCode`, or `httputil.IsStandardStatusCode`
+to check a code the document supplies, rather than to write one.
 
 **Format preservation:**
 
