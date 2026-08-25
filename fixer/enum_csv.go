@@ -334,28 +334,65 @@ func (f *Fixer) fixSchemaCSVEnums(schema *parser.Schema, path string, result *Fi
 		f.fixSchemaCSVEnums(schema.Properties[propName], path+".properties."+propName, result)
 	}
 
-	for i, itemsSchema := range schemautil.SchemaOrBoolSchemas(schema.Items) {
-		f.fixSchemaCSVEnums(itemsSchema, path+".items"+schemautil.IndexSuffix(i), result)
+	// Schema-or-bool fields, each of which may also hold the OAS 2.0 tuple form
+	for _, field := range []struct {
+		name  string
+		value any
+	}{
+		{"items", schema.Items},
+		{"additionalProperties", schema.AdditionalProperties},
+		{"additionalItems", schema.AdditionalItems},
+		{"unevaluatedProperties", schema.UnevaluatedProperties},
+		{"unevaluatedItems", schema.UnevaluatedItems},
+	} {
+		for i, contained := range schemautil.SchemaOrBoolSchemas(field.value) {
+			f.fixSchemaCSVEnums(contained, path+"."+field.name+schemautil.IndexSuffix(i), result)
+		}
 	}
 
-	for i, addPropsSchema := range schemautil.SchemaOrBoolSchemas(schema.AdditionalProperties) {
-		f.fixSchemaCSVEnums(addPropsSchema, path+".additionalProperties"+schemautil.IndexSuffix(i), result)
+	// Composition
+	for _, branch := range []struct {
+		name    string
+		schemas []*parser.Schema
+	}{
+		{"allOf", schema.AllOf},
+		{"anyOf", schema.AnyOf},
+		{"oneOf", schema.OneOf},
+		{"prefixItems", schema.PrefixItems},
+	} {
+		for i, member := range branch.schemas {
+			f.fixSchemaCSVEnums(member, path+"."+branch.name+"["+strconv.Itoa(i)+"]", result)
+		}
 	}
 
-	for i, allOf := range schema.AllOf {
-		f.fixSchemaCSVEnums(allOf, path+".allOf["+strconv.Itoa(i)+"]", result)
+	// Single-schema keywords
+	for _, single := range []struct {
+		name   string
+		schema *parser.Schema
+	}{
+		{"not", schema.Not},
+		{"contains", schema.Contains},
+		{"propertyNames", schema.PropertyNames},
+		{"if", schema.If},
+		{"then", schema.Then},
+		{"else", schema.Else},
+		{"contentSchema", schema.ContentSchema},
+	} {
+		f.fixSchemaCSVEnums(single.schema, path+"."+single.name, result)
 	}
 
-	for i, anyOf := range schema.AnyOf {
-		f.fixSchemaCSVEnums(anyOf, path+".anyOf["+strconv.Itoa(i)+"]", result)
-	}
-
-	for i, oneOf := range schema.OneOf {
-		f.fixSchemaCSVEnums(oneOf, path+".oneOf["+strconv.Itoa(i)+"]", result)
-	}
-
-	if schema.Not != nil {
-		f.fixSchemaCSVEnums(schema.Not, path+".not", result)
+	// Keyword maps
+	for _, keyed := range []struct {
+		name    string
+		schemas map[string]*parser.Schema
+	}{
+		{"dependentSchemas", schema.DependentSchemas},
+		{"patternProperties", schema.PatternProperties},
+		{"$defs", schema.Defs},
+	} {
+		for _, name := range maputil.SortedKeys(keyed.schemas) {
+			f.fixSchemaCSVEnums(keyed.schemas[name], path+"."+keyed.name+"."+name, result)
+		}
 	}
 }
 
@@ -370,7 +407,11 @@ func (f *Fixer) fixTypedCSVEnum(schemaType string, enum *[]any, path string, res
 	}
 
 	before := *enum
-	*enum = expanded
+	// DryRun suppresses the write, not the report: a preview that omits a fix is
+	// worse than one that mutates, because nothing signals the omission.
+	if !f.DryRun {
+		*enum = expanded
+	}
 
 	description := fmt.Sprintf("expanded CSV enum string to %d individual values", len(expanded))
 	if len(skippedParts) > 0 {

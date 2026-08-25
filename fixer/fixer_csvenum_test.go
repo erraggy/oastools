@@ -1179,3 +1179,107 @@ func TestFix_CSVEnumExpansion_OAS31TypeArrayOfStrings(t *testing.T) {
 	require.Len(t, result.Fixes, 1)
 	assert.Equal(t, "components.schemas.Status", result.Fixes[0].Path)
 }
+
+// TestFix_CSVEnumExpansion_DryRunDoesNotMutate tests that DryRun suppresses the
+// write while still reporting the fix. Skipping the pass would make the preview
+// under-report, which is worse than mutating, because nothing signals it.
+func TestFix_CSVEnumExpansion_DryRunDoesNotMutate(t *testing.T) {
+	doc := &parser.OAS2Document{
+		Swagger: "2.0",
+		Info:    &parser.Info{Title: "Test", Version: "1.0.0"},
+		Paths: map[string]*parser.PathItem{
+			"/items": {
+				Get: &parser.Operation{
+					OperationID: "listItems",
+					Parameters: []*parser.Parameter{
+						{Name: "status", In: "query", Type: "integer", Enum: []any{"1,2,3"}},
+					},
+				},
+			},
+		},
+	}
+
+	f := New()
+	f.EnabledFixes = []FixType{FixTypeEnumCSVExpanded}
+	f.DryRun = true
+	f.MutableInput = true // so the source document is the one the pass would write to
+
+	result, err := f.FixParsed(parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion20,
+		Version:    "2.0",
+	})
+	require.NoError(t, err)
+
+	require.Len(t, result.Fixes, 1, "the fix is still reported")
+	assert.Equal(t, "paths./items.get.parameters[0]", result.Fixes[0].Path)
+	assert.Equal(t, []any{int64(1), int64(2), int64(3)}, result.Fixes[0].After)
+
+	assert.Equal(t, []any{"1,2,3"}, doc.Paths["/items"].Get.Parameters[0].Enum,
+		"the document is left as it was")
+}
+
+// TestFix_CSVEnumExpansion_SchemaKeywords tests the JSON Schema keywords a
+// schema may nest another schema under. Reaching only properties, items,
+// additionalProperties and the composition keywords left an enum unexpanded in
+// eleven other places.
+func TestFix_CSVEnumExpansion_SchemaKeywords(t *testing.T) {
+	csv := func() *parser.Schema {
+		return &parser.Schema{Type: "integer", Enum: []any{"1,2"}}
+	}
+	doc := &parser.OAS3Document{
+		OpenAPI:    "3.1.0",
+		OASVersion: parser.OASVersion310,
+		Info:       &parser.Info{Title: "Test", Version: "1.0.0"},
+		Components: &parser.Components{
+			Schemas: map[string]*parser.Schema{
+				"Wide": {
+					Type:                  "object",
+					PrefixItems:           []*parser.Schema{csv()},
+					Contains:              csv(),
+					PropertyNames:         csv(),
+					PatternProperties:     map[string]*parser.Schema{"^x-": csv()},
+					DependentSchemas:      map[string]*parser.Schema{"foo": csv()},
+					If:                    csv(),
+					Then:                  csv(),
+					Else:                  csv(),
+					AdditionalItems:       csv(),
+					UnevaluatedItems:      csv(),
+					UnevaluatedProperties: csv(),
+					ContentSchema:         csv(),
+					Defs:                  map[string]*parser.Schema{"Inner": csv()},
+				},
+			},
+		},
+	}
+
+	f := New()
+	f.EnabledFixes = []FixType{FixTypeEnumCSVExpanded}
+	result, err := f.FixParsed(parser.ParseResult{
+		Document:   doc,
+		OASVersion: parser.OASVersion310,
+		Version:    "3.1.0",
+	})
+	require.NoError(t, err)
+
+	paths := make([]string, 0, len(result.Fixes))
+	for _, fix := range result.Fixes {
+		paths = append(paths, fix.Path)
+	}
+	const base = "components.schemas.Wide"
+	assert.ElementsMatch(t, []string{
+		base + ".prefixItems[0]",
+		base + ".contains",
+		base + ".propertyNames",
+		base + ".patternProperties.^x-",
+		base + ".dependentSchemas.foo",
+		base + ".if",
+		base + ".then",
+		base + ".else",
+		base + ".additionalItems",
+		base + ".unevaluatedItems",
+		base + ".unevaluatedProperties",
+		base + ".contentSchema",
+		base + ".$defs.Inner",
+	}, paths)
+}

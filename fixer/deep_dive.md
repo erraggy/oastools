@@ -116,9 +116,16 @@ declaration in both versions:
 | Callbacks and webhooks | `....callbacks.{name}.{expression}...`, `webhooks.{name}...` |
 | OAS 3.2 custom methods | `paths.{path}.additionalOperations.{METHOD}...` |
 
+Within a schema the pass follows every keyword that can nest another schema:
+`properties`, `items` (including the OAS 2.0 tuple form), `additionalProperties`,
+`additionalItems`, `unevaluatedItems`, `unevaluatedProperties`, `allOf`, `anyOf`,
+`oneOf`, `not`, `prefixItems`, `contains`, `propertyNames`, `patternProperties`,
+`dependentSchemas`, `if`, `then`, `else`, `contentSchema` and `$defs`.
+
 A path item's parameters are visited once, not once per operation it holds. Every
 map is walked in sorted key order, so the fixes one document produces are
-reported in the same sequence on every run.
+reported in the same sequence on every run. Under `DryRun` the pass still
+traverses and still records each fix; only the write is suppressed.
 
 **Why are some fixes disabled by default?**
 
