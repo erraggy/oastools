@@ -86,7 +86,7 @@ func (f *Fixer) fixMissingPathParameters(paths map[string]*parser.PathItem, vers
 				// Record the fix
 				fix := Fix{
 					Type:        FixTypeMissingPathParameter,
-					Path:        fmt.Sprintf("paths.%s.%s.parameters", pathPattern, method),
+					Path:        fmt.Sprintf("paths.%s.%s.parameters", pathPattern, operationPathSegment(pathItem, method)),
 					Description: buildMissingParamDescription(paramName, paramType, paramFormat),
 					Before:      nil,
 					After:       newParam,

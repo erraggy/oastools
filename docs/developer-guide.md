@@ -524,6 +524,31 @@ result, err := fixer.FixWithOptions(
 // Missing response references get stub responses with configurable descriptions
 ```
 
+**Expanding CSV Enums (`FixTypeEnumCSVExpanded`):**
+
+Some generators write a numeric enum as one comma joined string, which declares a single allowed value no caller can satisfy. This fix is opt-in:
+
+```go
+result, err := fixer.FixWithOptions(
+    fixer.WithFilePath("swagger.yaml"),
+    fixer.WithEnabledFixes(fixer.FixTypeEnumCSVExpanded),
+)
+```
+
+Given an OAS 2.0 query parameter, which declares `type` and `enum` on the parameter object rather than in a schema:
+
+```yaml
+parameters:
+  - name: litterSize
+    in: query
+    type: integer
+    enum: ["1,2,3"]
+```
+
+the enum becomes `[1, 2, 3]`, reported at `paths./pets.get.parameters[0]`.
+
+Expansion applies only where the type resolves to `integer` or `number`, an OAS 3.1 type array such as `["integer", "null"]` included. A comma inside a `string` enum value is legitimate and is left alone. See the [fixer deep dive](packages/fixer.md) for every location the pass reaches.
+
 **Dry-Run Mode:**
 
 ```go

@@ -64,6 +64,13 @@
 //     (e.g., "1,2,3" instead of [1, 2, 3]). This fix is opt-in and must be explicitly
 //     enabled.
 //
+//     The enum need not be in a schema. In OAS 2.0 a non-body parameter, a response
+//     header, and either one's items chain declare type and enum on the object itself,
+//     and those are expanded alongside the ones a schema holds. Expansion applies only
+//     where the type resolves to integer or number, including an OAS 3.1 type array
+//     such as ["integer", "null"]; a comma inside a string enum value is legitimate and
+//     is left as the document wrote it.
+//
 //   - Duplicate operationIds (FixTypeDuplicateOperationId): Renames duplicate
 //     operationId values within a document. When multiple operations share the same
 //     operationId, subsequent occurrences are renamed using a configurable template.

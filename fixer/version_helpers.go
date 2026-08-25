@@ -12,6 +12,19 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
+// operationPathSegment returns the path segment naming one operation of a path
+// item. parser.GetOperations flattens the custom methods OAS 3.2 allows into
+// the same map as the standard ones, but the document spells them under
+// additionalOperations, which is where walker, validator and converter all
+// report them. Every fixer pass that builds a path from a GetOperations key
+// goes through here so the fixer agrees with them.
+func operationPathSegment(pathItem *parser.PathItem, method string) string {
+	if _, custom := pathItem.AdditionalOperations[method]; custom {
+		return "additionalOperations." + method
+	}
+	return method
+}
+
 // schemaPathPrefix returns the JSON path prefix for schemas based on OAS version.
 func schemaPathPrefix(version parser.OASVersion) string {
 	if version == parser.OASVersion20 {

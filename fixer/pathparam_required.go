@@ -80,7 +80,7 @@ func (f *Fixer) fixPathParamsRequiredInPaths(paths parser.Paths, version parser.
 			if op == nil {
 				continue
 			}
-			f.setPathParamsRequired(op.Parameters, prefix+"."+method, result)
+			f.setPathParamsRequired(op.Parameters, prefix+"."+operationPathSegment(pathItem, method), result)
 		}
 	}
 }
