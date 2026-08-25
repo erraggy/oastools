@@ -463,7 +463,7 @@ Collisions resolved: 1
   schema 'User' collision: right renamed to 'User_orders-api'
 ```
 
-If a generated name is already taken, a `_2`, `_3` suffix is added rather than replacing the schema under it. The rename warning reports the name that was used.
+If a generated name is already taken, a `_2`, `_3` suffix is added rather than replacing the schema under it. A name any source document declares counts as taken, including a document not merged yet, so a rename never claims a name its own author went on to use (#547). The rename warning reports the name that was used.
 
 [Back to top](#top)
 

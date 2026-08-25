@@ -859,6 +859,33 @@ if err != nil {
 //   in the joiner deep dive)
 // - All $ref references are automatically rewritten
 // - Warnings indicate how many duplicates were consolidated
+// - DeduplicationScope decides which names may fold into that canonical name:
+//   "all" (default) folds any equivalent name, "generated-only" folds only the
+//   names a collision rename generated and leaves every declared name alone
+```
+
+**Sizing a Deduplication Before Enabling It:**
+
+```go
+config := joiner.DefaultConfig()
+config.SemanticDeduplication = true
+config.DeduplicationReport = true
+
+j := joiner.New(config)
+result, err := j.Join([]string{"api1.yaml", "api2.yaml"})
+if err != nil {
+    log.Fatal(err)
+}
+
+// Each consolidation names its survivor and what folded into it. Generated
+// reports whether a collision rename produced the name, which is what a diff
+// against the inputs cannot tell you.
+for _, consolidation := range result.Consolidations {
+    fmt.Printf("%s (generated: %t)\n", consolidation.Survivor, consolidation.SurvivorGenerated)
+    for _, folded := range consolidation.Folded {
+        fmt.Printf("  folded %s (generated: %t)\n", folded.Name, folded.Generated)
+    }
+}
 ```
 
 **Operation-Aware Schema Renaming:**

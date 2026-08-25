@@ -906,6 +906,10 @@ func (j *Joiner) getLocationPtr(filePath, jsonPath string) *SourceLocation {
 // A prefixed document is spelled as the prefix will spell it, since that is the
 // name the merge stores and therefore the name a rename must not take. Callers
 // that configure no prefix at all get the declared names unchanged.
+//
+// Only declared names are reserved. A prefix applied on collision produces a
+// rename target rather than a declaration, and uniqueSchemaName already checks
+// those against what the join holds.
 func (j *Joiner) reserveDeclaredNames(paths []string, declaredNames func(docIndex int) map[string]*parser.Schema) map[string]bool {
 	reserved := make(map[string]bool)
 	for i, path := range paths {

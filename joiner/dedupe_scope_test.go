@@ -195,3 +195,33 @@ func TestDeduplicationScopeComposesWithOperationContext(t *testing.T) {
 	assert.Contains(t, definitions, "Inventory")
 	assert.Contains(t, definitions, "Stock")
 }
+
+// TestFoldableForScope pins the resolution of a scope, including the value a
+// caller can only produce by filling JoinerConfig directly.
+func TestFoldableForScope(t *testing.T) {
+	generated := map[string]bool{"Api_Common": true}
+
+	tests := []struct {
+		name     string
+		scope    DeduplicationScope
+		foldable bool // whether the returned func is non-nil
+	}{
+		{"all folds every name", DeduplicationScopeAll, false},
+		{"the zero value reads as all", "", false},
+		{"an unrecognized value reads as all", "generated_only", false},
+		{"generated-only refuses a declared name", DeduplicationScopeGeneratedOnly, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := foldableForScope(tt.scope, generated)
+			if !tt.foldable {
+				assert.Nil(t, got, "a scope that folds everything supplies no FoldableFunc")
+				return
+			}
+			require.NotNil(t, got)
+			assert.True(t, got("Api_Common"), "a generated name folds")
+			assert.False(t, got("Common"), "a declared name does not")
+		})
+	}
+}

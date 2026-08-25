@@ -709,3 +709,200 @@ components:
 	// shippedFrom: #/components/schemas/OriginAddress
 	// shippedTo:   #/components/schemas/DestinationAddress
 }
+
+// Example_deduplicationScope demonstrates limiting semantic deduplication to
+// the names a collision rename generated.
+//
+// Under the default scope every equivalent name may fold, so a name a document
+// declared can disappear from the joined document. Under
+// DeduplicationScopeGeneratedOnly only a generated alias folds away, and every
+// name a document declared survives, which keeps the joined document's schema
+// names recognizable to a consumer of the source documents.
+func Example_deduplicationScope() {
+	// warehouse and depot both declare "Common" with divergent shapes, so a
+	// collision rename generates an alias for the second one. inventory
+	// declares two equivalent names of its own that nothing holds apart.
+	warehouseSpec := []byte(`openapi: "3.0.0"
+info:
+  title: Warehouse API
+  version: "1.0"
+paths: {}
+components:
+  schemas:
+    Common:
+      type: object
+      properties:
+        fromWarehouse:
+          type: string
+`)
+
+	depotSpec := []byte(`openapi: "3.0.0"
+info:
+  title: Depot API
+  version: "1.0"
+paths: {}
+components:
+  schemas:
+    Common:
+      type: object
+      properties:
+        fromDepot:
+          type: string
+`)
+
+	inventorySpec := []byte(`openapi: "3.0.0"
+info:
+  title: Inventory API
+  version: "1.0"
+paths: {}
+components:
+  schemas:
+    Inventory:
+      type: object
+      properties:
+        sku:
+          type: string
+    Stock:
+      type: object
+      properties:
+        sku:
+          type: string
+`)
+
+	parse := func(spec []byte, sourceName string) parser.ParseResult {
+		result, err := parser.ParseWithOptions(
+			parser.WithBytes(spec),
+			parser.WithSourceName(sourceName),
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return *result
+	}
+
+	warehouse := parse(warehouseSpec, "warehouse")
+	depot := parse(depotSpec, "depot")
+	inventory := parse(inventorySpec, "inventory")
+
+	join := func(scope joiner.DeduplicationScope) []string {
+		result, err := joiner.JoinWithOptions(
+			joiner.WithParsed(warehouse, depot, inventory),
+			joiner.WithSchemaStrategy(joiner.StrategyDeduplicateOrRename),
+			joiner.WithRenameTemplate("{{.Name}}_{{.Source}}"),
+			joiner.WithSemanticDeduplication(true),
+			joiner.WithEquivalenceMode("deep"),
+			joiner.WithDeduplicationScope(scope),
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
+		doc := result.Document.(*parser.OAS3Document)
+		return slices.Sorted(maps.Keys(doc.Components.Schemas))
+	}
+
+	// Under "all", Stock folds into the equivalent Inventory even though a
+	// document declared it. Under "generated-only" both declared names stay.
+	fmt.Printf("all:            %v\n", join(joiner.DeduplicationScopeAll))
+	fmt.Printf("generated-only: %v\n", join(joiner.DeduplicationScopeGeneratedOnly))
+	fmt.Printf("Valid scopes:   %v\n", joiner.ValidDeduplicationScopes())
+	fmt.Printf("Valid: %v\n", joiner.IsValidDeduplicationScope("generated-only"))
+	// Output:
+	// all:            [Common Common_depot Inventory]
+	// generated-only: [Common Common_depot Inventory Stock]
+	// Valid scopes:   [all generated-only]
+	// Valid: true
+}
+
+// Example_deduplicationReport demonstrates reporting what semantic
+// deduplication folded. With WithDeduplicationReport enabled, JoinResult
+// carries one Consolidation per surviving name, listing the names folded into
+// it and whether a collision rename generated each one. A generated name was
+// never in a source document, so folding it away is invisible to a consumer of
+// the joined document; folding a declared name is not.
+func Example_deduplicationReport() {
+	warehouseSpec := []byte(`openapi: "3.0.0"
+info:
+  title: Warehouse API
+  version: "1.0"
+paths: {}
+components:
+  schemas:
+    Common:
+      type: object
+      properties:
+        fromWarehouse:
+          type: string
+`)
+
+	depotSpec := []byte(`openapi: "3.0.0"
+info:
+  title: Depot API
+  version: "1.0"
+paths: {}
+components:
+  schemas:
+    Common:
+      type: object
+      properties:
+        sku:
+          type: string
+`)
+
+	inventorySpec := []byte(`openapi: "3.0.0"
+info:
+  title: Inventory API
+  version: "1.0"
+paths: {}
+components:
+  schemas:
+    Inventory:
+      type: object
+      properties:
+        sku:
+          type: string
+    Stock:
+      type: object
+      properties:
+        sku:
+          type: string
+`)
+
+	parse := func(spec []byte, sourceName string) parser.ParseResult {
+		result, err := parser.ParseWithOptions(
+			parser.WithBytes(spec),
+			parser.WithSourceName(sourceName),
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return *result
+	}
+
+	result, err := joiner.JoinWithOptions(
+		joiner.WithParsed(
+			parse(warehouseSpec, "warehouse"),
+			parse(depotSpec, "depot"),
+			parse(inventorySpec, "inventory"),
+		),
+		joiner.WithSchemaStrategy(joiner.StrategyDeduplicateOrRename),
+		joiner.WithRenameTemplate("{{.Name}}_{{.Source}}"),
+		joiner.WithSemanticDeduplication(true),
+		joiner.WithEquivalenceMode("deep"),
+		joiner.WithDeduplicationReport(true),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, consolidation := range result.Consolidations {
+		fmt.Printf("Survivor: %s (generated: %v)\n",
+			consolidation.Survivor, consolidation.SurvivorGenerated)
+		for _, folded := range consolidation.Folded {
+			fmt.Printf("  folded: %s (generated: %v)\n", folded.Name, folded.Generated)
+		}
+	}
+	// Output:
+	// Survivor: Inventory (generated: false)
+	//   folded: Common_depot (generated: true)
+	//   folded: Stock (generated: false)
+}

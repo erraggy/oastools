@@ -859,6 +859,19 @@ Warnings (2):
   - semantic deduplication: consolidated 3 duplicate definition(s)
 ```
 
+`--dedup-scope` and `--dedup-report` have no effect without `--semantic-dedup`.
+
+With `--dedup-report`, each consolidation is listed with the provenance of every name:
+
+```
+Consolidations (1):
+  store.Inventory (declared)
+    <- store.Stock (declared)
+```
+
+A `(generated)` name is one a collision rename produced, so folding it is invisible to a consumer
+of the joined document. A `(declared)` name came from a source document.
+
 ### Exit Codes
 
 | Code | Meaning |
