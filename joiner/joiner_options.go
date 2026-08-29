@@ -647,34 +647,36 @@ func WithDeduplicationScope(scope DeduplicationScope) Option {
 	}
 }
 
-// WithDeduplicationMode selects how semantic deduplication resolves an
-// equivalence group once it has picked the group's surviving name. It has no
-// effect unless WithSemanticDeduplication is enabled.
+// WithDeduplicationMode selects what semantic deduplication does with the names
+// it consolidates. It has no effect unless WithSemanticDeduplication is enabled.
 //
-// Valid values:
+// Joining three documents that each name one shape, pets.json first:
 //
-//   - "remove" (default): delete every consolidated name and repoint the
-//     references to it at the survivor.
-//   - "pointer": keep the shape once under the survivor and leave every other
-//     name of the group in place, as a schema that is a bare $ref to it.
+//	"remove" (default)                  "pointer"
+//	definitions:                        definitions:
+//	  orders.Marker: {properties: ...}    pets.Label:    {properties: ...}
+//	                                      orders.Marker: {$ref: pets.Label}
+//	                                      store.Tag:     {$ref: pets.Label}
 //
-// Under "pointer" no reference is rewritten, so a reference to any name in the
-// group still resolves to the shape it always did, wherever it sits. That is
-// what a caller publishing the joined document to consumers needs: removing a
-// declared name breaks code generated against the previous document, and the
-// generator emits a Go type alias for a pointer, so all three names stay
-// distinct identifiers and mutually assignable (#553).
+//	GET /pets returns orders.Marker     GET /pets returns pets.Label
 //
-// Compare WithDeduplicationScope, which avoids the same breakage by declining
-// to consolidate declared names at all, leaving the duplicate shapes in place.
-// "pointer" consolidates the shape and keeps the names.
+// Both store the shape once. "remove" deletes the other names and repoints
+// their references at the survivor. "pointer" leaves each one an entry of its
+// own, a bare $ref, and rewrites no reference, so every name still resolves.
+// Use it when consumers refer to these names: generate -types emits
+// "type StoreTag = PetsLabel", so code naming any of them keeps compiling
+// (#553). WithDeduplicationScope avoids the same breakage the other way, by
+// declining to consolidate declared names at all.
 //
-// The survivor is ranked differently under the two modes. "remove" ranks the
-// way the collision collapse does, so the two passes agree on which name a
-// document keeps (#498). "pointer" keeps every name, so the survivor is only
-// the name the shape is stored under: a name no rename generated still wins,
-// and among those the name the earliest source document declared wins, with
-// sort order breaking a true tie.
+// The survivor differs too. "remove" picks it the way the collision collapse
+// does, so the two passes agree (#498): a declared name beats a generated one,
+// then alphabetical order, which is why orders.Marker wins above. "pointer"
+// ranks a name the earliest document declared ahead of that alphabetical
+// tiebreak, so pets.Label wins and the Pets response keeps a Pets name.
+//
+// One cost: OAS 2.0 ignores a $ref's siblings, so a pointer carries no
+// description of its own. Where documents described the shape differently, the
+// survivor's description is what remains.
 func WithDeduplicationMode(mode DeduplicationMode) Option {
 	return func(cfg *joinConfig) error {
 		if !IsValidDeduplicationMode(string(mode)) {

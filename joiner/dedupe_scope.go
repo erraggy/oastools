@@ -96,10 +96,9 @@ type FoldedName struct {
 	// DeduplicationScopeGeneratedOnly every folded name is generated.
 	Generated bool
 	// Pointer reports whether the joined document still carries this name, as a
-	// $ref to Survivor, rather than having removed it. It is true for every
-	// folded name under DeduplicationModePointer and false under
-	// DeduplicationModeRemove, which is the difference between a name a
-	// consumer can still refer to and one that is gone.
+	// $ref to Survivor, rather than having removed it: the difference between a
+	// name a consumer can still refer to and one that is gone. See
+	// [WithDeduplicationMode].
 	Pointer bool
 }
 

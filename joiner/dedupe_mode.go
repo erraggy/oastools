@@ -9,36 +9,24 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
-// DeduplicationMode selects how semantic deduplication resolves an equivalence
-// group once the surviving name is chosen. It does not change which schemas
-// compare equal, nor which names may be consolidated: an equivalence group is
-// built the same way under every mode, and DeduplicationScope still decides
-// what may be consolidated out of one.
+// DeduplicationMode selects what semantic deduplication does with the names it
+// consolidates. See [WithDeduplicationMode] for what the two look like and when
+// to reach for the second.
+//
+// It does not change which schemas compare equal, nor which names may be
+// consolidated: an equivalence group is built the same way under every mode, and
+// [DeduplicationScope] still decides what may be consolidated out of one.
 type DeduplicationMode string
 
 const (
 	// DeduplicationModeRemove deletes every consolidated name and repoints the
 	// references to it at the survivor. This is the default.
-	//
-	//	{pets.Label, store.Tag}   definitions: orders.Marker
-	//	                          the Pets response now says orders.Marker
 	DeduplicationModeRemove DeduplicationMode = "remove"
 
-	// DeduplicationModePointer stores the shape once under the surviving name
-	// and leaves every other name of the group in place, as a schema that is a
-	// bare $ref to the survivor. References are not rewritten, so a reference
-	// to any name in the group still resolves to the shape it always did,
-	// wherever that reference sits:
-	//
-	//	{pets.Label, store.Tag}   definitions: pets.Label
-	//	                                       store.Tag -> $ref pets.Label
-	//	                          the Pets response still says pets.Label
-	//
-	// A bare $ref is legal as a definitions entry and as a
-	// components.schemas entry, in OAS 2.0 and OAS 3.x alike. OAS 2.0 ignores
-	// a $ref's siblings, so a pointer cannot carry a description of its own:
-	// where two documents described the same shape differently, the survivor's
-	// description is the one that remains.
+	// DeduplicationModePointer leaves every consolidated name an entry of its
+	// own, a bare $ref to the survivor, and rewrites no reference. A bare $ref
+	// is legal as a definitions entry and as a components.schemas entry, in
+	// OAS 2.0 and OAS 3.x alike.
 	DeduplicationModePointer DeduplicationMode = "pointer"
 )
 
@@ -140,8 +128,6 @@ func (j *Joiner) deduplicateSchemas(t dedupeTarget, result *JoinResult) error {
 
 	schemas := dedupeResult.CanonicalSchemas
 	if mode == DeduplicationModePointer {
-		// Each consolidated name stays in place, as a schema that is a bare
-		// $ref to the survivor, so every name in the group still resolves.
 		for alias, canonical := range dedupeResult.Aliases {
 			schemas[alias] = &parser.Schema{Ref: schemaRefPath(canonical, t.version)}
 		}
@@ -152,8 +138,7 @@ func (j *Joiner) deduplicateSchemas(t dedupeTarget, result *JoinResult) error {
 		return nil
 	}
 	if mode == DeduplicationModePointer {
-		// No reference is rewritten: a reference to any name in the group still
-		// resolves to the shape it always did.
+		// No reference is rewritten, which is what keeps every name resolving.
 		result.AddWarning(NewSemanticDedupPointerSummaryWarning(len(dedupeResult.Aliases), t.section))
 		return nil
 	}
@@ -166,13 +151,7 @@ func (j *Joiner) deduplicateSchemas(t dedupeTarget, result *JoinResult) error {
 }
 
 // outranksFor returns the ranking that picks each equivalence group's surviving
-// name.
-//
-// DeduplicationModeRemove keeps the collapse pass's ranking, which is what makes
-// the two passes agree on which of several equivalent names survives (#498).
-// DeduplicationModePointer keeps every name, so the survivor is only the name
-// the shape is stored under, and ranking it by the document that declared it
-// first stops that from being decided by sort order (#553).
+// name, which the two modes do differently. See [WithDeduplicationMode].
 func (j *Joiner) outranksFor(mode DeduplicationMode, t dedupeTarget, result *JoinResult) schemautil.OutranksFunc {
 	if mode != DeduplicationModePointer {
 		return outranksGenerated(result.generated)
@@ -181,12 +160,12 @@ func (j *Joiner) outranksFor(mode DeduplicationMode, t dedupeTarget, result *Joi
 }
 
 // declarationOrder maps each schema name to the source document that declared
-// it, read from the ownership map the rename pass builds. A name whose schema
-// no document claimed is left out, which declarationIndex reads as last.
+// it, read from the ownership map the rename pass builds. A name whose schema no
+// document claimed is left out, which declarationIndex reads as last.
 //
 // It is taken after renames are applied, so a name reads under the spelling the
-// joined document stores it as, and the document it maps to is the one that
-// declared the schema rather than the one whose collision forced the rename.
+// joined document stores it as, and maps to the document that declared the
+// schema rather than the one whose collision forced the rename.
 func declarationOrder(schemas map[string]*parser.Schema, owner map[any]int) map[string]int {
 	if len(owner) == 0 {
 		return nil
@@ -216,6 +195,8 @@ func declarationIndex(declaredIn map[string]int, name string) int {
 // outranksDeclaration ranks equivalent names by provenance, then by the document
 // that declared them, then alphabetically. It returns nil when it has nothing to
 // go on, leaving the deduplicator's own alphabetical tiebreak in place.
+//
+// This is DeduplicationModePointer's ranking; see [WithDeduplicationMode].
 func outranksDeclaration(generated map[string]bool, declaredIn map[string]int) schemautil.OutranksFunc {
 	if len(generated) == 0 && len(declaredIn) == 0 {
 		return nil
