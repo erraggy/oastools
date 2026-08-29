@@ -279,14 +279,14 @@ It is off by default, since a large join consolidates enough names that recordin
 
 ### Reference Rewriting
 
-When schemas are renamed or deduplicated, `$ref` references are updated automatically.
+When schemas are renamed, or deduplicated under the default mode, `$ref` references are updated automatically.
 
 A rename only rewrites the references of documents that used the renamed name:
 
 - `StrategyRenameRight` and namespace prefixes rewrite the incoming document. Earlier documents keep their references.
 - `StrategyRenameLeft` rewrites the earlier documents. The incoming document keeps its references, since its schema takes the original name.
 
-Semantic deduplication rewrites every reference to a removed name, because the schemas were equivalent.
+Semantic deduplication rewrites every reference to a removed name, because the schemas were equivalent. Under `DeduplicationMode` `pointer` no name is removed and no reference is rewritten: each consolidated name keeps an entry that is a bare `$ref` to the survivor, and the reference resolves through it. See [What Becomes of the Other Names](#what-becomes-of-the-other-names).
 
 `components.mediaTypes` (OAS 3.2) is merged and rewritten like any other component map, and its entries reach a schema through `schema`, `itemSchema` and the headers an `encoding` describes.
 

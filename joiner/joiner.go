@@ -109,11 +109,13 @@ type JoinerConfig struct {
 	EquivalenceDocs string
 	// CollisionReport enables detailed collision analysis reporting
 	CollisionReport bool
-	// SemanticDeduplication enables cross-document schema deduplication after merging.
-	// When enabled, semantically identical schemas are consolidated to a single
-	// canonical schema, and all references are rewritten. The consolidated schema
-	// keeps the alphabetically first of the equivalent names, except that a name a
-	// rename invented never wins against one a document declared. See the "Which
+	// SemanticDeduplication enables cross-document schema deduplication after
+	// merging. When enabled, semantically identical schemas are consolidated to a
+	// single canonical schema. DeduplicationMode decides what becomes of the other
+	// names and how the survivor is chosen; by default they are removed and every
+	// reference to them is rewritten, and the survivor is the alphabetically first
+	// of the equivalent names except that a name a rename invented never wins
+	// against one a document declared. See [WithDeduplicationMode] and the "Which
 	// Name Survives" section of joiner/deep_dive.md.
 	SemanticDeduplication bool
 
