@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/erraggy/oastools/internal/fileutil"
 	"github.com/erraggy/oastools/internal/pathutil"
@@ -61,6 +62,17 @@ func handleJoin(_ context.Context, _ *mcp.CallToolRequest, input joinInput) (*mc
 	}
 	if input.SchemaStrategy != "" && !validJoinStrategies[input.SchemaStrategy] {
 		return errResult(fmt.Errorf("invalid schema_strategy: %q; valid values: %s", input.SchemaStrategy, validJoinStrategyList)), joinOutput{}, nil
+	}
+	// Checked here rather than left to the option, which reports it only after
+	// every spec has been resolved: a spec may be a URL, so a mistyped value
+	// would fetch and parse each one before failing.
+	if !joiner.IsValidDeduplicationScope(input.DedupScope) {
+		return errResult(fmt.Errorf("invalid dedup_scope: %q; valid values: %s",
+			input.DedupScope, strings.Join(joiner.ValidDeduplicationScopes(), ", "))), joinOutput{}, nil
+	}
+	if !joiner.IsValidDeduplicationMode(input.DedupMode) {
+		return errResult(fmt.Errorf("invalid dedup_mode: %q; valid values: %s",
+			input.DedupMode, strings.Join(joiner.ValidDeduplicationModes(), ", "))), joinOutput{}, nil
 	}
 
 	// Resolve all specs.

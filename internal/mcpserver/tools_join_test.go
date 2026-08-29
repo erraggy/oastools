@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/erraggy/oastools/joiner"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -383,6 +384,106 @@ func TestJoinTool_InvalidSchemaStrategy(t *testing.T) {
 	assert.True(t, result.IsError)
 	text := result.Content[0].(*mcp.TextContent).Text
 	assert.Contains(t, text, "invalid schema_strategy")
+}
+
+// A mistyped deduplication field is refused before any spec is resolved, so a
+// spec given as a URL is never fetched to serve an input error.
+func TestJoinTool_InvalidDeduplicationFields(t *testing.T) {
+	tests := map[string]struct {
+		input joinInput
+		want  string
+	}{
+		"scope": {
+			input: joinInput{DedupScope: "declared-only"},
+			want:  "invalid dedup_scope",
+		},
+		"mode": {
+			input: joinInput{DedupMode: "reference"},
+			want:  "invalid dedup_mode",
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			tc.input.Specs = []specInput{{Content: joinSpecA}, {Content: joinSpecB}}
+			result, _, err := handleJoin(context.Background(), &mcp.CallToolRequest{}, tc.input)
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			assert.True(t, result.IsError)
+			assert.Contains(t, result.Content[0].(*mcp.TextContent).Text, tc.want)
+		})
+	}
+}
+
+// joinSpecLabel and joinSpecTag declare one shape under two names, so semantic
+// deduplication has a group to consolidate. Label is declared first.
+const joinSpecLabel = `openapi: "3.0.0"
+info:
+  title: Labels
+  version: "1.0.0"
+paths:
+  /labels:
+    get:
+      operationId: listLabels
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Label"
+components:
+  schemas:
+    Label:
+      type: object
+      properties:
+        name:
+          type: string
+`
+
+const joinSpecTag = `openapi: "3.0.0"
+info:
+  title: Tags
+  version: "1.0.0"
+paths:
+  /tags:
+    get:
+      operationId: listTags
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tag"
+components:
+  schemas:
+    Tag:
+      type: object
+      properties:
+        name:
+          type: string
+`
+
+// The mode reaches the joiner: Tag survives as a $ref to Label rather than
+// being removed, which the default would have done.
+func TestJoinTool_PointerDeduplicationMode(t *testing.T) {
+	input := joinInput{
+		Specs:         []specInput{{Content: joinSpecLabel}, {Content: joinSpecTag}},
+		SemanticDedup: true,
+		DedupMode:     string(joiner.DeduplicationModePointer),
+	}
+	result, output, err := handleJoin(context.Background(), &mcp.CallToolRequest{}, input)
+	require.NoError(t, err)
+	assert.Nil(t, result, "nil means success in this handler pattern")
+	assert.Equal(t, 2, output.SchemaCount, "both names survive")
+	assert.Contains(t, output.Document, "Tag:")
+	assert.Contains(t, output.Document, "#/components/schemas/Label")
+
+	// The default removes Tag instead, which is what makes the mode observable.
+	input.DedupMode = ""
+	_, output, err = handleJoin(context.Background(), &mcp.CallToolRequest{}, input)
+	require.NoError(t, err)
+	assert.Equal(t, 1, output.SchemaCount)
 }
 
 func TestJoinTool_ValidStrategiesAccepted(t *testing.T) {
