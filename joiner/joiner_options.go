@@ -35,6 +35,7 @@ type joinConfig struct {
 	collisionReport        *bool
 	semanticDeduplication  *bool
 	deduplicationScope     *DeduplicationScope
+	deduplicationMode      *DeduplicationMode
 	deduplicationReport    *bool
 	operationContext       *bool
 	primaryOperationPolicy *PrimaryOperationPolicy
@@ -97,6 +98,7 @@ func JoinWithOptions(opts ...Option) (*JoinResult, error) {
 		CollisionReport:       boolValueOrDefault(cfg.collisionReport, defaults.CollisionReport),
 		SemanticDeduplication: boolValueOrDefault(cfg.semanticDeduplication, defaults.SemanticDeduplication),
 		DeduplicationScope:    valueOrDefault(cfg.deduplicationScope, defaults.DeduplicationScope),
+		DeduplicationMode:     valueOrDefault(cfg.deduplicationMode, defaults.DeduplicationMode),
 		DeduplicationReport:   boolValueOrDefault(cfg.deduplicationReport, defaults.DeduplicationReport),
 	}
 	if cfg.operationContext != nil {
@@ -388,6 +390,7 @@ func WithConfig(config JoinerConfig) Option {
 		cfg.collisionReport = &config.CollisionReport
 		cfg.semanticDeduplication = &config.SemanticDeduplication
 		cfg.deduplicationScope = &config.DeduplicationScope
+		cfg.deduplicationMode = &config.DeduplicationMode
 		cfg.deduplicationReport = &config.DeduplicationReport
 		cfg.operationContext = &config.OperationContext
 		cfg.primaryOperationPolicy = &config.PrimaryOperationPolicy
@@ -528,11 +531,14 @@ func WithCollisionReport(enabled bool) Option {
 //
 // Schema names that one schema tree references are held apart (e.g., if Shipment
 // requires both OriginAddress and DestinationAddress, both persist even if
-// structurally identical). Other equivalent schemas merge to a canonical name:
-// a name a document declared beats a name a collision rename invented, and
-// otherwise the alphabetically first name wins (e.g., "Address" beats
-// "Location"). See the "Which Name Survives" section of joiner/deep_dive.md.
-// All references to duplicate schemas are rewritten to the canonical name.
+// structurally identical). Other equivalent schemas consolidate to one survivor:
+// a name a document declared beats a name a collision rename invented, and by
+// default the rest sorts alphabetically (e.g., "Address" beats "Location"). See
+// the "Which Name Survives" section of joiner/deep_dive.md.
+//
+// By default the other names are removed and every reference to them is
+// rewritten to the survivor. WithDeduplicationMode changes both that and the
+// ranking above.
 // Default: false
 func WithSemanticDeduplication(enabled bool) Option {
 	return func(cfg *joinConfig) error {
@@ -644,9 +650,51 @@ func WithDeduplicationScope(scope DeduplicationScope) Option {
 	}
 }
 
+// WithDeduplicationMode selects what semantic deduplication does with the names
+// it consolidates. It has no effect unless WithSemanticDeduplication is enabled.
+//
+// Joining three documents that each name one shape, pets.json first:
+//
+//	"remove" (default)                  "pointer"
+//	definitions:                        definitions:
+//	  orders.Marker: {properties: ...}    pets.Label:    {properties: ...}
+//	                                      orders.Marker: {$ref: pets.Label}
+//	                                      store.Tag:     {$ref: pets.Label}
+//
+//	GET /pets returns orders.Marker     GET /pets returns pets.Label
+//
+// Both store the shape once. "remove" deletes the other names and repoints
+// their references at the survivor. "pointer" leaves each one an entry of its
+// own, a bare $ref, and rewrites no reference, so every name still resolves.
+// Use it when consumers refer to these names: generate -types emits
+// "type StoreTag = PetsLabel", so code naming any of them keeps compiling
+// (#553). WithDeduplicationScope avoids the same breakage the other way, by
+// declining to consolidate declared names at all.
+//
+// The survivor differs too. "remove" picks it the way the collision collapse
+// does, so the two passes agree (#498): a declared name beats a generated one,
+// then alphabetical order, which is why orders.Marker wins above. "pointer"
+// ranks a name the earliest document declared ahead of that alphabetical
+// tiebreak, so pets.Label wins and the Pets response keeps a Pets name.
+//
+// One cost: OAS 2.0 ignores a $ref's siblings, so a pointer carries no
+// description of its own. Where documents described the shape differently, the
+// survivor's description is what remains.
+func WithDeduplicationMode(mode DeduplicationMode) Option {
+	return func(cfg *joinConfig) error {
+		if !IsValidDeduplicationMode(string(mode)) {
+			return fmt.Errorf("invalid deduplication mode %q: valid values are %s",
+				mode, strings.Join(ValidDeduplicationModes(), ", "))
+		}
+		cfg.deduplicationMode = &mode
+		return nil
+	}
+}
+
 // WithDeduplicationReport enables per-consolidation reporting on
-// JoinResult.Consolidations: each surviving name, the names folded into it, and
-// whether a rename generated each.
+// JoinResult.Consolidations: each surviving name, the names folded into it,
+// whether a rename generated each, and whether the document kept it as a $ref
+// rather than removing it (see [WithDeduplicationMode]).
 //
 // It exists because diffing the joined document against its inputs cannot tell
 // a generated alias from a declared name some other pass removed. Default:

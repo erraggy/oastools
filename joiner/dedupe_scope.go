@@ -78,14 +78,15 @@ type Consolidation struct {
 	// is false throughout unless a collision forced a rename.
 	SurvivorGenerated bool
 	// Folded holds the names consolidated into Survivor, sorted, each carrying
-	// whether a rename generated it. It is never empty: a group that folded
-	// nothing is not reported.
+	// whether a rename generated it and whether the joined document kept it.
+	// It is never empty: a group that consolidated nothing is not reported.
 	Folded []FoldedName
 }
 
-// FoldedName is one name a Consolidation removed, and where the name came from.
+// FoldedName is one name a Consolidation consolidated into its survivor, where
+// the name came from, and whether the joined document still carries it.
 type FoldedName struct {
-	// Name is the removed name as it stood in the joined document when
+	// Name is the consolidated name as it stood in the joined document when
 	// deduplication ran, which is after renames are applied. A generated name
 	// was never in a source document, and a declared name that a collision
 	// renamed reads here under the name the rename produced.
@@ -94,6 +95,11 @@ type FoldedName struct {
 	// than a document declaring it. Under
 	// DeduplicationScopeGeneratedOnly every folded name is generated.
 	Generated bool
+	// Pointer reports whether the joined document still carries this name, as a
+	// $ref to Survivor, rather than having removed it: the difference between a
+	// name a consumer can still refer to and one that is gone. See
+	// [WithDeduplicationMode].
+	Pointer bool
 }
 
 // recordConsolidations fills JoinResult.Consolidations from a deduplication
@@ -103,7 +109,7 @@ type FoldedName struct {
 // name first and the names folded into it after, so a group of one folded
 // nothing and is not reported. Survivors are sorted, since ranging a map would
 // order the report differently on every run.
-func (j *Joiner) recordConsolidations(result *JoinResult, dedupe *schemautil.DeduplicationResult) {
+func (j *Joiner) recordConsolidations(result *JoinResult, dedupe *schemautil.DeduplicationResult, mode DeduplicationMode) {
 	if !j.config.DeduplicationReport || len(dedupe.Aliases) == 0 {
 		return
 	}
@@ -122,7 +128,11 @@ func (j *Joiner) recordConsolidations(result *JoinResult, dedupe *schemautil.Ded
 		names := dedupe.EquivalenceGroups[survivor]
 		folded := make([]FoldedName, 0, len(names)-1)
 		for _, name := range names[1:] {
-			folded = append(folded, FoldedName{Name: name, Generated: result.generated[name]})
+			folded = append(folded, FoldedName{
+				Name:      name,
+				Generated: result.generated[name],
+				Pointer:   mode == DeduplicationModePointer,
+			})
 		}
 		consolidations = append(consolidations, Consolidation{
 			Survivor:          survivor,

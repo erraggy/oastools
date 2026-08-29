@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/erraggy/oastools/internal/fileutil"
 	"github.com/erraggy/oastools/internal/pathutil"
@@ -19,6 +20,7 @@ type joinInput struct {
 	SchemaStrategy string      `json:"schema_strategy,omitempty"     jsonschema:"Strategy for schema collisions: accept-left or accept-right or fail or rename-left or rename-right or deduplicate or deduplicate-or-rename"`
 	SemanticDedup  bool        `json:"semantic_dedup,omitempty"      jsonschema:"Enable semantic deduplication of equivalent schemas. Equivalent names that one schema tree references stay distinct from each other; equivalent names in unrelated trees still merge"`
 	DedupScope     string      `json:"dedup_scope,omitempty"         jsonschema:"Which names semantic deduplication may fold: all (default) or generated-only. generated-only leaves every name a source document declared and folds only the names a collision rename generated"`
+	DedupMode      string      `json:"dedup_mode,omitempty"          jsonschema:"What becomes of the names folded into the survivor: remove (default) deletes them and repoints their references, pointer keeps each one as a $ref to the survivor so every name still resolves"`
 	Output         string      `json:"output,omitempty"              jsonschema:"File path to write joined document. If omitted the result is returned inline."`
 }
 
@@ -61,6 +63,17 @@ func handleJoin(_ context.Context, _ *mcp.CallToolRequest, input joinInput) (*mc
 	if input.SchemaStrategy != "" && !validJoinStrategies[input.SchemaStrategy] {
 		return errResult(fmt.Errorf("invalid schema_strategy: %q; valid values: %s", input.SchemaStrategy, validJoinStrategyList)), joinOutput{}, nil
 	}
+	// Checked here rather than left to the option, which reports it only after
+	// every spec has been resolved: a spec may be a URL, so a mistyped value
+	// would fetch and parse each one before failing.
+	if !joiner.IsValidDeduplicationScope(input.DedupScope) {
+		return errResult(fmt.Errorf("invalid dedup_scope: %q; valid values: %s",
+			input.DedupScope, strings.Join(joiner.ValidDeduplicationScopes(), ", "))), joinOutput{}, nil
+	}
+	if !joiner.IsValidDeduplicationMode(input.DedupMode) {
+		return errResult(fmt.Errorf("invalid dedup_mode: %q; valid values: %s",
+			input.DedupMode, strings.Join(joiner.ValidDeduplicationModes(), ", "))), joinOutput{}, nil
+	}
 
 	// Resolve all specs.
 	parsed := make([]parser.ParseResult, 0, len(input.Specs))
@@ -87,6 +100,9 @@ func handleJoin(_ context.Context, _ *mcp.CallToolRequest, input joinInput) (*mc
 	}
 	if input.DedupScope != "" {
 		opts = append(opts, joiner.WithDeduplicationScope(joiner.DeduplicationScope(input.DedupScope)))
+	}
+	if input.DedupMode != "" {
+		opts = append(opts, joiner.WithDeduplicationMode(joiner.DeduplicationMode(input.DedupMode)))
 	}
 
 	result, err := joiner.JoinWithOptions(opts...)

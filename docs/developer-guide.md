@@ -854,14 +854,17 @@ if err != nil {
 // - Equivalent names that one schema tree references are kept apart, so a
 //   Shipment requiring both an OriginAddress and a DestinationAddress keeps
 //   both names (see "Semantic Deduplication" in the joiner deep dive)
-// - The alphabetically-first name is canonical, unless a rename invented it
-//   and a name a document declared is available (see "Which Name Survives"
-//   in the joiner deep dive)
-// - All $ref references are automatically rewritten
+// - Under the default "remove" mode the alphabetically-first name is canonical,
+//   unless a rename invented it and a name a document declared is available
+//   (see "Which Name Survives" in the joiner deep dive), and all $ref
+//   references are automatically rewritten
 // - Warnings indicate how many duplicates were consolidated
 // - DeduplicationScope decides which names may fold into that canonical name:
 //   "all" (default) folds any equivalent name, "generated-only" folds only the
 //   names a collision rename generated and leaves every declared name alone
+// - DeduplicationMode decides what becomes of a folded name: "remove" (default)
+//   removes it, "pointer" keeps it as a $ref to the survivor. See
+//   joiner.WithDeduplicationMode, which documents the survivor rule each uses
 ```
 
 **Sizing a Deduplication Before Enabling It:**

@@ -335,9 +335,9 @@ func ResolveName(token string, keys map[string]struct{}) string {
 // A tree is a schema with no schema above it, so the names it references are
 // the union of all its subschemas'. That makes checking trees the same as
 // checking every schema object, and it treats a tree an operation declares
-// inline like a named component: deduplication rewrites references wherever
-// they sit, so an unnamed parent loses the distinction just as a named one
-// does.
+// inline like a named component: deduplication consolidates references wherever
+// they sit, whether by rewriting them or by aliasing the folded name, so an
+// unnamed parent loses the distinction just as a named one does.
 //
 // The per-tree walk is EachRef, which reads every keyword a subschema can
 // hide under. Its reference locations go unused here.

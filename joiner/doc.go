@@ -335,8 +335,9 @@
 //
 // When schemas from different documents are structurally equivalent (same type, properties,
 // constraints), they are consolidated into a single canonical schema, keeping a name your
-// documents declared over one a collision rename invented. All $ref references throughout
-// the merged document are automatically rewritten. See the "Which Name Survives" section of
+// documents declared over one a collision rename invented. By default the other names are
+// removed and every $ref to them throughout the merged document is rewritten.
+// WithDeduplicationMode changes that. See the "Which Name Survives" section of
 // joiner/deep_dive.md for the full rule.
 //
 // WithDeduplicationScope narrows which names may be folded into that survivor:
@@ -347,9 +348,20 @@
 // the names a collision rename generated still fold into it. That suits a
 // caller publishing the joined document to consumers that refer to its schema
 // names, where removing a declared name is a breaking change and removing a
-// generated alias is invisible (#543). WithDeduplicationReport records what
-// each consolidation removed, and whether a rename generated it, so the impact
-// can be measured before a scope is chosen.
+// generated alias is invisible (#543). WithDeduplicationReport records the names
+// each consolidation folded, whether a rename generated each, and whether the
+// document kept it, so the impact can be measured before a scope or a mode is
+// chosen.
+//
+// WithDeduplicationMode chooses what becomes of those folded names:
+//
+//	joiner.WithDeduplicationMode(joiner.DeduplicationModePointer)
+//
+// The default, "remove", deletes them and repoints their references. Under
+// "pointer" each one keeps an entry of its own, a bare $ref to the survivor, so
+// every name still resolves (#553). See [WithDeduplicationMode], which compares
+// the two, gives the survivor rule each uses, and names the one thing "pointer"
+// costs.
 //
 // One important exception: schema names that one schema tree references are held apart.
 // If a Shipment requires both an OriginAddress and a DestinationAddress, both names persist

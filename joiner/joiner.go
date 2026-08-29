@@ -109,11 +109,13 @@ type JoinerConfig struct {
 	EquivalenceDocs string
 	// CollisionReport enables detailed collision analysis reporting
 	CollisionReport bool
-	// SemanticDeduplication enables cross-document schema deduplication after merging.
-	// When enabled, semantically identical schemas are consolidated to a single
-	// canonical schema, and all references are rewritten. The consolidated schema
-	// keeps the alphabetically first of the equivalent names, except that a name a
-	// rename invented never wins against one a document declared. See the "Which
+	// SemanticDeduplication enables cross-document schema deduplication after
+	// merging. When enabled, semantically identical schemas are consolidated to a
+	// single canonical schema. DeduplicationMode decides what becomes of the other
+	// names and how the survivor is chosen; by default they are removed and every
+	// reference to them is rewritten, and the survivor is the alphabetically first
+	// of the equivalent names except that a name a rename invented never wins
+	// against one a document declared. See [WithDeduplicationMode] and the "Which
 	// Name Survives" section of joiner/deep_dive.md.
 	SemanticDeduplication bool
 
@@ -122,8 +124,16 @@ type JoinerConfig struct {
 	// that never set one keeps the behavior it had before the scope existed.
 	DeduplicationScope DeduplicationScope
 
+	// DeduplicationMode selects how SemanticDeduplication resolves an
+	// equivalence group: DeduplicationModeRemove deletes the folded names,
+	// DeduplicationModePointer leaves each in place as a $ref to the survivor.
+	// The zero value means DeduplicationModeRemove, so a config that never set
+	// one keeps the behavior it had before the mode existed.
+	DeduplicationMode DeduplicationMode
+
 	// DeduplicationReport enables per-consolidation reporting, recording each
-	// survivor, the names folded into it, and whether a rename generated each.
+	// survivor, the names folded into it, whether a rename generated each, and
+	// whether the document kept it.
 	// Off by default: a large join consolidates enough names that recording
 	// them all is worth asking for rather than paying for.
 	DeduplicationReport bool
@@ -157,6 +167,7 @@ func DefaultConfig() JoinerConfig {
 		CollisionReport:   false,
 
 		DeduplicationScope:  DeduplicationScopeAll,
+		DeduplicationMode:   DeduplicationModeRemove,
 		DeduplicationReport: false,
 	}
 }

@@ -148,6 +148,63 @@ Both choose the same way, by these two rules in order:
 
 Rule 1 matters because rule 2 alone gives an answer that depends on your rename template. `Api_Common` sorts before `Common`, `Common.api` sorts after it, and neither ordering has anything to do with which name your API actually uses. Rule 1 settles it the same way whatever the template (#498).
 
+`DeduplicationModePointer` ranks differently, because under it the surviving name is only where the shape is stored rather than the only name left: rule 1 still applies, and the name the earliest source document declared then wins ahead of rule 2. Joining `pets.json`, `store.json` and `orders.json` stores the shape under `pets.Label` rather than under `orders.Marker`, which merely sorts first. `WithDeduplicationMode` documents both rankings.
+
+The default leaves rules 1 and 2 alone, so it settles a group exactly the way `StrategyDeduplicateOrRename` settles it and the two passes cannot disagree about which name a document keeps (#498, #553).
+
+### What Becomes of the Other Names
+
+The rules above pick a survivor. `DeduplicationMode` decides what happens to the rest.
+
+| Mode | The other names |
+|------|-----------------|
+| `remove` (default) | are deleted, and every reference to one is repointed at the survivor |
+| `pointer` | stay in place, each as a schema that is a bare `$ref` to the survivor. No reference is rewritten |
+
+A Schema Object may itself be a `$ref`, which is what makes the second form available. Three services each declaring their own name for one shape:
+
+```yaml
+# --dedup-mode remove (default)         # --dedup-mode pointer
+definitions:                            definitions:
+  orders.Marker:                          pets.Label:
+    properties: {name: ..., title: ...}     properties: {name: ..., title: ...}
+                                          orders.Marker: {$ref: '#/definitions/pets.Label'}
+# the Pets response now says             store.Tag:     {$ref: '#/definitions/pets.Label'}
+# orders.Marker
+                                        # the Pets response still says pets.Label
+```
+
+One shape either way. Under `pointer` every name still names it, wherever the reference sits: an operation, a webhook, a callback, or another schema. That is what a caller publishing the joined document to consumers needs, and it is the other half of what `generated-only` offers: the scope avoids breaking a consumer by declining to consolidate declared names, leaving the duplicate shapes in place, while `pointer` consolidates the shape and keeps the names.
+
+The consumer-visible difference is in generated code. `oastools generate -types` over the two documents above:
+
+| | `remove` | `pointer` |
+|---|---|---|
+| types generated | 1 | 3 |
+| | `type OrdersMarker struct {...}` | `type PetsLabel struct {...}`<br>`type OrdersMarker = PetsLabel`<br>`type StoreTag = PetsLabel` |
+
+Those are Go type aliases, so the three names are distinct identifiers and mutually assignable, and code naming any of them keeps compiling. `fix --prune-schemas` keeps the pointers, since each is still reachable.
+
+```go
+config := joiner.DefaultConfig()
+config.SemanticDeduplication = true
+config.DeduplicationMode = joiner.DeduplicationModePointer
+```
+
+Or as an option, which rejects a value it does not recognize rather than reading it as the default:
+
+```go
+result, err := joiner.JoinWithOptions(
+    joiner.WithFilePaths("pets.json", "store.json", "orders.json"),
+    joiner.WithSemanticDeduplication(true),
+    joiner.WithDeduplicationMode(joiner.DeduplicationModePointer),
+)
+```
+
+**One cost.** OAS 2.0 ignores a `$ref`'s siblings, so a pointer cannot carry a `description` of its own. Where two documents described the same shape differently, the survivor's description is the one that remains. That is a real reduction rather than a pure win, though a smaller one than losing the name.
+
+Everything else is unchanged by the mode: the equivalence comparison, which names may be folded, and the guarantee that names one schema tree references are held apart all behave the same under both.
+
 ### Which Names May Be Folded
 
 The rules above pick a survivor. `DeduplicationScope` decides which of the other names are allowed to fold into it.
@@ -187,13 +244,15 @@ Everything else is unchanged by the scope: the equivalence comparison, the survi
 
 ### Sizing the Impact
 
-`DeduplicationReport` records what each consolidation removed, so you can tell a generated alias from a declared name before committing to a scope. Diffing the joined document against its inputs cannot: a missing name looks the same either way.
+`DeduplicationReport` records the names each consolidation folded and what became of each, so you can tell a generated alias from a declared name, and a name the document kept from one that is gone, before committing to a scope or a mode. Diffing the joined document against its inputs cannot: a missing name looks the same either way.
 
 ```go
 config.DeduplicationReport = true            // or joiner.WithDeduplicationReport(true)
 // result.Consolidations[i].Survivor, .SurvivorGenerated
-// result.Consolidations[i].Folded[j].Name, .Generated
+// result.Consolidations[i].Folded[j].Name, .Generated, .Pointer
 ```
+
+`Pointer` says whether the joined document still carries that name, which is the difference between a name a consumer can still refer to and one that is gone.
 
 On the command line, `--dedup-report` prints the same thing to stderr:
 
@@ -203,18 +262,27 @@ Consolidations (1):
     <- store.Stock (declared)
 ```
 
+Under `--dedup-mode pointer` each kept name says so:
+
+```text
+Consolidations (1):
+  pets.Label (declared)
+    <- orders.Marker (declared) -> kept as reference
+    <- store.Tag (declared) -> kept as reference
+```
+
 It is off by default, since a large join consolidates enough names that recording them all is worth asking for.
 
 ### Reference Rewriting
 
-When schemas are renamed or deduplicated, `$ref` references are updated automatically.
+When schemas are renamed, or deduplicated under the default mode, `$ref` references are updated automatically.
 
 A rename only rewrites the references of documents that used the renamed name:
 
 - `StrategyRenameRight` and namespace prefixes rewrite the incoming document. Earlier documents keep their references.
 - `StrategyRenameLeft` rewrites the earlier documents. The incoming document keeps its references, since its schema takes the original name.
 
-Semantic deduplication rewrites every reference to a removed name, because the schemas were equivalent.
+Semantic deduplication rewrites every reference to a removed name, because the schemas were equivalent. Under `DeduplicationMode` `pointer` no name is removed and no reference is rewritten: each consolidated name keeps an entry that is a bare `$ref` to the survivor, and the reference resolves through it. See [What Becomes of the Other Names](#what-becomes-of-the-other-names).
 
 `components.mediaTypes` (OAS 3.2) is merged and rewritten like any other component map, and its entries reach a schema through `schema`, `itemSchema` and the headers an `encoding` describes.
 
@@ -1814,6 +1882,7 @@ type JoinerConfig struct {
     // Post-processing
     SemanticDeduplication bool  // Consolidate identical schemas across documents
     DeduplicationScope  DeduplicationScope  // DeduplicationScopeAll (default) or ...GeneratedOnly
+    DeduplicationMode   DeduplicationMode    // DeduplicationModeRemove (default) or ...Pointer
     DeduplicationReport bool    // Record each consolidation and its provenance
 }
 ```
@@ -1830,6 +1899,7 @@ type JoinerConfig struct {
 | `WithComponentStrategy(CollisionStrategy)` | Strategy for other components |
 | `WithSemanticDeduplication(bool)` | Enable cross-document deduplication |
 | `WithDeduplicationScope(DeduplicationScope)` | Which names deduplication may fold: `all`, `generated-only` |
+| `WithDeduplicationMode(DeduplicationMode)` | What becomes of the names folded into the survivor: `remove`, `pointer` |
 | `WithDeduplicationReport(bool)` | Record each consolidation and the provenance of every folded name |
 | `WithCollisionHandler(handler)` | Register collision handler callback |
 | `WithCollisionHandlerFor(handler, types...)` | Register handler for specific collision types |

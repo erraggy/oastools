@@ -350,6 +350,7 @@ Merge multiple OAS documents into one.
 | `schema_strategy` | string | Collision strategy for schemas |
 | `semantic_dedup` | boolean | Enable semantic deduplication of equivalent schemas. Names that one schema tree references are kept apart |
 | `dedup_scope` | string | Which names semantic deduplication may fold: `all` (default), or `generated-only` to keep every name a source document declared |
+| `dedup_mode` | string | What becomes of the names folded into the survivor: `remove` (default) deletes them and repoints their references, `pointer` keeps each one as a `$ref` to the survivor so every name still resolves |
 | `output` | string | File path to write the merged document |
 
 Path collision strategies: `accept-left`, `accept-right`, `fail`

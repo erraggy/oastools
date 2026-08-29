@@ -81,8 +81,10 @@ type DeduplicationResult struct {
 	// Only canonical schemas are included; duplicates are removed.
 	CanonicalSchemas map[string]*parser.Schema
 
-	// Aliases maps alias schema names to their canonical name.
-	// All references to alias names should be rewritten to canonical names.
+	// Aliases maps alias schema names to their canonical name. A caller either
+	// rewrites every reference to an alias into its canonical name, or leaves the
+	// alias name resolvable in its own right; what it cannot do is leave an alias
+	// naming nothing.
 	Aliases map[string]string
 
 	// RemovedCount is the number of duplicate schemas that were removed.

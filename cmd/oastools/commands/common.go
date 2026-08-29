@@ -107,6 +107,15 @@ func ValidateDeduplicationScope(value string) error {
 	return nil
 }
 
+// ValidateDeduplicationMode validates the dedup-mode flag and returns an error
+// if invalid. Empty values are accepted and resolved to the default.
+func ValidateDeduplicationMode(value string) error {
+	if value != "" && !joiner.IsValidDeduplicationMode(value) {
+		return fmt.Errorf("invalid dedup-mode '%s'. Valid modes: %v", value, joiner.ValidDeduplicationModes())
+	}
+	return nil
+}
+
 // ValidateEquivalenceDocs validates the equivalence-docs flag and returns an
 // error if invalid. Empty values are accepted and resolved to the default.
 func ValidateEquivalenceDocs(value string) error {
