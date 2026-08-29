@@ -35,6 +35,7 @@ type joinConfig struct {
 	collisionReport        *bool
 	semanticDeduplication  *bool
 	deduplicationScope     *DeduplicationScope
+	deduplicationMode      *DeduplicationMode
 	deduplicationReport    *bool
 	operationContext       *bool
 	primaryOperationPolicy *PrimaryOperationPolicy
@@ -97,6 +98,7 @@ func JoinWithOptions(opts ...Option) (*JoinResult, error) {
 		CollisionReport:       boolValueOrDefault(cfg.collisionReport, defaults.CollisionReport),
 		SemanticDeduplication: boolValueOrDefault(cfg.semanticDeduplication, defaults.SemanticDeduplication),
 		DeduplicationScope:    valueOrDefault(cfg.deduplicationScope, defaults.DeduplicationScope),
+		DeduplicationMode:     valueOrDefault(cfg.deduplicationMode, defaults.DeduplicationMode),
 		DeduplicationReport:   boolValueOrDefault(cfg.deduplicationReport, defaults.DeduplicationReport),
 	}
 	if cfg.operationContext != nil {
@@ -388,6 +390,7 @@ func WithConfig(config JoinerConfig) Option {
 		cfg.collisionReport = &config.CollisionReport
 		cfg.semanticDeduplication = &config.SemanticDeduplication
 		cfg.deduplicationScope = &config.DeduplicationScope
+		cfg.deduplicationMode = &config.DeduplicationMode
 		cfg.deduplicationReport = &config.DeduplicationReport
 		cfg.operationContext = &config.OperationContext
 		cfg.primaryOperationPolicy = &config.PrimaryOperationPolicy
@@ -640,6 +643,45 @@ func WithDeduplicationScope(scope DeduplicationScope) Option {
 				scope, strings.Join(ValidDeduplicationScopes(), ", "))
 		}
 		cfg.deduplicationScope = &scope
+		return nil
+	}
+}
+
+// WithDeduplicationMode selects how semantic deduplication resolves an
+// equivalence group once it has picked the group's surviving name. It has no
+// effect unless WithSemanticDeduplication is enabled.
+//
+// Valid values:
+//
+//   - "remove" (default): delete every consolidated name and repoint the
+//     references to it at the survivor.
+//   - "pointer": keep the shape once under the survivor and leave every other
+//     name of the group in place, as a schema that is a bare $ref to it.
+//
+// Under "pointer" no reference is rewritten, so a reference to any name in the
+// group still resolves to the shape it always did, wherever it sits. That is
+// what a caller publishing the joined document to consumers needs: removing a
+// declared name breaks code generated against the previous document, and the
+// generator emits a Go type alias for a pointer, so all three names stay
+// distinct identifiers and mutually assignable (#553).
+//
+// Compare WithDeduplicationScope, which avoids the same breakage by declining
+// to consolidate declared names at all, leaving the duplicate shapes in place.
+// "pointer" consolidates the shape and keeps the names.
+//
+// The survivor is ranked differently under the two modes. "remove" ranks the
+// way the collision collapse does, so the two passes agree on which name a
+// document keeps (#498). "pointer" keeps every name, so the survivor is only
+// the name the shape is stored under: a name no rename generated still wins,
+// and among those the name the earliest source document declared wins, with
+// sort order breaking a true tie.
+func WithDeduplicationMode(mode DeduplicationMode) Option {
+	return func(cfg *joinConfig) error {
+		if !IsValidDeduplicationMode(string(mode)) {
+			return fmt.Errorf("invalid deduplication mode %q: valid values are %s",
+				mode, strings.Join(ValidDeduplicationModes(), ", "))
+		}
+		cfg.deduplicationMode = &mode
 		return nil
 	}
 }

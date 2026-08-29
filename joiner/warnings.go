@@ -138,10 +138,10 @@ func NewSchemaCollisionWarning(schemaName, resolution, section, firstFile, secon
 		Column:     col,
 		Severity:   severity.SeverityWarning,
 		Context: map[string]any{
-			"section":     section,
-			"first_file":  firstFile,
-			"second_file": secondFile,
-			"resolution":  resolution,
+			contextKeySection: section,
+			"first_file":      firstFile,
+			"second_file":     secondFile,
+			"resolution":      resolution,
 		},
 	}
 }
@@ -164,10 +164,10 @@ func NewSchemaRenamedWarning(originalName, newName, section, sourceFile string, 
 		Column:     col,
 		Severity:   severity.SeverityInfo,
 		Context: map[string]any{
-			"original_name": originalName,
-			"new_name":      newName,
-			"section":       section,
-			"kept_original": keptOriginal,
+			"original_name":   originalName,
+			"new_name":        newName,
+			contextKeySection: section,
+			"kept_original":   keptOriginal,
 		},
 	}
 }
@@ -183,7 +183,7 @@ func NewSchemaDedupWarning(schemaName, section, sourceFile string, line, col int
 		Column:     col,
 		Severity:   severity.SeverityInfo,
 		Context: map[string]any{
-			"section": section,
+			contextKeySection: section,
 		},
 	}
 }
@@ -199,9 +199,9 @@ func NewNamespacePrefixWarning(originalName, newName, section, sourceFile string
 		Column:     col,
 		Severity:   severity.SeverityInfo,
 		Context: map[string]any{
-			"original_name": originalName,
-			"new_name":      newName,
-			"section":       section,
+			"original_name":   originalName,
+			"new_name":        newName,
+			contextKeySection: section,
 		},
 	}
 }
@@ -240,6 +240,16 @@ func NewMetadataOverrideWarning(field, firstValue, secondValue, secondFile strin
 	}
 }
 
+const (
+	// sectionSchema and sectionDefinition name the schema container a warning
+	// concerns, spelled the way the document's OAS version does.
+	sectionSchema     = "schema"
+	sectionDefinition = "definition"
+
+	// contextKeySection is the JoinWarning.Context key carrying that name.
+	contextKeySection = "section"
+)
+
 // NewSemanticDedupSummaryWarning creates a summary warning for semantic deduplication.
 func NewSemanticDedupSummaryWarning(count int, section string) *JoinWarning {
 	return &JoinWarning{
@@ -247,8 +257,25 @@ func NewSemanticDedupSummaryWarning(count int, section string) *JoinWarning {
 		Message:  fmt.Sprintf("semantic deduplication: consolidated %d duplicate %s(s)", count, section),
 		Severity: severity.SeverityInfo,
 		Context: map[string]any{
-			"count":   count,
-			"section": section,
+			"count":           count,
+			contextKeySection: section,
+		},
+	}
+}
+
+// NewSemanticDedupPointerSummaryWarning creates a summary warning for semantic
+// deduplication under DeduplicationModePointer, where the consolidated names are
+// kept as references to the survivor rather than removed.
+func NewSemanticDedupPointerSummaryWarning(count int, section string) *JoinWarning {
+	return &JoinWarning{
+		Category: WarnSemanticDedup,
+		Message: fmt.Sprintf("semantic deduplication: consolidated %d duplicate %s(s) into references to their surviving name",
+			count, section),
+		Severity: severity.SeverityInfo,
+		Context: map[string]any{
+			"count":           count,
+			contextKeySection: section,
+			"mode":            string(DeduplicationModePointer),
 		},
 	}
 }

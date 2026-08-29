@@ -122,6 +122,13 @@ type JoinerConfig struct {
 	// that never set one keeps the behavior it had before the scope existed.
 	DeduplicationScope DeduplicationScope
 
+	// DeduplicationMode selects how SemanticDeduplication resolves an
+	// equivalence group: DeduplicationModeRemove deletes the folded names,
+	// DeduplicationModePointer leaves each in place as a $ref to the survivor.
+	// The zero value means DeduplicationModeRemove, so a config that never set
+	// one keeps the behavior it had before the mode existed.
+	DeduplicationMode DeduplicationMode
+
 	// DeduplicationReport enables per-consolidation reporting, recording each
 	// survivor, the names folded into it, and whether a rename generated each.
 	// Off by default: a large join consolidates enough names that recording
@@ -157,6 +164,7 @@ func DefaultConfig() JoinerConfig {
 		CollisionReport:   false,
 
 		DeduplicationScope:  DeduplicationScopeAll,
+		DeduplicationMode:   DeduplicationModeRemove,
 		DeduplicationReport: false,
 	}
 }

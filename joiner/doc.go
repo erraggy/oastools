@@ -351,6 +351,36 @@
 // each consolidation removed, and whether a rename generated it, so the impact
 // can be measured before a scope is chosen.
 //
+// WithDeduplicationMode chooses what becomes of the names folded into the
+// survivor:
+//
+//	joiner.WithDeduplicationMode(joiner.DeduplicationModePointer)
+//
+// The default, "remove", deletes them and repoints their references. Under
+// "pointer" each one stays in place as a schema that is a bare $ref to the
+// survivor, and no reference is rewritten, so a reference to any name in the
+// group still resolves to the shape it always did (#553):
+//
+//	definitions:
+//	  pets.Label:  {properties: ...}      the shape, stored once
+//	  store.Tag:   {$ref: pets.Label}     still a name, still resolvable
+//
+// That is the other half of what "generated-only" offers. The scope avoids
+// breaking a consumer by declining to consolidate declared names, leaving the
+// duplicate shapes in place; "pointer" consolidates the shape and keeps the
+// names, and the generator emits a Go type alias for each pointer, so code
+// naming any of them keeps compiling. OAS 2.0 ignores a $ref's siblings, so a
+// pointer cannot carry a description of its own: where two documents described
+// the same shape differently, the survivor's description is the one that
+// remains. The report marks each folded name with whether the document kept it.
+//
+// The survivor is ranked differently under the two modes. "remove" ranks the
+// way the collision collapse does, so the two passes agree on which of several
+// equivalent names a document keeps (#498). "pointer" keeps every name, so the
+// survivor is only the name the shape is stored under: a name no rename
+// generated still wins, and among those the name the earliest source document
+// declared wins, with sort order breaking a true tie.
+//
 // One important exception: schema names that one schema tree references are held apart.
 // If a Shipment requires both an OriginAddress and a DestinationAddress, both names persist
 // even when the two schemas are structurally identical, because consolidating them would

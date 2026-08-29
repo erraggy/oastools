@@ -82,6 +82,7 @@ type JoinFlags struct {
 	CollisionReport bool
 	SemanticDedup   bool
 	DedupScope      string
+	DedupMode       string
 	DedupReport     bool
 	// Namespace prefix configuration
 	NamespacePrefix namespacePrefixFlag
@@ -123,6 +124,8 @@ func SetupJoinFlags() (*flag.FlagSet, *JoinFlags) {
 	fs.BoolVar(&flags.SemanticDedup, "semantic-dedup", false, "enable semantic deduplication to consolidate identical schemas")
 	fs.StringVar(&flags.DedupScope, "dedup-scope", "",
 		"which names semantic deduplication may fold (all, generated-only)")
+	fs.StringVar(&flags.DedupMode, "dedup-mode", "",
+		"how semantic deduplication resolves a group (remove, pointer)")
 	fs.BoolVar(&flags.DedupReport, "dedup-report", false,
 		"report each semantic deduplication consolidation and the provenance of every folded name")
 
@@ -166,6 +169,10 @@ func SetupJoinFlags() (*flag.FlagSet, *JoinFlags) {
 		Writef(fs.Output(), "    all             Fold any equivalent name (default)\n")
 		Writef(fs.Output(), "    generated-only  Fold only names a collision rename generated, keeping\n")
 		Writef(fs.Output(), "                    every name a source document declared\n")
+		Writef(fs.Output(), "  --dedup-mode controls what happens to the names folded into it:\n")
+		Writef(fs.Output(), "    remove          Delete them and repoint their references (default)\n")
+		Writef(fs.Output(), "    pointer         Keep each one as a $ref to the survivor, so every\n")
+		Writef(fs.Output(), "                    name still resolves and no reference is rewritten\n")
 		Writef(fs.Output(), "  --dedup-report lists each consolidation and where every folded name\n")
 		Writef(fs.Output(), "  came from, which a diff against the inputs cannot tell you.\n")
 		Writef(fs.Output(), "\nNamespace Prefixes:\n")
@@ -301,6 +308,12 @@ func HandleJoin(args []string) error {
 	if flags.DedupScope != "" {
 		config.DeduplicationScope = joiner.DeduplicationScope(flags.DedupScope)
 	}
+	if err := ValidateDeduplicationMode(flags.DedupMode); err != nil {
+		return err
+	}
+	if flags.DedupMode != "" {
+		config.DeduplicationMode = joiner.DeduplicationMode(flags.DedupMode)
+	}
 	if err := ValidatePrimaryOperationPolicy(flags.PrimaryOperationPolicy); err != nil {
 		return err
 	}
@@ -407,7 +420,8 @@ func HandleJoin(args []string) error {
 			for _, consolidation := range result.Consolidations {
 				Writef(os.Stderr, "  %s %s\n", consolidation.Survivor, provenanceLabel(consolidation.SurvivorGenerated))
 				for _, folded := range consolidation.Folded {
-					Writef(os.Stderr, "    <- %s %s\n", folded.Name, provenanceLabel(folded.Generated))
+					Writef(os.Stderr, "    <- %s %s%s\n", folded.Name,
+						provenanceLabel(folded.Generated), outcomeLabel(folded.Pointer))
 				}
 			}
 			Writef(os.Stderr, "\n")
@@ -468,4 +482,15 @@ func provenanceLabel(generated bool) string {
 		return "(generated)"
 	}
 	return "(declared)"
+}
+
+// outcomeLabel says what became of a consolidated name, for the deduplication
+// report. Under --dedup-mode=pointer the joined document still carries it, so a
+// consumer referring to it is unaffected; the default removes it, which the
+// report leaves unmarked because that is what it has always reported.
+func outcomeLabel(pointer bool) string {
+	if pointer {
+		return " -> kept as reference"
+	}
+	return ""
 }

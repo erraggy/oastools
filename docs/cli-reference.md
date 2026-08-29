@@ -627,6 +627,7 @@ oastools join [flags] <file1> <file2> [file3...]
 | `--primary-operation-policy` | | Policy for selecting primary operation: `first`, `most-specific`, `alphabetical` (default: `first`) |
 | `--semantic-dedup` | | Enable semantic deduplication to consolidate identical schemas. Equivalent names that one schema tree references are kept apart |
 | `--dedup-scope` | | Which names semantic deduplication may fold into the survivor: `all` (default), or `generated-only` to keep every name a source document declared |
+| `--dedup-mode` | | What becomes of the names folded into the survivor: `remove` (default) deletes them and repoints their references, `pointer` keeps each one as a `$ref` to the survivor so every name still resolves |
 | `--dedup-report` | | List each consolidation and whether a collision rename generated every folded name |
 | `--equivalence-mode` | | Schema comparison mode for deduplication: `none`, `shallow`, `deep` (default: `none`) |
 | `--equivalence-docs` | | Whether `title`, `description`, `example`, and `examples` participate in schema equivalence: `include` (default, strict), `ignore` (legacy loose) |
@@ -779,6 +780,9 @@ oastools join --semantic-dedup --equivalence-docs ignore -o merged.yaml api1.yam
 
 # Consolidate only the names collisions generated, keeping every declared name
 oastools join --semantic-dedup --dedup-scope generated-only -o merged.yaml api1.yaml api2.yaml
+
+# Consolidate the shape but keep every name, as a $ref to the one that survives
+oastools join --semantic-dedup --dedup-mode pointer -o merged.yaml api1.yaml api2.yaml
 
 # Size the impact first: which names would be removed, and did anyone declare them
 oastools join --semantic-dedup --dedup-report -o merged.yaml api1.yaml api2.yaml

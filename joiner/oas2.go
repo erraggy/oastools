@@ -5,8 +5,6 @@ import (
 	"math"
 	"slices"
 
-	"github.com/erraggy/oastools/internal/schemarefs"
-	"github.com/erraggy/oastools/internal/schemautil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -103,8 +101,10 @@ func (j *Joiner) joinOAS2Documents(docs []parser.ParseResult) (*JoinResult, erro
 	// at which a definition headed for a collapse can be dropped rather than
 	// rewritten and copied (#487).
 	var owner map[any]int
-	if !result.scope.empty() {
+	if !result.scope.empty() || j.needsDeclarationOrder(len(joined.Definitions)) {
 		owner = ownersOAS2(sources)
+	}
+	if !result.scope.empty() {
 		j.collapseDeferredRenames(joined.Definitions, owner, result)
 	}
 
@@ -116,35 +116,17 @@ func (j *Joiner) joinOAS2Documents(docs []parser.ParseResult) (*JoinResult, erro
 
 	// Apply semantic deduplication if enabled
 	if j.config.SemanticDeduplication && len(joined.Definitions) > 1 {
-		compareOpts := j.buildCompareOptions(EquivalenceModeDeep)
-		compare := func(left, right *parser.Schema) bool {
-			res := CompareSchemasWithOptions(left, right, compareOpts)
-			return res.Equivalent
-		}
-		config := schemautil.DefaultDeduplicationConfig()
-		config.Outranks = outranksGenerated(result.generated)
-		distinct, err := schemarefs.Collect(joined)
+		err := j.deduplicateSchemas(dedupeTarget{
+			document: joined,
+			schemas:  joined.Definitions,
+			version:  joined.OASVersion,
+			owner:    owner,
+			copied:   copied,
+			section:  sectionDefinition,
+			apply:    func(schemas map[string]*parser.Schema) { joined.Definitions = schemas },
+		}, result)
 		if err != nil {
-			return nil, fmt.Errorf("joiner: failed to record schema references before semantic deduplication: %w", err)
-		}
-		config.Split = distinct.Split
-		config.Foldable = foldableForScope(j.config.DeduplicationScope, result.generated)
-		deduper := schemautil.NewSchemaDeduplicator(config, compare)
-		dedupeResult, err := deduper.Deduplicate(joined.Definitions)
-		if err != nil {
-			return nil, fmt.Errorf("joiner: semantic deduplication failed: %w", err)
-		}
-
-		j.recordConsolidations(result, dedupeResult)
-
-		// Apply results: replace definitions map with canonical schemas only
-		joined.Definitions = dedupeResult.CanonicalSchemas
-
-		if len(dedupeResult.Aliases) > 0 {
-			if err := rewriteDedupeAliases(joined, dedupeResult.Aliases, joined.OASVersion, copied); err != nil {
-				return nil, fmt.Errorf("joiner: failed to rewrite references after semantic deduplication: %w", err)
-			}
-			result.AddWarning(NewSemanticDedupSummaryWarning(dedupeResult.RemovedCount, "definition"))
+			return nil, err
 		}
 	}
 
@@ -202,7 +184,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 			result.scope.registerRight(ctx.docIndex, name, effectiveName)
 
 			line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.definitions.%s", name))
-			result.AddWarning(NewNamespacePrefixWarning(name, effectiveName, "definition", ctx.filePath, line, col))
+			result.AddWarning(NewNamespacePrefixWarning(name, effectiveName, sectionDefinition, ctx.filePath, line, col))
 		}
 
 		if _, exists := joined.Definitions[effectiveName]; exists {
@@ -250,7 +232,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 						sourceName:  name,
 						section:     sectionDefinitions,
 						sourceGraph: sourceGraph,
-						label:       "definition",
+						label:       sectionDefinition,
 					})
 					if err != nil {
 						return err
@@ -278,7 +260,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 					if eqResult.Equivalent {
 						// Schemas are equivalent, keep existing and skip
 						line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.definitions.%s", name))
-						result.AddWarning(NewSchemaDedupWarning(effectiveName, "definition", ctx.filePath, line, col))
+						result.AddWarning(NewSchemaDedupWarning(effectiveName, sectionDefinition, ctx.filePath, line, col))
 						j.recordCollisionEvent(result, effectiveName, leftSource, ctx.filePath, schemaStrategy, resolutionDeduplicated, "")
 						continue
 					}
@@ -312,7 +294,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 				result.scope.registerLeft(ctx.docIndex, effectiveName, newName)
 
 				line, col := j.getLocation(leftOrigin.filePath, fmt.Sprintf("$.definitions.%s", effectiveName))
-				result.AddWarning(NewSchemaRenamedWarning(effectiveName, newName, "definition", leftOrigin.filePath, line, col, true))
+				result.AddWarning(NewSchemaRenamedWarning(effectiveName, newName, sectionDefinition, leftOrigin.filePath, line, col, true))
 				j.recordCollisionEvent(result, effectiveName, leftOrigin.filePath, ctx.filePath, schemaStrategy, resolutionRenamed, newName)
 
 			case StrategyDeduplicateOrRename:
@@ -334,7 +316,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 				result.deferred = append(result.deferred, deferredRename{
 					name:        effectiveName,
 					newName:     newName,
-					label:       "definition",
+					label:       sectionDefinition,
 					leftSource:  leftSource,
 					rightSource: ctx.filePath,
 					line:        line,
@@ -356,7 +338,7 @@ func (j *Joiner) mergeOAS2Definitions(joined, source *parser.OAS2Document, ctx d
 				result.scope.registerRight(ctx.docIndex, name, newName)
 
 				line, col := j.getLocation(ctx.filePath, fmt.Sprintf("$.definitions.%s", name))
-				result.AddWarning(NewSchemaRenamedWarning(effectiveName, newName, "definition", ctx.filePath, line, col, false))
+				result.AddWarning(NewSchemaRenamedWarning(effectiveName, newName, sectionDefinition, ctx.filePath, line, col, false))
 				j.recordCollisionEvent(result, effectiveName, leftSource, ctx.filePath, schemaStrategy, resolutionRenamed, newName)
 
 			default:
