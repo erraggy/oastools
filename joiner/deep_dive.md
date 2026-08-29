@@ -151,10 +151,10 @@ Rule 1 matters because rule 2 alone gives an answer that depends on your rename 
 `DeduplicationModePointer` inserts a third rule between the two, because under it the survivor is only the name the shape is stored under rather than the only name left:
 
 1. A name a document wrote beats a name the join invented, as above.
-2. **Otherwise, whichever document declared it first.** Joining `pets.json`, `store.json` and `orders.json` stores the shape under `pets.Label`, not under `orders.Marker` because it sorts first.
+2. **Otherwise, whichever document declared it first.** Joining `pets.json`, `store.json` and `orders.json` stores the shape under `pets.Label`, rather than under `orders.Marker`, which merely sorts first.
 3. Otherwise, whichever sorts first alphabetically.
 
-The default keeps rules 1 and 2 only, so it settles a group exactly the way `StrategyDeduplicateOrRename` does and the two passes cannot disagree about which name a document keeps (#498, #553).
+The default omits rule 2, so alphabetical order still decides between two declared names and a group settles exactly the way `StrategyDeduplicateOrRename` settles it, leaving the two passes unable to disagree about which name a document keeps (#498, #553).
 
 ### What Becomes of the Other Names
 
@@ -1886,6 +1886,7 @@ type JoinerConfig struct {
     // Post-processing
     SemanticDeduplication bool  // Consolidate identical schemas across documents
     DeduplicationScope  DeduplicationScope  // DeduplicationScopeAll (default) or ...GeneratedOnly
+    DeduplicationMode   DeduplicationMode    // DeduplicationModeRemove (default) or ...Pointer
     DeduplicationReport bool    // Record each consolidation and its provenance
 }
 ```
