@@ -148,13 +148,9 @@ Both choose the same way, by these two rules in order:
 
 Rule 1 matters because rule 2 alone gives an answer that depends on your rename template. `Api_Common` sorts before `Common`, `Common.api` sorts after it, and neither ordering has anything to do with which name your API actually uses. Rule 1 settles it the same way whatever the template (#498).
 
-`DeduplicationModePointer` inserts a third rule between the two, because under it the survivor is only the name the shape is stored under rather than the only name left:
+`DeduplicationModePointer` ranks differently, because under it the surviving name is only where the shape is stored rather than the only name left: rule 1 still applies, and the name the earliest source document declared then wins ahead of rule 2. Joining `pets.json`, `store.json` and `orders.json` stores the shape under `pets.Label` rather than under `orders.Marker`, which merely sorts first. `WithDeduplicationMode` documents both rankings.
 
-1. A name a document wrote beats a name the join invented, as above.
-2. **Otherwise, whichever document declared it first.** Joining `pets.json`, `store.json` and `orders.json` stores the shape under `pets.Label`, rather than under `orders.Marker`, which merely sorts first.
-3. Otherwise, whichever sorts first alphabetically.
-
-The default omits rule 2, so alphabetical order still decides between two declared names and a group settles exactly the way `StrategyDeduplicateOrRename` settles it, leaving the two passes unable to disagree about which name a document keeps (#498, #553).
+The default leaves rules 1 and 2 alone, so it settles a group exactly the way `StrategyDeduplicateOrRename` settles it and the two passes cannot disagree about which name a document keeps (#498, #553).
 
 ### What Becomes of the Other Names
 

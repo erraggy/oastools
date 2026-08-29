@@ -863,11 +863,8 @@ if err != nil {
 //   "all" (default) folds any equivalent name, "generated-only" folds only the
 //   names a collision rename generated and leaves every declared name alone
 // - DeduplicationMode decides what becomes of a folded name: "remove" (default)
-//   deletes it and rewrites the references to it, "pointer" keeps it as a bare
-//   $ref to the survivor and rewrites nothing. "pointer" also ranks the survivor
-//   differently: a name a rename invented still loses, and among the rest the
-//   one the earliest source document declared wins, before the alphabetical
-//   tiebreak
+//   removes it, "pointer" keeps it as a $ref to the survivor. See
+//   joiner.WithDeduplicationMode, which documents the survivor rule each uses
 ```
 
 **Sizing a Deduplication Before Enabling It:**

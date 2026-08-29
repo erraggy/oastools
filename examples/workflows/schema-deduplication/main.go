@@ -160,9 +160,8 @@ func demonstrateSemanticDedup(usersPath, productsPath string) {
 	fmt.Printf("    SemanticDeduplication: %t\n", config.SemanticDeduplication)
 	fmt.Println()
 	fmt.Println("  The joiner identified that UserError = ProductError")
-	fmt.Println("  and consolidated them. Under the default remove mode, every $ref")
-	fmt.Println("  to a folded name is rewritten to the survivor. DeduplicationModePointer")
-	fmt.Println("  keeps each folded name instead, as a $ref, so consumers of it still work.")
+	fmt.Println("  and consolidated them, rewriting the $refs that named UserError.")
+	fmt.Println("  See WithDeduplicationMode to keep that name rather than remove it.")
 }
 
 func getSortedSchemaNames(accessor parser.DocumentAccessor) []string {

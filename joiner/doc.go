@@ -358,12 +358,10 @@
 //	joiner.WithDeduplicationMode(joiner.DeduplicationModePointer)
 //
 // The default, "remove", deletes them and repoints their references. Under
-// "pointer" each one keeps an entry of its own, a bare $ref to the survivor, and
-// no reference is rewritten, so every name still resolves (#553). That is the
-// other half of what "generated-only" offers: the scope keeps the names by
-// leaving the duplicate shapes in place, "pointer" keeps both. See
-// [WithDeduplicationMode] for the comparison, how each mode picks the survivor,
-// and the one thing "pointer" costs.
+// "pointer" each one keeps an entry of its own, a bare $ref to the survivor, so
+// every name still resolves (#553). See [WithDeduplicationMode], which compares
+// the two, gives the survivor rule each uses, and names the one thing "pointer"
+// costs.
 //
 // One important exception: schema names that one schema tree references are held apart.
 // If a Shipment requires both an OriginAddress and a DestinationAddress, both names persist
