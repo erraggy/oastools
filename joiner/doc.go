@@ -347,9 +347,10 @@
 // the names a collision rename generated still fold into it. That suits a
 // caller publishing the joined document to consumers that refer to its schema
 // names, where removing a declared name is a breaking change and removing a
-// generated alias is invisible (#543). WithDeduplicationReport records what
-// each consolidation removed, and whether a rename generated it, so the impact
-// can be measured before a scope is chosen.
+// generated alias is invisible (#543). WithDeduplicationReport records the names
+// each consolidation folded, whether a rename generated each, and whether the
+// document kept it, so the impact can be measured before a scope or a mode is
+// chosen.
 //
 // WithDeduplicationMode chooses what becomes of those folded names:
 //

@@ -130,7 +130,8 @@ type JoinerConfig struct {
 	DeduplicationMode DeduplicationMode
 
 	// DeduplicationReport enables per-consolidation reporting, recording each
-	// survivor, the names folded into it, and whether a rename generated each.
+	// survivor, the names folded into it, whether a rename generated each, and
+	// whether the document kept it.
 	// Off by default: a large join consolidates enough names that recording
 	// them all is worth asking for rather than paying for.
 	DeduplicationReport bool

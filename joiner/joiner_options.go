@@ -689,8 +689,9 @@ func WithDeduplicationMode(mode DeduplicationMode) Option {
 }
 
 // WithDeduplicationReport enables per-consolidation reporting on
-// JoinResult.Consolidations: each surviving name, the names folded into it, and
-// whether a rename generated each.
+// JoinResult.Consolidations: each surviving name, the names folded into it,
+// whether a rename generated each, and whether the document kept it as a $ref
+// rather than removing it (see [WithDeduplicationMode]).
 //
 // It exists because diffing the joined document against its inputs cannot tell
 // a generated alias from a declared name some other pass removed. Default:

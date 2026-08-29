@@ -248,7 +248,7 @@ Everything else is unchanged by the scope: the equivalence comparison, the survi
 
 ### Sizing the Impact
 
-`DeduplicationReport` records what each consolidation removed, so you can tell a generated alias from a declared name before committing to a scope. Diffing the joined document against its inputs cannot: a missing name looks the same either way.
+`DeduplicationReport` records the names each consolidation folded and what became of each, so you can tell a generated alias from a declared name, and a name the document kept from one that is gone, before committing to a scope or a mode. Diffing the joined document against its inputs cannot: a missing name looks the same either way.
 
 ```go
 config.DeduplicationReport = true            // or joiner.WithDeduplicationReport(true)
