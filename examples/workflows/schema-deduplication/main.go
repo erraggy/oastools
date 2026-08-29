@@ -137,12 +137,18 @@ func demonstrateSemanticDedup(usersPath, productsPath string) {
 		}
 	}
 
+	// Which name survived decides what the rest of this report can say, so read
+	// it off the merged document rather than assuming the run went one way.
+	folded, survivor := "", ""
 	if hasUserError && !hasProductError {
-		fmt.Println("  ProductError was deduplicated to UserError")
-		fmt.Println("     (UserError < ProductError alphabetically)")
+		folded, survivor = "ProductError", "UserError"
 	} else if hasProductError && !hasUserError {
-		fmt.Println("  UserError was deduplicated to ProductError")
-		fmt.Println("     (ProductError < UserError alphabetically)")
+		folded, survivor = "UserError", "ProductError"
+	}
+
+	if folded != "" {
+		fmt.Printf("  %s was deduplicated to %s\n", folded, survivor)
+		fmt.Printf("     (%s < %s alphabetically)\n", survivor, folded)
 	} else {
 		fmt.Println("  Both schemas kept (no semantic equivalence detected)")
 	}
@@ -158,10 +164,12 @@ func demonstrateSemanticDedup(usersPath, productsPath string) {
 	fmt.Println()
 	fmt.Println("  Configuration:")
 	fmt.Printf("    SemanticDeduplication: %t\n", config.SemanticDeduplication)
-	fmt.Println()
-	fmt.Println("  The joiner identified that UserError = ProductError")
-	fmt.Println("  and consolidated them, rewriting the $refs that named UserError.")
-	fmt.Println("  See WithDeduplicationMode to keep that name rather than remove it.")
+	if folded != "" {
+		fmt.Println()
+		fmt.Printf("  The joiner identified that %s = %s and consolidated them,\n", folded, survivor)
+		fmt.Printf("  rewriting the $refs that named %s.\n", folded)
+		fmt.Println("  See WithDeduplicationMode to keep that name rather than remove it.")
+	}
 }
 
 func getSortedSchemaNames(accessor parser.DocumentAccessor) []string {

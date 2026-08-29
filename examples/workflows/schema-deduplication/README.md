@@ -68,8 +68,8 @@ These are structurally equivalent but have different names.
   Configuration:
     SemanticDeduplication: true
 
-  The joiner identified that UserError = ProductError
-  and consolidated them, rewriting the $refs that named UserError.
+  The joiner identified that UserError = ProductError and consolidated them,
+  rewriting the $refs that named UserError.
   See WithDeduplicationMode to keep that name rather than remove it.
 
 =========================================
