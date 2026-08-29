@@ -118,7 +118,7 @@ The [schema-deduplication](schema-deduplication/) workflow consolidates identica
 1. Identify structurally equivalent schemas across documents
 2. Use deduplicate-equivalent for same-named collisions
 3. Use semantic-deduplication for different-named equivalents
-4. Automatic $ref rewriting to canonical name
+4. Automatic $ref rewriting to canonical name, or with `--dedup-mode pointer`, every folded name kept as a $ref to it
 
 **Use cases:** Reducing spec size, consolidating shared types like Error
 

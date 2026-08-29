@@ -531,11 +531,14 @@ func WithCollisionReport(enabled bool) Option {
 //
 // Schema names that one schema tree references are held apart (e.g., if Shipment
 // requires both OriginAddress and DestinationAddress, both persist even if
-// structurally identical). Other equivalent schemas merge to a canonical name:
-// a name a document declared beats a name a collision rename invented, and
-// otherwise the alphabetically first name wins (e.g., "Address" beats
-// "Location"). See the "Which Name Survives" section of joiner/deep_dive.md.
-// All references to duplicate schemas are rewritten to the canonical name.
+// structurally identical). Other equivalent schemas consolidate to one survivor:
+// a name a document declared beats a name a collision rename invented, and by
+// default the rest sorts alphabetically (e.g., "Address" beats "Location"). See
+// the "Which Name Survives" section of joiner/deep_dive.md.
+//
+// By default the other names are removed and every reference to them is
+// rewritten to the survivor. WithDeduplicationMode changes both that and the
+// ranking above.
 // Default: false
 func WithSemanticDeduplication(enabled bool) Option {
 	return func(cfg *joinConfig) error {

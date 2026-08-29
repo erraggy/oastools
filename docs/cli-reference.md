@@ -863,7 +863,7 @@ Warnings (2):
   - semantic deduplication: consolidated 3 duplicate definition(s)
 ```
 
-`--dedup-scope` and `--dedup-report` have no effect without `--semantic-dedup`.
+`--dedup-scope`, `--dedup-mode`, and `--dedup-report` have no effect without `--semantic-dedup`.
 
 With `--dedup-report`, each consolidation is listed with the provenance of every name:
 
