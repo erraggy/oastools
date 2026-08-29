@@ -127,7 +127,7 @@ config.SemanticDeduplication = true
 
 Exception to step 4: if a collision rename has already invented a name such as `Api_Address`, the `Address` your documents declared wins even though `Api_Address` sorts first. See [Which Name Survives](../../../packages/joiner/#which-name-survives).
 
-Exception to step 5: `DeduplicationMode` decides what becomes of a folded name. Under `pointer` (`--dedup-mode pointer`, or `joiner.WithDeduplicationMode(joiner.DeduplicationModePointer)`) nothing is removed and no `$ref` is rewritten: each folded name keeps an entry that is a bare `$ref` to the survivor, so a consumer naming it still resolves. That changes step 4 too, since the survivor is then the name the earliest source document declared. Reach for it when the joined document's schema names are part of a published contract: under the default, `UserError` above simply disappears.
+Exception to step 5: `DeduplicationMode` decides what becomes of a folded name. Under `pointer` (`--dedup-mode pointer`, or `joiner.WithDeduplicationMode(joiner.DeduplicationModePointer)`) nothing is removed and no `$ref` is rewritten: each folded name keeps an entry that is a bare `$ref` to the survivor, so a consumer naming it still resolves. That changes step 4 too: a rename-invented name still loses, but among the rest the survivor is the one the earliest source document declared, before the alphabetical tiebreak. Reach for it when the joined document's schema names are part of a published contract: under the default, `UserError` above simply disappears.
 
 ### Equivalence Modes
 

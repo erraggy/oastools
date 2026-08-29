@@ -864,8 +864,10 @@ if err != nil {
 //   names a collision rename generated and leaves every declared name alone
 // - DeduplicationMode decides what becomes of a folded name: "remove" (default)
 //   deletes it and rewrites the references to it, "pointer" keeps it as a bare
-//   $ref to the survivor and rewrites nothing, ranking the survivor by which
-//   source document declared it first
+//   $ref to the survivor and rewrites nothing. "pointer" also ranks the survivor
+//   differently: a name a rename invented still loses, and among the rest the
+//   one the earliest source document declared wins, before the alphabetical
+//   tiebreak
 ```
 
 **Sizing a Deduplication Before Enabling It:**

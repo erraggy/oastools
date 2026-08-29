@@ -336,8 +336,8 @@
 // When schemas from different documents are structurally equivalent (same type, properties,
 // constraints), they are consolidated into a single canonical schema, keeping a name your
 // documents declared over one a collision rename invented. By default the other names are
-// removed and every $ref to them throughout the merged document is rewritten, which
-// WithDeduplicationMode changes. See the "Which Name Survives" section of
+// removed and every $ref to them throughout the merged document is rewritten.
+// WithDeduplicationMode changes that. See the "Which Name Survives" section of
 // joiner/deep_dive.md for the full rule.
 //
 // WithDeduplicationScope narrows which names may be folded into that survivor:
