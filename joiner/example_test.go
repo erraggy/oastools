@@ -238,6 +238,88 @@ components:
 	// Schemas: [Category]
 }
 
+// Example_deduplicationPointerMode demonstrates DeduplicationModePointer. Two
+// documents describe one shape under names each of them declared, so the
+// default would delete one of them. Here it stays, as a $ref to the survivor.
+func Example_deduplicationPointerMode() {
+	catalogSpec := []byte(`openapi: "3.0.0"
+info:
+  title: Catalog API
+  version: "1.0"
+paths:
+  /catalog/categories:
+    get:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+components:
+  schemas:
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+`)
+
+	storeSpec := []byte(`openapi: "3.0.0"
+info:
+  title: Store API
+  version: "1.0"
+paths:
+  /store/groups:
+    get:
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductGroup'
+components:
+  schemas:
+    ProductGroup:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+`)
+
+	catalog, err := parser.ParseWithOptions(parser.WithBytes(catalogSpec))
+	if err != nil {
+		log.Fatal(err)
+	}
+	store, err := parser.ParseWithOptions(parser.WithBytes(storeSpec))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	result, err := joiner.JoinWithOptions(
+		joiner.WithParsed(*catalog, *store),
+		joiner.WithSemanticDeduplication(true),
+		joiner.WithEquivalenceMode("deep"),
+		joiner.WithDeduplicationMode(joiner.DeduplicationModePointer),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	doc := result.Document.(*parser.OAS3Document)
+	names := slices.Sorted(maps.Keys(doc.Components.Schemas))
+	fmt.Printf("Schemas: %v\n", names)
+	fmt.Printf("ProductGroup: $ref %s\n", doc.Components.Schemas["ProductGroup"].Ref)
+	// Output:
+	// Schemas: [Category ProductGroup]
+	// ProductGroup: $ref #/components/schemas/Category
+}
+
 // Example_operationContext demonstrates operation-aware schema renaming.
 // When OperationContext is enabled, the joiner traces schemas back to their
 // originating operations, allowing rename templates to use fields like

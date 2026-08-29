@@ -628,7 +628,7 @@ oastools join [flags] <file1> <file2> [file3...]
 | `--semantic-dedup` | | Enable semantic deduplication to consolidate identical schemas. Equivalent names that one schema tree references are kept apart |
 | `--dedup-scope` | | Which names semantic deduplication may fold into the survivor: `all` (default), or `generated-only` to keep every name a source document declared |
 | `--dedup-mode` | | What becomes of the names folded into the survivor: `remove` (default) deletes them and repoints their references, `pointer` keeps each one as a `$ref` to the survivor so every name still resolves |
-| `--dedup-report` | | List each consolidation and whether a collision rename generated every folded name |
+| `--dedup-report` | | List each consolidation, whether a collision rename generated every folded name, and whether the joined document kept it |
 | `--equivalence-mode` | | Schema comparison mode for deduplication: `none`, `shallow`, `deep` (default: `none`) |
 | `--equivalence-docs` | | Whether `title`, `description`, `example`, and `examples` participate in schema equivalence: `include` (default, strict), `ignore` (legacy loose) |
 | `--collision-report` | | Generate detailed collision analysis report |
@@ -874,7 +874,8 @@ Consolidations (1):
 ```
 
 A `(generated)` name is one a collision rename produced, so folding it is invisible to a consumer
-of the joined document. A `(declared)` name came from a source document.
+of the joined document. A `(declared)` name came from a source document. Under `--dedup-mode
+pointer` a folded name also reads `-> kept as reference`, since the joined document still carries it.
 
 ### Exit Codes
 
