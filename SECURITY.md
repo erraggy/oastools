@@ -10,7 +10,7 @@ Please report suspected vulnerabilities privately by email to <oastools@robnrob.
 
 Include the affected version, a description of the issue, and a minimal OpenAPI document or command that reproduces it where possible.
 
-You can expect an acknowledgement of your report, and a fix or an explanation once it has been assessed. Reporters are credited in the release notes unless they ask otherwise.
+You can expect an acknowledgement of your report, and a fix or an explanation once it has been assessed. Reporters are credited in the release notes only if they ask for it, using the name or alias they approve.
 
 ## Scope
 
@@ -21,4 +21,4 @@ oastools processes untrusted OpenAPI documents, so the areas of most interest ar
 - Code generator output that allows injection from specification strings.
 - The MCP server (`internal/mcpserver`) and its tool arguments.
 
-See `.oss-scanner/threat_model.md` for more detail.
+See [`.oss-scanner/threat_model.md`](.oss-scanner/threat_model.md) for more detail.
