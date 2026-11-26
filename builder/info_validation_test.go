@@ -103,10 +103,10 @@ func TestBuilder_InfoRequiredFields(t *testing.T) {
 				assert.ElementsMatch(t, []string{"info.title", "info.version"}, infoFields(t, err))
 			})
 
-			t.Run("whitespace is not a title or version", func(t *testing.T) {
-				err := buildAny(New(version).SetTitle("  ").SetVersion("\t"))
-				require.Error(t, err)
-				assert.ElementsMatch(t, []string{"info.title", "info.version"}, infoFields(t, err))
+			t.Run("whitespace is a title and version", func(t *testing.T) {
+				// The spec requires a string and sets no minLength, so the
+				// builder accepts what the validator accepts.
+				require.NoError(t, buildAny(New(version).SetTitle("  ").SetVersion("\t")))
 			})
 
 			t.Run("empty Info struct", func(t *testing.T) {

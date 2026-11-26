@@ -34,8 +34,11 @@ func TestCheck_VersionScopedRules(t *testing.T) {
 		want    []string
 	}{
 		{"minimal", func(*parser.Info) {}, parser.OASVersion20, nil},
-		{"whitespace title and version", func(i *parser.Info) { i.Title, i.Version = " ", "\t" }, parser.OASVersion304,
+		{"empty title and version", func(i *parser.Info) { i.Title, i.Version = "", "" }, parser.OASVersion304,
 			[]string{"info.title", "info.version"}},
+		// The spec requires a string and constrains it no further.
+		{"whitespace title and version are present", func(i *parser.Info) { i.Title, i.Version = " ", "\t" }, parser.OASVersion304, nil},
+		{"whitespace license name is present", func(i *parser.Info) { i.License = &parser.License{Name: " "} }, parser.OASVersion20, nil},
 
 		// license.name, every version
 		{"license without name 2.0", func(i *parser.Info) { i.License = &parser.License{URL: "https://e.com/l"} }, parser.OASVersion20,

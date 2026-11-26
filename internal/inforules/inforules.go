@@ -12,7 +12,6 @@ package inforules
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/erraggy/oastools/internal/stringutil"
 	"github.com/erraggy/oastools/parser"
@@ -55,10 +54,14 @@ func termsOfServiceIsURL(version parser.OASVersion) bool {
 	return version != parser.OASVersion20
 }
 
-// blank reports whether a required string field is missing. A value of only
-// whitespace names nothing, so it counts as missing.
+// blank reports whether a required string field is missing.
+//
+// The specification requires the field and types it as a string, with no
+// minLength or pattern in any version's schema, so any value present is valid,
+// whitespace included. A Go string cannot tell an absent field from an empty
+// one, so the empty string is the only value treated as missing.
 func blank(s string) bool {
-	return strings.TrimSpace(s) == ""
+	return s == ""
 }
 
 // Check returns every rule info breaks for the given OAS version, in a fixed

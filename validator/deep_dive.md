@@ -546,7 +546,7 @@ produces always passes these checks.
 
 **Checked Fields:**
 
-- `title`, `version` (required; whitespace alone counts as missing)
+- `title`, `version` (required; the spec sets no minimum length, so any non-empty string is accepted)
 - `termsOfService` (URI reference when present, from 3.0; 2.0 describes it as free text)
 - `contact.url` (URI reference when present)
 - `contact.email` (email format when present)
