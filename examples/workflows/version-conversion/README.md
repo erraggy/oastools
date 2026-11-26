@@ -10,7 +10,7 @@ Demonstrates converting between OpenAPI specification versions using the convert
 
 ## Prerequisites
 
-- Go 1.25+
+- Go 1.26+
 
 ## Quick Start
 

@@ -319,7 +319,7 @@ For documentation-only changes, only items 3, 6, and 7 apply.
 ## Go Module
 
 - Module path: `github.com/erraggy/oastools`
-- Minimum Go version: 1.25
+- Minimum Go version: 1.26
 
 ## Public API Structure
 

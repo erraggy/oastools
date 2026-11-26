@@ -103,4 +103,4 @@
 ## Go Module
 
 - **Module**: `github.com/erraggy/oastools`
-- **Minimum Go**: 1.25
+- **Minimum Go**: 1.26

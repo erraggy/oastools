@@ -50,7 +50,7 @@ make install
 go get github.com/erraggy/oastools@latest
 ```
 
-Requires Go 1.25+.
+Requires Go 1.26+.
 
 ## CLI Usage
 
