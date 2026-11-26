@@ -528,6 +528,8 @@ func (c *Converter) convertOAS3ToOAS3(parseResult parser.ParseResult, targetVers
 	// Add informational message about version update
 	c.addInfoWithContext(result, "openapi", fmt.Sprintf("Updated version from %s to %s", parseResult.Version, result.TargetVersion), "OAS 3.x versions are generally compatible, but verify features are supported")
 
+	c.dropOAS31InfoFields(converted.Info, targetVersion, result)
+
 	// Check for nullable deprecation when converting 3.0.x to 3.1.x
 	if c.isOAS30(parseResult.OASVersion) && c.isOAS31OrLater(targetVersion) {
 		c.checkNullableDeprecation(converted, result)
