@@ -134,27 +134,6 @@ func IsStandardStatusCode(code string) bool {
 	return StandardHTTPStatusCodes[code]
 }
 
-// IsValidMediaType validates a media type string according to RFC 2045/2046.
-// Handles wildcards (*/* and type/*) and prevents invalid combinations (*/subtype).
-func IsValidMediaType(mediaType string) bool {
-	if mediaType == "*/*" {
-		return true
-	}
-
-	if strings.HasSuffix(mediaType, "/*") {
-		// Check format: type/* (e.g., application/*)
-		parts := strings.Split(mediaType, "/")
-		if len(parts) == 2 && parts[0] != "" && parts[0] != "*" {
-			return true
-		}
-		return false
-	}
-
-	// Use standard MIME type parser for regular types
-	_, _, err := mime.ParseMediaType(mediaType)
-	return err == nil
-}
-
 // MediaTypeJSON is the media type a Schema Object describes directly, and the
 // default this codebase falls back to.
 const MediaTypeJSON = "application/json"

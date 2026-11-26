@@ -27,10 +27,9 @@ func TestMediaTypeRank(t *testing.T) {
 		{"not a media type+json", MediaTypeRankOther},
 		{"///+json", MediaTypeRankOther},
 		{"", MediaTypeRankOther},
-		// A bare token parses, both for mime.ParseMediaType and for this
-		// package's own IsValidMediaType, so it is a media type as far as
-		// anything here is concerned and its suffix counts. Ranking it lower
-		// would put a second notion of validity in a package that has one.
+		// A bare token parses for mime.ParseMediaType, so it is a media type
+		// as far as anything here is concerned and its suffix counts. Ranking
+		// it lower would put a second notion of validity beside the parser's.
 		{"garbage+json", MediaTypeRankJSONSuffix},
 	} {
 		assert.Equal(t, tc.want, MediaTypeRank(tc.mediaType), "MediaTypeRank(%q)", tc.mediaType)

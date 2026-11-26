@@ -136,20 +136,6 @@ func (c *specCacheStore) startSweeper(ctx context.Context, interval time.Duratio
 	}()
 }
 
-// reset clears all cached entries. Used in tests.
-func (c *specCacheStore) reset() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.entries = make(map[string]*cacheEntry)
-}
-
-// size returns the number of cached entries.
-func (c *specCacheStore) size() int {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return len(c.entries)
-}
-
 // makeCacheKey creates a cache key for the given spec input.
 // Returns empty string when extra parser options are provided since we cannot
 // distinguish option sets.

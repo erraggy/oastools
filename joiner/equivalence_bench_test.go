@@ -156,20 +156,8 @@ func BenchmarkCompareSchemas(b *testing.B) {
 	})
 }
 
-// BenchmarkComparePath benchmarks the path builder vs string concatenation.
+// BenchmarkComparePath benchmarks the path builder schema comparison uses.
 func BenchmarkComparePath(b *testing.B) {
-	b.Run("StringConcat", func(b *testing.B) {
-		b.ReportAllocs()
-		for b.Loop() {
-			path := ""
-			path = pathJoin(path, "properties")
-			path = pathJoin(path, "user")
-			path = pathJoin(path, "address")
-			path = pathJoin(path, "street")
-			_ = path
-		}
-	})
-
 	b.Run("ComparePathSlice", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {

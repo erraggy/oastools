@@ -1521,12 +1521,3 @@ func compareSchemaArrays(left, right []*parser.Schema, path *comparePath, st *co
 		path.pop()
 	}
 }
-
-// pathJoin is kept for backward compatibility but internal code uses comparePath.
-// This function is still used by tests that call it directly.
-func pathJoin(parent, child string) string {
-	if parent == "" {
-		return child
-	}
-	return parent + "." + child
-}

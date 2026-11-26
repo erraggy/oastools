@@ -65,25 +65,3 @@ func IsNullable(schema *parser.Schema) bool {
 	}
 	return false
 }
-
-// HasType checks if the schema includes the specified type.
-func HasType(schema *parser.Schema, targetType string) bool {
-	for _, t := range GetSchemaTypes(schema) {
-		if t == targetType {
-			return true
-		}
-	}
-	return false
-}
-
-// IsSingleType returns true if the schema has exactly one type (not counting null).
-func IsSingleType(schema *parser.Schema) bool {
-	types := GetSchemaTypes(schema)
-	nonNullCount := 0
-	for _, t := range types {
-		if t != "null" {
-			nonNullCount++
-		}
-	}
-	return nonNullCount == 1
-}

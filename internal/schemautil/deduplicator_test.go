@@ -188,66 +188,6 @@ func TestSchemaDeduplicator_Deduplicate_HashCollision(t *testing.T) {
 	assert.Empty(t, result.Aliases)
 }
 
-func TestDeduplicationResult_CanonicalName(t *testing.T) {
-	result := &DeduplicationResult{
-		CanonicalSchemas: map[string]*parser.Schema{
-			"Address": {Type: "object"},
-		},
-		Aliases: map[string]string{
-			"Location": "Address",
-			"Place":    "Address",
-		},
-	}
-
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{"alias returns canonical", "Location", "Address"},
-		{"alias returns canonical 2", "Place", "Address"},
-		{"canonical returns itself", "Address", "Address"},
-		{"unknown returns itself", "Unknown", "Unknown"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := result.CanonicalName(tt.input)
-			assert.Equal(t, tt.expected, got)
-		})
-	}
-}
-
-func TestDeduplicationResult_IsAlias(t *testing.T) {
-	result := &DeduplicationResult{
-		CanonicalSchemas: map[string]*parser.Schema{
-			"Address": {Type: "object"},
-		},
-		Aliases: map[string]string{
-			"Location": "Address",
-		},
-	}
-
-	assert.True(t, result.IsAlias("Location"))
-	assert.False(t, result.IsAlias("Address"))
-	assert.False(t, result.IsAlias("Unknown"))
-}
-
-func TestDeduplicationResult_IsCanonical(t *testing.T) {
-	result := &DeduplicationResult{
-		CanonicalSchemas: map[string]*parser.Schema{
-			"Address": {Type: "object"},
-		},
-		Aliases: map[string]string{
-			"Location": "Address",
-		},
-	}
-
-	assert.True(t, result.IsCanonical("Address"))
-	assert.False(t, result.IsCanonical("Location"))
-	assert.False(t, result.IsCanonical("Unknown"))
-}
-
 func TestDeduplicationResult_EquivalenceGroups(t *testing.T) {
 	deduper := NewSchemaDeduplicator(DefaultDeduplicationConfig(), alwaysEqual)
 
@@ -326,7 +266,7 @@ func TestSchemaDeduplicator_Outranks(t *testing.T) {
 			assert.Contains(t, result.CanonicalSchemas, tt.canonical)
 			assert.Equal(t, len(tt.aliases), result.RemovedCount)
 			for _, alias := range tt.aliases {
-				assert.Equal(t, tt.canonical, result.CanonicalName(alias))
+				assert.Equal(t, tt.canonical, result.Aliases[alias], "alias %q", alias)
 			}
 
 			// The canonical name leads its group whether or not it sorts first.
@@ -420,7 +360,7 @@ func TestSchemaDeduplicator_Split(t *testing.T) {
 				require.Contains(t, result.CanonicalSchemas, canonical)
 				assert.Equal(t, group, result.EquivalenceGroups[canonical])
 				for _, alias := range group[1:] {
-					assert.Equal(t, canonical, result.CanonicalName(alias))
+					assert.Equal(t, canonical, result.Aliases[alias], "alias %q", alias)
 					removed++
 				}
 			}
