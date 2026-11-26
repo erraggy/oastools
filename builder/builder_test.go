@@ -3,9 +3,11 @@ package builder
 import (
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/erraggy/oastools/oaserrors"
 	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -246,13 +248,78 @@ func TestBuilder_BuildOAS3(t *testing.T) {
 		assert.Equal(t, "1.0.0", doc.Info.Version)
 	})
 
-	t.Run("without info - no validation", func(t *testing.T) {
-		// Builder does not perform OAS validation, that's the job of validator package
+	t.Run("without info is an error", func(t *testing.T) {
+		// info is required in every OAS version.
+		for _, version := range []parser.OASVersion{
+			parser.OASVersion300, parser.OASVersion310, parser.OASVersion320,
+		} {
+			t.Run(version.String(), func(t *testing.T) {
+				doc, err := New(version).BuildOAS3()
+				require.Error(t, err)
+				assert.Nil(t, doc)
+				assert.ErrorIs(t, err, oaserrors.ErrConfig)
+				assert.Contains(t, err.Error(), "info is required")
+
+				var be *BuilderError
+				require.ErrorAs(t, err, &be)
+				assert.Equal(t, ComponentInfo, be.Component)
+			})
+		}
+	})
+
+	t.Run("every output path refuses a document without info", func(t *testing.T) {
+		for _, version := range []parser.OASVersion{parser.OASVersion20, parser.OASVersion320} {
+			t.Run(version.String(), func(t *testing.T) {
+				b := New(version)
+
+				if version == parser.OASVersion20 {
+					doc, err := b.BuildOAS2()
+					require.Error(t, err)
+					assert.Nil(t, doc)
+				}
+
+				result, err := b.BuildResult()
+				require.Error(t, err)
+				assert.Nil(t, result)
+
+				_, err = b.MarshalJSON()
+				assert.Error(t, err)
+				_, err = b.MarshalYAML()
+				assert.Error(t, err)
+				assert.Error(t, b.WriteFile(filepath.Join(t.TempDir(), "spec.json")))
+			})
+		}
+	})
+
+	t.Run("nil info passed explicitly is an error", func(t *testing.T) {
+		_, err := NewWithInfo(parser.OASVersion320, nil).BuildOAS3()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "info is required")
+
+		_, err = New(parser.OASVersion320).SetTitle("T").SetVersion("1").SetInfo(nil).BuildOAS3()
+		require.Error(t, err)
+	})
+
+	t.Run("missing info is reported with other errors", func(t *testing.T) {
 		b := New(parser.OASVersion320)
+		b.errors = append(b.errors, fmt.Errorf("another error"))
+
+		_, err := b.BuildOAS3()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "2 error(s)")
+		assert.Contains(t, err.Error(), "info is required")
+		assert.Contains(t, err.Error(), "another error")
+	})
+
+	t.Run("failed build does not stick once info is supplied", func(t *testing.T) {
+		b := New(parser.OASVersion320)
+		_, err := b.BuildOAS3()
+		require.Error(t, err)
+
+		b.SetTitle("Test API").SetVersion("1.0.0")
 		doc, err := b.BuildOAS3()
-		// No error because builder doesn't validate
 		require.NoError(t, err)
-		assert.Nil(t, doc.Info)
+		assert.Equal(t, "Test API", doc.Info.Title)
 	})
 
 	t.Run("with accumulated errors", func(t *testing.T) {

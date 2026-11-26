@@ -496,7 +496,7 @@ func TestValidateOAS2Security_OAuth2ImplicitInvalidAuthorizationUrl(t *testing.T
 			"oauth2Implicit": {
 				Type:             "oauth2",
 				Flow:             "implicit",
-				AuthorizationURL: "not-a-valid-url",
+				AuthorizationURL: "not a valid url",
 			},
 		},
 	}
@@ -609,7 +609,7 @@ func TestValidateOAS2Security_OAuth2PasswordInvalidTokenUrl(t *testing.T) {
 			"oauth2Password": {
 				Type:     "oauth2",
 				Flow:     "password",
-				TokenURL: "not-a-valid-url",
+				TokenURL: "not a valid url",
 			},
 		},
 	}

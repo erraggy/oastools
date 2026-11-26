@@ -5,7 +5,6 @@ package validator
 
 import (
 	"mime"
-	"net/url"
 	"strings"
 
 	"github.com/erraggy/oastools/internal/stringutil"
@@ -45,27 +44,9 @@ func getJSONSchemaRef() string {
 	return "https://www.ietf.org/archive/id/draft-bhutton-json-schema-01.html"
 }
 
-// isValidURL performs URL validation using standard library's url.Parse
-// Validates contact.url, externalDocs.url, license.url, and OAuth URLs
+// isValidURL validates contact.url, externalDocs.url, license.url, and OAuth URLs.
 func isValidURL(s string) bool {
-	if s == "" {
-		return false
-	}
-
-	u, err := url.Parse(s)
-	if err != nil {
-		return false
-	}
-
-	// Accept http/https schemes, or relative URLs starting with /
-	// Reject bare strings without proper URL structure
-	if u.Scheme == "http" || u.Scheme == "https" {
-		return true
-	}
-	if u.Scheme == "" && strings.HasPrefix(s, "/") {
-		return true
-	}
-	return false
+	return stringutil.IsValidURL(s)
 }
 
 // isValidEmail validates an email address by delegating to [stringutil.IsValidEmail].
@@ -78,13 +59,10 @@ func isValidEmail(s string) bool {
 	return stringutil.IsValidEmail(s)
 }
 
-// validateSPDXLicense validates SPDX license identifier (basic validation)
-// Used to validate license.identifier in the info object (OAS 3.1+)
+// validateSPDXLicense validates license.identifier in the info object (OAS 3.1+).
 func validateSPDXLicense(identifier string) bool {
 	if identifier == "" {
 		return true
 	}
-	// Basic validation - should not contain spaces and follow SPDX format
-	// For a complete implementation, you'd need the full SPDX license list
-	return !strings.Contains(identifier, " ")
+	return stringutil.IsValidSPDXExpression(identifier)
 }
