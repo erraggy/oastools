@@ -2,6 +2,7 @@ package builder
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/erraggy/oastools/oaserrors"
@@ -50,6 +51,29 @@ func infoFields(t *testing.T, err error) []string {
 	return fields
 }
 
+// validatorInfoFields validates a minimal document carrying info and returns
+// the path of every error the validator reports under info.
+func validatorInfoFields(t *testing.T, version parser.OASVersion, info *parser.Info) []string {
+	t.Helper()
+	var doc any
+	if version == parser.OASVersion20 {
+		doc = &parser.OAS2Document{Swagger: "2.0", OASVersion: version, Info: info, Paths: parser.Paths{}}
+	} else {
+		doc = &parser.OAS3Document{OpenAPI: version.String(), OASVersion: version, Info: info, Paths: parser.Paths{}}
+	}
+	result, err := validator.ValidateWithOptions(validator.WithParsed(parser.ParseResult{
+		Version: version.String(), OASVersion: version, Document: doc,
+	}))
+	require.NoError(t, err)
+	var fields []string
+	for _, e := range result.Errors {
+		if e.Path == "info" || strings.HasPrefix(e.Path, "info.") {
+			fields = append(fields, e.Path)
+		}
+	}
+	return fields
+}
+
 func TestBuilder_InfoRequiredFields(t *testing.T) {
 	for _, version := range infoVersions {
 		t.Run(version.String(), func(t *testing.T) {
@@ -79,10 +103,9 @@ func TestBuilder_InfoRequiredFields(t *testing.T) {
 				assert.ElementsMatch(t, []string{"info.title", "info.version"}, infoFields(t, err))
 			})
 
-			t.Run("whitespace is not a title or version", func(t *testing.T) {
-				err := buildAny(New(version).SetTitle("  ").SetVersion("\t"))
-				require.Error(t, err)
-				assert.ElementsMatch(t, []string{"info.title", "info.version"}, infoFields(t, err))
+			t.Run("whitespace is a title and version", func(t *testing.T) {
+				// The spec sets no minLength.
+				require.NoError(t, buildAny(New(version).SetTitle("  ").SetVersion("\t")))
 			})
 
 			t.Run("empty Info struct", func(t *testing.T) {
@@ -251,6 +274,10 @@ func TestBuilder_InfoFieldRules(t *testing.T) {
 			t.Run(tt.name+"/"+version.String(), func(t *testing.T) {
 				info := &parser.Info{Title: "API", Version: "1.0.0"}
 				tt.apply(info)
+
+				// The validator shares the rules, so must agree (#558).
+				assert.ElementsMatch(t, tt.fields, validatorInfoFields(t, version, info),
+					"validator and builder disagree")
 
 				err := buildAny(NewWithInfo(version, info))
 				if len(tt.fields) == 0 {

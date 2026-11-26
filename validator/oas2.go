@@ -50,7 +50,7 @@ func (v *Validator) validateOAS2Info(doc *parser.OAS2Document, result *Validatio
 		)
 		return
 	}
-	v.validateInfoObject(doc.Info, result, baseURL, false)
+	v.validateInfoObject(doc.Info, parser.OASVersion20, result, baseURL)
 }
 
 // validateOAS2OperationIds validates that operationIds are unique across the document
