@@ -276,6 +276,8 @@ func (w *ApplyWarning) Location() string {
 }
 
 // NewNoMatchWarning creates a warning when an action target matches no nodes.
+//
+// Deprecated: NewNoMatchWarning is not used by overlay and will be removed in a future release.
 func NewNoMatchWarning(actionIndex int, target string) *ApplyWarning {
 	return &ApplyWarning{
 		Category:    WarnNoMatch,
@@ -286,6 +288,8 @@ func NewNoMatchWarning(actionIndex int, target string) *ApplyWarning {
 }
 
 // NewActionErrorWarning creates a warning when an action execution fails.
+//
+// Deprecated: NewActionErrorWarning is not used by overlay and will be removed in a future release.
 func NewActionErrorWarning(actionIndex int, target string, cause error) *ApplyWarning {
 	return &ApplyWarning{
 		Category:    WarnActionError,

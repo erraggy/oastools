@@ -98,6 +98,8 @@ type TypeDefinition struct {
 }
 
 // ClientFileData contains all data for a client.go file
+//
+// Deprecated: ClientFileData is not used by generator and will be removed in a future release.
 type ClientFileData struct {
 	Header           HeaderData
 	DefaultUserAgent string
@@ -106,6 +108,8 @@ type ClientFileData struct {
 }
 
 // ClientMethodData contains data for a client method
+//
+// Deprecated: ClientMethodData is not used by generator and will be removed in a future release.
 type ClientMethodData struct {
 	Comment         string
 	MethodName      string
@@ -122,12 +126,16 @@ type ClientMethodData struct {
 }
 
 // ParamsStructData contains data for a query params struct
+//
+// Deprecated: ParamsStructData is not used by generator and will be removed in a future release.
 type ParamsStructData struct {
 	MethodName string
 	Fields     []FieldData
 }
 
 // ServerFileData contains all data for a server.go file
+//
+// Deprecated: ServerFileData is not used by generator and will be removed in a future release.
 type ServerFileData struct {
 	Header       HeaderData
 	Methods      []ServerMethodData
@@ -135,6 +143,8 @@ type ServerFileData struct {
 }
 
 // ServerMethodData contains data for a server interface method
+//
+// Deprecated: ServerMethodData is not used by generator and will be removed in a future release.
 type ServerMethodData struct {
 	Comment      string
 	MethodName   string
@@ -142,6 +152,8 @@ type ServerMethodData struct {
 }
 
 // RequestTypeData contains data for a request struct
+//
+// Deprecated: RequestTypeData is not used by generator and will be removed in a future release.
 type RequestTypeData struct {
 	MethodName string
 	Fields     []FieldData

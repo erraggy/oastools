@@ -370,6 +370,8 @@ func sanitizeSecurityFunctionName(name string) string {
 }
 
 // GenerateSecurityImports returns the imports needed for security helpers.
+//
+// Deprecated: GenerateSecurityImports is not used by generator and will be removed in a future release.
 func (g *SecurityHelperGenerator) GenerateSecurityImports() []string {
 	return []string{
 		"context",
@@ -378,6 +380,8 @@ func (g *SecurityHelperGenerator) GenerateSecurityImports() []string {
 }
 
 // SecuritySchemeInfo contains information about a security scheme for documentation.
+//
+// Deprecated: SecuritySchemeInfo is not used by generator and will be removed in a future release.
 type SecuritySchemeInfo struct {
 	Name         string
 	Type         string
@@ -390,6 +394,8 @@ type SecuritySchemeInfo struct {
 }
 
 // GetSecuritySchemeInfo extracts information about security schemes for documentation.
+//
+// Deprecated: GetSecuritySchemeInfo is not used by generator and will be removed in a future release.
 func GetSecuritySchemeInfo(schemes map[string]*parser.SecurityScheme) []SecuritySchemeInfo {
 	if len(schemes) == 0 {
 		return nil

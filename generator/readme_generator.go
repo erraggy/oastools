@@ -466,6 +466,8 @@ func (g *ReadmeGenerator) generateFooter(ctx *ReadmeContext) string {
 }
 
 // ExtractSecuritySchemeSummaries extracts security scheme summaries from a map.
+//
+// Deprecated: ExtractSecuritySchemeSummaries is not used by generator and will be removed in a future release.
 func ExtractSecuritySchemeSummaries(schemes map[string]*SecurityScheme) []SecuritySchemeSummary {
 	if len(schemes) == 0 {
 		return nil

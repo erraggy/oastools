@@ -761,12 +761,16 @@ func (c *RefCollector) IsSchemaReferenced(name string, version parser.OASVersion
 }
 
 // IsParameterReferenced returns true if a parameter with the given name is referenced.
+//
+// Deprecated: IsParameterReferenced is not used by fixer and will be removed in a future release.
 func (c *RefCollector) IsParameterReferenced(name string, version parser.OASVersion) bool {
 	ref := parameterRefPath(name, version)
 	return c.isRefReferenced(ref, RefTypeParameter)
 }
 
 // IsResponseReferenced returns true if a response with the given name is referenced.
+//
+// Deprecated: IsResponseReferenced is not used by fixer and will be removed in a future release.
 func (c *RefCollector) IsResponseReferenced(name string, version parser.OASVersion) bool {
 	ref := responseRefPath(name, version)
 	return c.isRefReferenced(ref, RefTypeResponse)
@@ -774,6 +778,8 @@ func (c *RefCollector) IsResponseReferenced(name string, version parser.OASVersi
 
 // IsRequestBodyReferenced returns true if a request body with the given name is referenced.
 // This is only applicable for OAS 3.x documents.
+//
+// Deprecated: IsRequestBodyReferenced is not used by fixer and will be removed in a future release.
 func (c *RefCollector) IsRequestBodyReferenced(name string) bool {
 	ref := pathutil.RequestBodyRef(name)
 	return c.isRefReferenced(ref, RefTypeRequestBody)
@@ -782,12 +788,16 @@ func (c *RefCollector) IsRequestBodyReferenced(name string) bool {
 // IsSecuritySchemeReferenced returns true if a security scheme with the given name is referenced.
 // Note: Security schemes are typically referenced by name in the security array, not via $ref.
 // This method checks for explicit $ref usage which is rare but valid.
+//
+// Deprecated: IsSecuritySchemeReferenced is not used by fixer and will be removed in a future release.
 func (c *RefCollector) IsSecuritySchemeReferenced(name string, version parser.OASVersion) bool {
 	ref := securitySchemeRefPath(name, version)
 	return c.isRefReferenced(ref, RefTypeSecurityScheme)
 }
 
 // IsHeaderReferenced returns true if a header with the given name is referenced.
+//
+// Deprecated: IsHeaderReferenced is not used by fixer and will be removed in a future release.
 func (c *RefCollector) IsHeaderReferenced(name string, version parser.OASVersion) bool {
 	var ref string
 	if version == parser.OASVersion20 {
@@ -799,36 +809,48 @@ func (c *RefCollector) IsHeaderReferenced(name string, version parser.OASVersion
 }
 
 // IsLinkReferenced returns true if a link with the given name is referenced.
+//
+// Deprecated: IsLinkReferenced is not used by fixer and will be removed in a future release.
 func (c *RefCollector) IsLinkReferenced(name string) bool {
 	ref := pathutil.LinkRef(name)
 	return c.isRefReferenced(ref, RefTypeLink)
 }
 
 // IsCallbackReferenced returns true if a callback with the given name is referenced.
+//
+// Deprecated: IsCallbackReferenced is not used by fixer and will be removed in a future release.
 func (c *RefCollector) IsCallbackReferenced(name string) bool {
 	ref := pathutil.CallbackRef(name)
 	return c.isRefReferenced(ref, RefTypeCallback)
 }
 
 // IsExampleReferenced returns true if an example with the given name is referenced.
+//
+// Deprecated: IsExampleReferenced is not used by fixer and will be removed in a future release.
 func (c *RefCollector) IsExampleReferenced(name string) bool {
 	ref := pathutil.ExampleRef(name)
 	return c.isRefReferenced(ref, RefTypeExample)
 }
 
 // IsPathItemReferenced returns true if a path item with the given name is referenced.
+//
+// Deprecated: IsPathItemReferenced is not used by fixer and will be removed in a future release.
 func (c *RefCollector) IsPathItemReferenced(name string) bool {
 	ref := pathutil.PathItemRef(name)
 	return c.isRefReferenced(ref, RefTypePathItem)
 }
 
 // GetSchemaRefs returns all schema reference paths that were collected.
+//
+// Deprecated: GetSchemaRefs is not used by fixer and will be removed in a future release.
 func (c *RefCollector) GetSchemaRefs() []string {
 	return c.getRefsByType(RefTypeSchema)
 }
 
 // GetUnreferencedSchemas returns the names of schemas that are defined but not referenced.
 // For OAS 2.0, it checks definitions. For OAS 3.x, it checks components/schemas.
+//
+// Deprecated: GetUnreferencedSchemas is not used by fixer and will be removed in a future release.
 func (c *RefCollector) GetUnreferencedSchemas(doc any) []string {
 	var schemaNames []string
 	var version parser.OASVersion
@@ -921,6 +943,8 @@ func ExtractSchemaNameFromRef(ref string, version parser.OASVersion) string {
 
 // ExtractComponentNameFromRef extracts the component name from a reference path.
 // Returns the component type and name, or empty strings if not a valid component reference.
+//
+// Deprecated: ExtractComponentNameFromRef is not used by fixer and will be removed in a future release.
 func ExtractComponentNameFromRef(ref string) (componentType, name string) {
 	// OAS 2.0 patterns
 	oas2Prefixes := map[string]string{
