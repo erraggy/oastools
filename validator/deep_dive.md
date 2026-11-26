@@ -539,16 +539,21 @@ applied everywhere.
 
 ### Info Object Validation
 
-The validator checks that required fields are present and formats are correct.
+The validator checks that required fields are present, formats are correct, and
+fields appear only in the versions that define them. The rules live in
+`internal/inforules`, which the builder also uses, so a document the builder
+produces always passes these checks.
 
 **Checked Fields:**
 
-- `title` (required)
-- `version` (required)
-- `termsOfService` (URL format when present)
-- `contact.url` (URL format when present)
+- `title`, `version` (required; whitespace alone counts as missing)
+- `termsOfService` (URI reference when present, from 3.0; 2.0 describes it as free text)
+- `contact.url` (URI reference when present)
 - `contact.email` (email format when present)
-- `license.url` (URL format when present)
+- `license.name` (required when a `license` is present, in every version)
+- `license.url` (URI reference when present)
+- `summary`, `license.identifier` (an error before 3.1, which introduced them)
+- `license.identifier` (from 3.1: an SPDX license expression, and mutually exclusive with `license.url`)
 
 ### Path Validation
 

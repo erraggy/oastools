@@ -44,25 +44,8 @@ func getJSONSchemaRef() string {
 	return "https://www.ietf.org/archive/id/draft-bhutton-json-schema-01.html"
 }
 
-// isValidURL validates contact.url, externalDocs.url, license.url, and OAuth URLs.
+// isValidURL validates externalDocs.url and OAuth URLs. The Info, Contact and
+// License Object URLs are checked by internal/inforules.
 func isValidURL(s string) bool {
 	return stringutil.IsValidURL(s)
-}
-
-// isValidEmail validates an email address by delegating to [stringutil.IsValidEmail].
-// Validates contact.email in the info object.
-// Empty is valid because this field is optional.
-func isValidEmail(s string) bool {
-	if s == "" {
-		return true // Empty is valid (optional field)
-	}
-	return stringutil.IsValidEmail(s)
-}
-
-// validateSPDXLicense validates license.identifier in the info object (OAS 3.1+).
-func validateSPDXLicense(identifier string) bool {
-	if identifier == "" {
-		return true
-	}
-	return stringutil.IsValidSPDXExpression(identifier)
 }

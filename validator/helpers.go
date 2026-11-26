@@ -5,61 +5,24 @@ import (
 	"strings"
 
 	"github.com/erraggy/oastools/internal/httputil"
+	"github.com/erraggy/oastools/internal/inforules"
 	"github.com/erraggy/oastools/parser"
 )
 
-// validateInfoObject validates the info object fields shared between OAS 2.0 and 3.x.
-// Set validateSPDX to true for OAS 3.1+ to validate the SPDX license identifier.
-func (v *Validator) validateInfoObject(info *parser.Info, result *ValidationResult, baseURL string, validateSPDX bool) {
-	if info.Title == "" {
-		v.addError(result, "info.title", "Info object must have a title",
-			withSpecRef(fmt.Sprintf("%s#info-object", baseURL)),
-			withField("title"),
-		)
-	}
-
-	if info.Version == "" {
-		v.addError(result, "info.version", "Info object must have a version",
-			withSpecRef(fmt.Sprintf("%s#info-object", baseURL)),
-			withField("version"),
-		)
-	}
-
-	// Validate contact information if present
-	if info.Contact != nil {
-		if info.Contact.URL != "" && !isValidURL(info.Contact.URL) {
-			v.addError(result, "info.contact.url", fmt.Sprintf("Invalid URL format: %s", info.Contact.URL),
-				withSpecRef(fmt.Sprintf("%s#contact-object", baseURL)),
-				withField("url"),
-				withValue(info.Contact.URL),
-			)
+// validateInfoObject reports every rule the Info, Contact and License Objects
+// break for the document's version. The rules live in internal/inforules, which
+// the builder also uses, so the two cannot disagree about what a valid info
+// object is.
+func (v *Validator) validateInfoObject(info *parser.Info, version parser.OASVersion, result *ValidationResult, baseURL string) {
+	for _, p := range inforules.Check(info, version) {
+		opts := []func(*ValidationError){
+			withSpecRef(fmt.Sprintf("%s#%s", baseURL, p.Object)),
+			withField(p.Field),
 		}
-		if info.Contact.Email != "" && !isValidEmail(info.Contact.Email) {
-			v.addError(result, "info.contact.email", fmt.Sprintf("Invalid email format: %s", info.Contact.Email),
-				withSpecRef(fmt.Sprintf("%s#contact-object", baseURL)),
-				withField("email"),
-				withValue(info.Contact.Email),
-			)
+		if p.Value != "" {
+			opts = append(opts, withValue(p.Value))
 		}
-	}
-
-	// Validate license information if present
-	if info.License != nil {
-		if info.License.URL != "" && !isValidURL(info.License.URL) {
-			v.addError(result, "info.license.url", fmt.Sprintf("Invalid URL format: %s", info.License.URL),
-				withSpecRef(fmt.Sprintf("%s#license-object", baseURL)),
-				withField("url"),
-				withValue(info.License.URL),
-			)
-		}
-		// SPDX license identifier validation (OAS 3.1+)
-		if validateSPDX && info.License.Identifier != "" && !validateSPDXLicense(info.License.Identifier) {
-			v.addError(result, "info.license.identifier", fmt.Sprintf("Invalid SPDX license identifier format: %s", info.License.Identifier),
-				withSpecRef(fmt.Sprintf("%s#license-object", baseURL)),
-				withField("identifier"),
-				withValue(info.License.Identifier),
-			)
-		}
+		v.addError(result, p.Path, p.Message, opts...)
 	}
 }
 

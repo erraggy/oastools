@@ -2,6 +2,7 @@ package builder
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/erraggy/oastools/oaserrors"
@@ -45,6 +46,29 @@ func infoFields(t *testing.T, err error) []string {
 	for _, e := range all {
 		if e.Component == ComponentInfo {
 			fields = append(fields, e.Field)
+		}
+	}
+	return fields
+}
+
+// validatorInfoFields validates a minimal document carrying info and returns
+// the path of every error the validator reports under info.
+func validatorInfoFields(t *testing.T, version parser.OASVersion, info *parser.Info) []string {
+	t.Helper()
+	var doc any
+	if version == parser.OASVersion20 {
+		doc = &parser.OAS2Document{Swagger: "2.0", OASVersion: version, Info: info, Paths: parser.Paths{}}
+	} else {
+		doc = &parser.OAS3Document{OpenAPI: version.String(), OASVersion: version, Info: info, Paths: parser.Paths{}}
+	}
+	result, err := validator.ValidateWithOptions(validator.WithParsed(parser.ParseResult{
+		Version: version.String(), OASVersion: version, Document: doc,
+	}))
+	require.NoError(t, err)
+	var fields []string
+	for _, e := range result.Errors {
+		if e.Path == "info" || strings.HasPrefix(e.Path, "info.") {
+			fields = append(fields, e.Path)
 		}
 	}
 	return fields
@@ -251,6 +275,11 @@ func TestBuilder_InfoFieldRules(t *testing.T) {
 			t.Run(tt.name+"/"+version.String(), func(t *testing.T) {
 				info := &parser.Info{Title: "API", Version: "1.0.0"}
 				tt.apply(info)
+
+				// The validator shares the rules, so it must report the same
+				// fields for the same info (#558).
+				assert.ElementsMatch(t, tt.fields, validatorInfoFields(t, version, info),
+					"validator and builder disagree")
 
 				err := buildAny(NewWithInfo(version, info))
 				if len(tt.fields) == 0 {
