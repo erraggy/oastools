@@ -399,10 +399,11 @@ func (b *Builder) AddWebhook(name, method string, opts ...OperationOption) *Buil
 
 // BuildOAS2 creates an OAS 2.0 (Swagger) document.
 // Returns an error if the builder was created with an OAS 3.x version,
-// or if required fields are missing.
+// or if the info object is missing or invalid (it needs a title and version; see the
+// package documentation for the full list of rules checked).
 //
-// The builder does not perform OAS specification validation. Use the validator
-// package to validate built documents.
+// Beyond that the builder does not perform OAS specification validation. Use
+// the validator package to validate built documents.
 //
 // Example:
 //
@@ -420,12 +421,7 @@ func (b *Builder) BuildOAS2() (*parser.OAS2Document, error) {
 		return nil, fmt.Errorf("builder: BuildOAS2() called but builder was created with version %s; use BuildOAS3() instead", b.version)
 	}
 
-	// Apply semantic deduplication if enabled
-	if b.dedupeEnabled {
-		b.DeduplicateSchemas()
-	}
-
-	if err := b.checkErrors(); err != nil {
+	if err := b.prepareBuild(); err != nil {
 		return nil, err
 	}
 
@@ -476,10 +472,11 @@ func (b *Builder) BuildOAS2() (*parser.OAS2Document, error) {
 
 // BuildOAS3 creates an OAS 3.x document.
 // Returns an error if the builder was created with OAS 2.0 version,
-// or if required fields are missing.
+// or if the info object is missing or invalid (it needs a title and version; see the
+// package documentation for the full list of rules checked).
 //
-// The builder does not perform OAS specification validation. Use the validator
-// package to validate built documents.
+// Beyond that the builder does not perform OAS specification validation. Use
+// the validator package to validate built documents.
 //
 // Example:
 //
@@ -497,12 +494,7 @@ func (b *Builder) BuildOAS3() (*parser.OAS3Document, error) {
 		return nil, fmt.Errorf("builder: BuildOAS3() called but builder was created with OAS 2.0; use BuildOAS2() instead")
 	}
 
-	// Apply semantic deduplication if enabled
-	if b.dedupeEnabled {
-		b.DeduplicateSchemas()
-	}
-
-	if err := b.checkErrors(); err != nil {
+	if err := b.prepareBuild(); err != nil {
 		return nil, err
 	}
 
@@ -576,6 +568,20 @@ func (b *Builder) applySchemaAliases(doc any) error {
 	return nil
 }
 
+// prepareBuild checks for errors, applies semantic deduplication if enabled,
+// and checks again for errors that deduplication recorded. The first check runs
+// before deduplication so a refused build leaves the builder's schemas as they
+// were.
+func (b *Builder) prepareBuild() error {
+	if err := b.checkErrors(); err != nil {
+		return err
+	}
+	if b.dedupeEnabled {
+		b.DeduplicateSchemas()
+	}
+	return b.checkErrors()
+}
+
 // checkErrors checks for accumulated errors during building.
 // The builder does not perform OAS specification validation.
 // Use the validator package to validate built documents.
@@ -584,13 +590,23 @@ func (b *Builder) applySchemaAliases(doc any) error {
 // detailed locality information for each error including component type,
 // HTTP method, path, and operationID context.
 func (b *Builder) checkErrors() error {
-	if len(b.errors) == 0 {
+	// Info errors are computed here, not stored in b.errors, so a failed build
+	// does not affect a later one.
+	errs := b.errors
+	if infoErrs := b.infoErrors(); len(infoErrs) > 0 {
+		errs = make([]error, 0, len(b.errors)+len(infoErrs))
+		errs = append(errs, b.errors...)
+		for _, e := range infoErrs {
+			errs = append(errs, e)
+		}
+	}
+	if len(errs) == 0 {
 		return nil
 	}
 
 	// Convert to BuilderErrors for structured output
-	builderErrs := make(BuilderErrors, 0, len(b.errors))
-	for _, err := range b.errors {
+	builderErrs := make(BuilderErrors, 0, len(errs))
+	for _, err := range errs {
 		var be *BuilderError
 		if errors.As(err, &be) {
 			builderErrs = append(builderErrs, be)

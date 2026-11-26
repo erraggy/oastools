@@ -27,6 +27,8 @@ const (
 	ComponentSecurityScheme ComponentType = "security_scheme"
 	// ComponentServer indicates an error in a server definition.
 	ComponentServer ComponentType = "server"
+	// ComponentInfo indicates an error in the document's info object.
+	ComponentInfo ComponentType = "info"
 )
 
 // operationLocation tracks where an operationID was first defined.
@@ -212,6 +214,25 @@ func NewParameterConstraintError(paramName, operationContext, field, message str
 		Path:      operationContext,
 		Field:     field,
 		Message:   fmt.Sprintf("parameter %q: %s", paramName, message),
+	}
+}
+
+// NewMissingInfoError creates an error for a document built without an info object.
+func NewMissingInfoError() *BuilderError {
+	return &BuilderError{
+		Component: ComponentInfo,
+		Field:     "info",
+		Message:   "info is required; call SetInfo, SetTitle and SetVersion, or construct the builder with NewWithInfo",
+	}
+}
+
+// NewInfoError creates an error for a problem in the document's info object.
+// field is the full path of the offending field (e.g. "info.license.name").
+func NewInfoError(field, message string) *BuilderError {
+	return &BuilderError{
+		Component: ComponentInfo,
+		Field:     field,
+		Message:   message,
 	}
 }
 

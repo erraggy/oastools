@@ -75,7 +75,7 @@ func TestBuilder_DeduplicateSchemas_NoDuplicates(t *testing.T) {
 }
 
 func TestBuilder_WithSemanticDeduplication_OAS3(t *testing.T) {
-	b := New(parser.OASVersion320, WithSemanticDeduplication(true))
+	b := New(parser.OASVersion320, WithSemanticDeduplication(true)).SetTitle("Test API").SetVersion("1.0.0")
 
 	// Add identical schemas
 	b.addSchema("Address", &parser.Schema{
@@ -113,7 +113,7 @@ func TestBuilder_WithSemanticDeduplication_OAS3(t *testing.T) {
 }
 
 func TestBuilder_WithSemanticDeduplication_OAS2(t *testing.T) {
-	b := New(parser.OASVersion20, WithSemanticDeduplication(true))
+	b := New(parser.OASVersion20, WithSemanticDeduplication(true)).SetTitle("Test API").SetVersion("1.0.0")
 
 	// Add identical schemas
 	b.addSchema("Address", &parser.Schema{
@@ -152,7 +152,7 @@ func TestBuilder_WithSemanticDeduplication_OAS2(t *testing.T) {
 
 func TestBuilder_WithSemanticDeduplication_Disabled(t *testing.T) {
 	// Default behavior: deduplication disabled
-	b := New(parser.OASVersion320)
+	b := New(parser.OASVersion320).SetTitle("Test API").SetVersion("1.0.0")
 
 	b.addSchema("Address", &parser.Schema{Type: "object"})
 	b.addSchema("Location", &parser.Schema{Type: "object"})
@@ -169,7 +169,7 @@ func TestBuilder_DeduplicateSchemas_MetadataPreserved(t *testing.T) {
 	// builder must not consolidate schemas that differ in documentation.
 	// Doing so would replace the surviving canonical schema's docs at every
 	// reference site, producing misleading API documentation.
-	b := New(parser.OASVersion320, WithSemanticDeduplication(true))
+	b := New(parser.OASVersion320, WithSemanticDeduplication(true)).SetTitle("Test API").SetVersion("1.0.0")
 
 	b.addSchema("Address", &parser.Schema{
 		Type:        "object",
@@ -199,7 +199,7 @@ func TestBuilder_DeduplicateSchemas_MetadataPreserved(t *testing.T) {
 }
 
 func TestBuilder_DeduplicateSchemas_MultipleGroups(t *testing.T) {
-	b := New(parser.OASVersion320, WithSemanticDeduplication(true))
+	b := New(parser.OASVersion320, WithSemanticDeduplication(true)).SetTitle("Test API").SetVersion("1.0.0")
 
 	// Group 1: objects with name property
 	b.addSchema("Address", &parser.Schema{
@@ -231,7 +231,7 @@ func TestBuilder_DeduplicateSchemas_MultipleGroups(t *testing.T) {
 }
 
 func TestBuilder_DeduplicateSchemas_NestedReferences(t *testing.T) {
-	b := New(parser.OASVersion320, WithSemanticDeduplication(true))
+	b := New(parser.OASVersion320, WithSemanticDeduplication(true)).SetTitle("Test API").SetVersion("1.0.0")
 
 	// Add identical schemas
 	b.addSchema("Address", &parser.Schema{
@@ -280,7 +280,7 @@ func TestBuilder_DeduplicateSchemas_NestedReferences(t *testing.T) {
 
 func TestBuilder_DeduplicateSchemas_ManualCall(t *testing.T) {
 	// Test calling DeduplicateSchemas manually (without option)
-	b := New(parser.OASVersion320)
+	b := New(parser.OASVersion320).SetTitle("Test API").SetVersion("1.0.0")
 
 	b.addSchema("Address", &parser.Schema{Type: "object"})
 	b.addSchema("Location", &parser.Schema{Type: "object"})
@@ -411,7 +411,7 @@ func TestBuilder_DeduplicateSchemas_ParentReferencesBoth(t *testing.T) {
 		}
 	}
 
-	b := New(parser.OASVersion320, WithSemanticDeduplication(true))
+	b := New(parser.OASVersion320, WithSemanticDeduplication(true)).SetTitle("Test API").SetVersion("1.0.0")
 	b.addSchema("Address", address())
 	b.addSchema("ShippingAddress", address())
 	b.addSchema("Order", &parser.Schema{
@@ -446,7 +446,7 @@ func TestBuilder_DeduplicateSchemas_UnreferencedTogetherStillMerges(t *testing.T
 		}
 	}
 
-	b := New(parser.OASVersion320, WithSemanticDeduplication(true))
+	b := New(parser.OASVersion320, WithSemanticDeduplication(true)).SetTitle("Test API").SetVersion("1.0.0")
 	b.addSchema("Address", address())
 	b.addSchema("ShippingAddress", address())
 	b.addSchema("WarehouseAddress", address())
