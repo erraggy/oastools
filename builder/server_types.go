@@ -80,8 +80,9 @@ type ServerResult struct {
 type Middleware func(http.Handler) http.Handler
 
 // RouterStrategy defines how paths are matched to handlers.
-// The stdlib router implements this interface. Additional router implementations
-// (e.g., chi, gorilla/mux) can implement this interface for custom routing.
+// The stdlib router, returned by WithStdlibRouter, is its only implementation:
+// Build takes an unexported route type, so packages outside builder cannot
+// implement it.
 type RouterStrategy interface {
 	// Build creates an http.Handler that routes requests to the dispatcher.
 	// Returns an error if the routes cannot be configured (e.g., invalid path patterns).
@@ -102,18 +103,23 @@ type operationRoute struct {
 	Handler     HandlerFunc
 }
 
-// ValidationConfig configures request/response validation.
+// ValidationConfig configures request validation.
 type ValidationConfig struct {
 	// IncludeRequestValidation enables request validation (default: true).
 	IncludeRequestValidation bool
 
-	// IncludeResponseValidation enables response validation (default: false).
+	// IncludeResponseValidation requests response validation, which the
+	// server does not perform.
+	//
+	// Deprecated: IncludeResponseValidation has no effect: the server does not validate responses. It will be removed in a future release.
 	IncludeResponseValidation bool
 
 	// StrictMode treats warnings as errors (default: false).
 	StrictMode bool
 
-	// OnValidationError is called when validation fails.
+	// OnValidationError is called when validation fails for a request that
+	// matched an operation. An unmatched path or method never reaches
+	// validation; it gets the 404 or 405 response instead.
 	// If nil, a default JSON error response is returned.
 	OnValidationError ValidationErrorHandler
 }
@@ -124,10 +130,9 @@ type ValidationErrorHandler func(w http.ResponseWriter, r *http.Request, result 
 // DefaultValidationConfig returns sensible defaults for validation.
 func DefaultValidationConfig() ValidationConfig {
 	return ValidationConfig{
-		IncludeRequestValidation:  true,
-		IncludeResponseValidation: false,
-		StrictMode:                false,
-		OnValidationError:         nil,
+		IncludeRequestValidation: true,
+		StrictMode:               false,
+		OnValidationError:        nil,
 	}
 }
 
