@@ -249,44 +249,45 @@ func TestBuilder_BuildOAS3(t *testing.T) {
 	})
 
 	t.Run("without info is an error", func(t *testing.T) {
-		// info is required in every OAS version, so a document without it can
-		// never validate. Full validation is the validator package's job, but
-		// this one is cheap to catch at the point of construction.
+		// info is required in every OAS version.
 		for _, version := range []parser.OASVersion{
 			parser.OASVersion300, parser.OASVersion310, parser.OASVersion320,
 		} {
-			b := New(version)
-			doc, err := b.BuildOAS3()
-			require.Error(t, err, version.String())
-			assert.Nil(t, doc)
-			assert.ErrorIs(t, err, oaserrors.ErrConfig)
-			assert.Contains(t, err.Error(), "info is required")
+			t.Run(version.String(), func(t *testing.T) {
+				doc, err := New(version).BuildOAS3()
+				require.Error(t, err)
+				assert.Nil(t, doc)
+				assert.ErrorIs(t, err, oaserrors.ErrConfig)
+				assert.Contains(t, err.Error(), "info is required")
 
-			var be *BuilderError
-			require.ErrorAs(t, err, &be)
-			assert.Equal(t, ComponentInfo, be.Component)
+				var be *BuilderError
+				require.ErrorAs(t, err, &be)
+				assert.Equal(t, ComponentInfo, be.Component)
+			})
 		}
 	})
 
 	t.Run("every output path refuses a document without info", func(t *testing.T) {
 		for _, version := range []parser.OASVersion{parser.OASVersion20, parser.OASVersion320} {
-			b := New(version)
+			t.Run(version.String(), func(t *testing.T) {
+				b := New(version)
 
-			if version == parser.OASVersion20 {
-				doc, err := b.BuildOAS2()
+				if version == parser.OASVersion20 {
+					doc, err := b.BuildOAS2()
+					require.Error(t, err)
+					assert.Nil(t, doc)
+				}
+
+				result, err := b.BuildResult()
 				require.Error(t, err)
-				assert.Nil(t, doc)
-			}
+				assert.Nil(t, result)
 
-			result, err := b.BuildResult()
-			require.Error(t, err, version.String())
-			assert.Nil(t, result)
-
-			_, err = b.MarshalJSON()
-			require.Error(t, err, version.String())
-			_, err = b.MarshalYAML()
-			require.Error(t, err, version.String())
-			assert.Error(t, b.WriteFile(filepath.Join(t.TempDir(), "spec.json")), version.String())
+				_, err = b.MarshalJSON()
+				assert.Error(t, err)
+				_, err = b.MarshalYAML()
+				assert.Error(t, err)
+				assert.Error(t, b.WriteFile(filepath.Join(t.TempDir(), "spec.json")))
+			})
 		}
 	})
 

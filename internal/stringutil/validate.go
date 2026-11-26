@@ -13,6 +13,11 @@ var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-
 // license, or a user-defined LicenseRef with an optional DocumentRef prefix.
 var spdxIDPattern = regexp.MustCompile(`^(?:[A-Za-z0-9.\-]+\+?|(?:DocumentRef-[A-Za-z0-9.\-]+:)?LicenseRef-[A-Za-z0-9.\-]+)$`)
 
+// spdxExceptionPattern matches an exception id, or a user-defined AdditionRef
+// with an optional DocumentRef prefix. Unlike a license, an exception takes no
+// "+" suffix.
+var spdxExceptionPattern = regexp.MustCompile(`^(?:[A-Za-z0-9.\-]+|(?:DocumentRef-[A-Za-z0-9.\-]+:)?AdditionRef-[A-Za-z0-9.\-]+)$`)
+
 var spdxParenSpacer = strings.NewReplacer("(", " ( ", ")", " ) ")
 
 // IsValidEmail checks if s is a valid email address.
@@ -65,9 +70,9 @@ func isSPDXKeyword(t string) bool {
 }
 
 // id consumes one license or exception id.
-func (p *spdxParser) id() bool {
+func (p *spdxParser) id(pattern *regexp.Regexp) bool {
 	t := p.peek()
-	if isSPDXKeyword(t) || !spdxIDPattern.MatchString(t) {
+	if isSPDXKeyword(t) || !pattern.MatchString(t) {
 		return false
 	}
 	p.pos++
@@ -98,12 +103,12 @@ func (p *spdxParser) term() bool {
 		p.pos++
 		return true
 	}
-	if !p.id() {
+	if !p.id(spdxIDPattern) {
 		return false
 	}
 	if p.peek() == "WITH" {
 		p.pos++
-		return p.id()
+		return p.id(spdxExceptionPattern)
 	}
 	return true
 }

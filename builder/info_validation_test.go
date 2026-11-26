@@ -201,6 +201,14 @@ func TestBuilder_InfoFieldRules(t *testing.T) {
 			fields: []string{"info.license.identifier"},
 		},
 		{
+			name: "identifier that is exclusive with url and malformed reports both",
+			apply: func(i *parser.Info) {
+				i.License = &parser.License{Name: "MIT", Identifier: "MIT OR", URL: "https://example.com/l"}
+			},
+			scope:  from31,
+			fields: []string{"info.license.identifier", "info.license.identifier"},
+		},
+		{
 			name: "several problems are all reported",
 			apply: func(i *parser.Info) {
 				i.TermsOfService = "terms"

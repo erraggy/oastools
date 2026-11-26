@@ -81,6 +81,8 @@ func TestIsValidSPDXExpression(t *testing.T) {
 		{"MIT And Apache-2.0", false},
 		{"MIT AND @@@", false},
 		{"MIT/Apache-2.0", false},
+		{"GPL-2.0+ WITH Classpath-exception-2.0", true},
+		{"GPL-2.0-only WITH Classpath-exception-2.0+", false},
 		{"LicenseRef-Custom", true},
 		{"", false},
 		{"not spdx", false},

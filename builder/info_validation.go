@@ -54,13 +54,17 @@ func (b *Builder) infoErrors() []*BuilderError {
 		if l.URL != "" && !stringutil.IsValidURL(l.URL) {
 			add("info.license.url", "license url must be a URL, got %q", l.URL)
 		}
-		switch {
-		case l.Identifier != "" && b.version < parser.OASVersion310:
-			add("info.license.identifier", "license identifier is not part of the License Object before OAS 3.1; use a url instead (builder was created with version %s)", b.version)
-		case l.Identifier != "" && l.URL != "":
-			add("info.license.identifier", "license identifier and url are mutually exclusive; set only one")
-		case l.Identifier != "" && !stringutil.IsValidSPDXExpression(l.Identifier):
-			add("info.license.identifier", "license identifier must be an SPDX identifier, got %q", l.Identifier)
+		if l.Identifier != "" {
+			if b.version < parser.OASVersion310 {
+				add("info.license.identifier", "license identifier is not part of the License Object before OAS 3.1; use a url instead (builder was created with version %s)", b.version)
+			} else {
+				if l.URL != "" {
+					add("info.license.identifier", "license identifier and url are mutually exclusive; set only one")
+				}
+				if !stringutil.IsValidSPDXExpression(l.Identifier) {
+					add("info.license.identifier", "license identifier must be an SPDX identifier, got %q", l.Identifier)
+				}
+			}
 		}
 	}
 
