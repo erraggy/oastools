@@ -12,7 +12,7 @@ This plugin requires the `oastools` CLI binary on your PATH. The MCP server runs
 brew install erraggy/oastools/oastools
 ```
 
-**Or from source (requires Go 1.25+):**
+**Or from source (requires Go 1.26+):**
 
 ```bash
 go install github.com/erraggy/oastools/cmd/oastools@latest

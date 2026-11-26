@@ -12,7 +12,7 @@ Demonstrates adding vendor extensions (x-*) to an OpenAPI specification for down
 
 ## Prerequisites
 
-- Go 1.25+
+- Go 1.26+
 
 ## Quick Start
 

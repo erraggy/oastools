@@ -11,7 +11,7 @@ Demonstrates auditing OpenAPI specifications for security issues using custom va
 
 ## Prerequisites
 
-- Go 1.25+
+- Go 1.26+
 
 ## Quick Start
 

@@ -1,4 +1,4 @@
-FROM golang:1.25-bookworm
+FROM golang:1.26-bookworm
 ENV GOFLAGS=-buildvcs=false
 # scanner contract: the checkout lives inside the image, at /src
 COPY . /src

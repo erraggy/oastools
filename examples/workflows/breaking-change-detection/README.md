@@ -11,7 +11,7 @@ Demonstrates comparing API versions and detecting breaking changes using the dif
 
 ## Prerequisites
 
-- Go 1.25+
+- Go 1.26+
 
 ## Quick Start
 

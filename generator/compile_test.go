@@ -5,6 +5,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -13,6 +15,32 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// testModuleGoVersion is the go directive of the modules these tests generate
+// and build. Raise it with the go directive in the repository's go.mod;
+// TestModuleGoVersionIsCurrent fails when it falls behind.
+const testModuleGoVersion = "1.26"
+
+// testModuleGoMod is the go.mod written into each generated test module.
+const testModuleGoMod = "module testapi\n\ngo " + testModuleGoVersion + "\n"
+
+func TestModuleGoVersionIsCurrent(t *testing.T) {
+	minor := func(version string) int {
+		m := regexp.MustCompile(`^1\.(\d+)`).FindStringSubmatch(version)
+		require.NotNil(t, m, "not a Go version: %q", version)
+		n, err := strconv.Atoi(m[1])
+		require.NoError(t, err)
+		return n
+	}
+
+	goMod, err := os.ReadFile(filepath.Join("..", "go.mod"))
+	require.NoError(t, err)
+	m := regexp.MustCompile(`(?m)^go (\S+)$`).FindSubmatch(goMod)
+	require.NotNil(t, m, "no go directive in go.mod")
+
+	assert.GreaterOrEqual(t, minor(testModuleGoVersion), minor(string(m[1])),
+		"testModuleGoVersion %s is older than go.mod's go %s", testModuleGoVersion, m[1])
+}
 
 // TestGeneratedClientCompiles verifies that generated client code compiles without errors.
 // This is critical to catch issues like missing imports that would break user code.
@@ -88,10 +116,7 @@ components:
 	}
 
 	// Create go.mod for the test package
-	goModContent := `module testapi
-
-go 1.25
-`
+	goModContent := testModuleGoMod
 	err = os.WriteFile(filepath.Join(outputDir, "go.mod"), []byte(goModContent), 0644)
 	require.NoError(t, err)
 
@@ -165,10 +190,7 @@ components:
 	}
 
 	// Create go.mod for the test package
-	goModContent := `module testapi
-
-go 1.25
-`
+	goModContent := testModuleGoMod
 	err = os.WriteFile(filepath.Join(outputDir, "go.mod"), []byte(goModContent), 0644)
 	require.NoError(t, err)
 
@@ -235,10 +257,7 @@ components:
 	}
 
 	// Create go.mod for the test package
-	goModContent := `module testapi
-
-go 1.25
-`
+	goModContent := testModuleGoMod
 	err = os.WriteFile(filepath.Join(outputDir, "go.mod"), []byte(goModContent), 0644)
 	require.NoError(t, err)
 
@@ -344,10 +363,7 @@ components:
 	}
 
 	// Create go.mod for the test package
-	goModContent := `module testapi
-
-go 1.25
-`
+	goModContent := testModuleGoMod
 	err = os.WriteFile(filepath.Join(outputDir, "go.mod"), []byte(goModContent), 0644)
 	require.NoError(t, err)
 
@@ -451,10 +467,7 @@ definitions:
 	}
 
 	// Create go.mod for the test package
-	goModContent := `module testapi
-
-go 1.25
-`
+	goModContent := testModuleGoMod
 	err = os.WriteFile(filepath.Join(outputDir, "go.mod"), []byte(goModContent), 0644)
 	require.NoError(t, err)
 
@@ -547,10 +560,7 @@ definitions:
 	}
 
 	// Create go.mod for the test package
-	goModContent := `module testapi
-
-go 1.25
-`
+	goModContent := testModuleGoMod
 	err = os.WriteFile(filepath.Join(outputDir, "go.mod"), []byte(goModContent), 0644)
 	require.NoError(t, err)
 
@@ -688,10 +698,7 @@ func TestFixerToGeneratorIntegration(t *testing.T) {
 	}
 
 	// Step 7: Create go.mod for the test package
-	goModContent := `module testapi
-
-go 1.25
-`
+	goModContent := testModuleGoMod
 	err = os.WriteFile(filepath.Join(outputDir, "go.mod"), []byte(goModContent), 0644)
 	require.NoError(t, err)
 

@@ -274,6 +274,8 @@ gh secret list --repo erraggy/oastools
 
 **File:** `.goreleaser.yaml`
 
+The snippet below is an illustrative excerpt based on the real file. It is not kept current, so action versions and other details may differ. The file itself is the source of truth.
+
 ```yaml
 release:
   # CRITICAL: Must be true for immutable releases workflow
@@ -284,6 +286,8 @@ release:
 ### GitHub Actions Workflow
 
 **File:** `.github/workflows/release.yml`
+
+The snippet below is an illustrative excerpt based on the real file. It is not kept current, so action versions and other details may differ. The file itself is the source of truth.
 
 ```yaml
 name: Release
