@@ -8,8 +8,11 @@ require (
 	// Pinned deliberately. rc.5/rc.6 restructured loading and dumping into a
 	// three-stage pipeline, which costs +12-16% allocations on every parse and
 	// +35% allocations, +17% bytes and +18% time on marshal, buying only ~5%
-	// less total memory on parse. Do not bump without re-running the parser,
-	// joiner and builder benchmarks. Re-evaluate when v4.0.0 final ships.
+	// less total memory on parse. v4.0.0 final, measured 2026-11-26, keeps the
+	// cost and loses the saving: +15-22% allocations and +1-7% bytes on parse,
+	// +29-31% allocations and +11-13% bytes on yaml.Marshal (BuilderMarshal,
+	// JoinWriteResult). Do not bump without re-running the parser, joiner and
+	// builder benchmarks.
 	go.yaml.in/yaml/v4 v4.0.0-rc.4
 	golang.org/x/text v0.44.0
 	golang.org/x/tools v0.53.0

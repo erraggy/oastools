@@ -3,7 +3,6 @@ package schemautil
 import (
 	"testing"
 
-	"github.com/erraggy/oastools/internal/testutil"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -41,9 +40,9 @@ func BenchmarkSchemaHasher_Hash(b *testing.B) {
 			Type: "object",
 			Properties: map[string]*parser.Schema{
 				"id":       {Type: "integer", Format: "int64"},
-				"name":     {Type: "string", MinLength: testutil.Ptr(1), MaxLength: testutil.Ptr(100)},
+				"name":     {Type: "string", MinLength: new(1), MaxLength: new(100)},
 				"email":    {Type: "string", Format: "email", Pattern: "^[a-z]+@[a-z]+\\.[a-z]+$"},
-				"age":      {Type: "integer", Minimum: testutil.Ptr(0.0), Maximum: testutil.Ptr(150.0)},
+				"age":      {Type: "integer", Minimum: new(0.0), Maximum: new(150.0)},
 				"active":   {Type: "boolean"},
 				"tags":     {Type: "array", Items: &parser.Schema{Type: "string"}},
 				"metadata": {Type: "object", AdditionalProperties: &parser.Schema{Type: "string"}},

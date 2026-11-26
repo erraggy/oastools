@@ -3,7 +3,7 @@ package joiner
 import (
 	"testing"
 
-	"github.com/erraggy/oastools/internal/corpusutil"
+	"github.com/erraggy/oastools/internal/corpustest"
 	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -48,9 +48,9 @@ func TestCorpus_JoinSameVersionSpecs(t *testing.T) {
 
 // TestCorpus_JoinPetstoreWithSelf tests joining Petstore with itself.
 func TestCorpus_JoinPetstoreWithSelf(t *testing.T) {
-	spec := corpusutil.GetByName("Petstore")
+	spec := corpustest.GetByName("Petstore")
 	require.NotNil(t, spec)
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	p := parser.New()
 	result1, err := p.Parse(spec.GetLocalPath())
@@ -81,8 +81,8 @@ func TestCorpus_JoinPetstoreWithSelf(t *testing.T) {
 
 // TestCorpus_JoinOAS2NotAllowed verifies OAS 2.0 and 3.x cannot be joined.
 func TestCorpus_JoinOAS2NotAllowed(t *testing.T) {
-	petstore := corpusutil.GetByName("Petstore") // OAS 2.0
-	discord := corpusutil.GetByName("Discord")   // OAS 3.1.0
+	petstore := corpustest.GetByName("Petstore") // OAS 2.0
+	discord := corpustest.GetByName("Discord")   // OAS 3.1.0
 
 	require.NotNil(t, petstore)
 	require.NotNil(t, discord)
@@ -107,9 +107,9 @@ func TestCorpus_JoinOAS2NotAllowed(t *testing.T) {
 
 // TestCorpus_JoinPreservesInfo tests that info from first spec is preserved.
 func TestCorpus_JoinPreservesInfo(t *testing.T) {
-	spec := corpusutil.GetByName("Discord")
+	spec := corpustest.GetByName("Discord")
 	require.NotNil(t, spec)
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	p := parser.New()
 	result1, err := p.Parse(spec.GetLocalPath())
@@ -136,9 +136,9 @@ func TestCorpus_JoinPreservesInfo(t *testing.T) {
 
 // TestCorpus_JoinStrategies tests different collision strategies.
 func TestCorpus_JoinStrategies(t *testing.T) {
-	spec := corpusutil.GetByName("Discord")
+	spec := corpustest.GetByName("Discord")
 	require.NotNil(t, spec)
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	p := parser.New()
 	result1, err := p.Parse(spec.GetLocalPath())

@@ -5,18 +5,18 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/erraggy/oastools/internal/corpusutil"
+	"github.com/erraggy/oastools/internal/corpustest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // TestCorpus_Parse tests parsing all non-large corpus specifications.
 func TestCorpus_Parse(t *testing.T) {
-	specs := corpusutil.GetParseableSpecs(false) // Exclude large specs and specs with parsing issues
+	specs := corpustest.GetParseableSpecs(false) // Exclude large specs and specs with parsing issues
 
 	for _, spec := range specs {
 		t.Run(spec.Name, func(t *testing.T) {
-			corpusutil.SkipIfNotCached(t, spec)
+			corpustest.SkipIfNotCached(t, spec)
 
 			p := New()
 			p.ResolveRefs = false
@@ -61,13 +61,13 @@ func TestCorpus_Parse(t *testing.T) {
 
 // TestCorpus_ParseBytes tests parsing from byte slices for smaller specs.
 func TestCorpus_ParseBytes(t *testing.T) {
-	for _, spec := range corpusutil.GetParseableSpecs(false) {
+	for _, spec := range corpustest.GetParseableSpecs(false) {
 		if spec.SizeBytes > 2_000_000 { // Skip specs > 2MB
 			continue
 		}
 
 		t.Run(spec.Name, func(t *testing.T) {
-			corpusutil.SkipIfNotCached(t, spec)
+			corpustest.SkipIfNotCached(t, spec)
 
 			data, err := os.ReadFile(spec.GetLocalPath())
 			require.NoError(t, err)
@@ -88,9 +88,9 @@ func TestCorpus_ParseBytes(t *testing.T) {
 
 // TestCorpus_OAS31Features tests OAS 3.1.0 specific features using Discord spec.
 func TestCorpus_OAS31Features(t *testing.T) {
-	spec := corpusutil.GetByName("Discord")
+	spec := corpustest.GetByName("Discord")
 	require.NotNil(t, spec, "Discord spec should exist in corpus")
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	p := New()
 	result, err := p.Parse(spec.GetLocalPath())
@@ -107,9 +107,9 @@ func TestCorpus_OAS31Features(t *testing.T) {
 
 // TestCorpus_OAS2Features tests OAS 2.0 specific features using Petstore spec.
 func TestCorpus_OAS2Features(t *testing.T) {
-	spec := corpusutil.GetByName("Petstore")
+	spec := corpustest.GetByName("Petstore")
 	require.NotNil(t, spec, "Petstore spec should exist in corpus")
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	p := New()
 	result, err := p.Parse(spec.GetLocalPath())
@@ -137,9 +137,9 @@ func TestCorpus_VersionDetection(t *testing.T) {
 
 	for name, expectedVersion := range versionMap {
 		t.Run(name, func(t *testing.T) {
-			spec := corpusutil.GetByName(name)
+			spec := corpustest.GetByName(name)
 			require.NotNil(t, spec)
-			corpusutil.SkipIfNotCached(t, *spec)
+			corpustest.SkipIfNotCached(t, *spec)
 
 			p := New()
 			result, err := p.Parse(spec.GetLocalPath())
@@ -158,9 +158,9 @@ func TestCorpus_FormatDetection(t *testing.T) {
 
 	for _, name := range yamlSpecs {
 		t.Run(name+"_YAML", func(t *testing.T) {
-			spec := corpusutil.GetByName(name)
+			spec := corpustest.GetByName(name)
 			require.NotNil(t, spec)
-			corpusutil.SkipIfNotCached(t, *spec)
+			corpustest.SkipIfNotCached(t, *spec)
 
 			p := New()
 			result, err := p.Parse(spec.GetLocalPath())
@@ -171,9 +171,9 @@ func TestCorpus_FormatDetection(t *testing.T) {
 
 	for _, name := range jsonSpecs {
 		t.Run(name+"_JSON", func(t *testing.T) {
-			spec := corpusutil.GetByName(name)
+			spec := corpustest.GetByName(name)
 			require.NotNil(t, spec)
-			corpusutil.SkipIfNotCached(t, *spec)
+			corpustest.SkipIfNotCached(t, *spec)
 
 			p := New()
 			result, err := p.Parse(spec.GetLocalPath())
@@ -185,9 +185,9 @@ func TestCorpus_FormatDetection(t *testing.T) {
 
 // TestCorpus_ValidateStructure tests structural validation during parsing.
 func TestCorpus_ValidateStructure(t *testing.T) {
-	for _, spec := range corpusutil.GetParseableSpecs(false) {
+	for _, spec := range corpustest.GetParseableSpecs(false) {
 		t.Run(spec.Name, func(t *testing.T) {
-			corpusutil.SkipIfNotCached(t, spec)
+			corpustest.SkipIfNotCached(t, spec)
 
 			p := New()
 			p.ValidateStructure = true

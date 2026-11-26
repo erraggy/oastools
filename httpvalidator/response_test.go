@@ -6,7 +6,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/erraggy/oastools/internal/testutil"
 	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -432,7 +431,7 @@ paths: {}
 			Content: map[string]*parser.MediaType{
 				"text/plain": {Schema: &parser.Schema{
 					Type:      "string",
-					MinLength: testutil.Ptr(5),
+					MinLength: new(5),
 				}},
 			},
 		}

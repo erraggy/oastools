@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/erraggy/oastools/fixer"
-	"github.com/erraggy/oastools/internal/corpusutil"
+	"github.com/erraggy/oastools/internal/corpustest"
 	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,9 +15,9 @@ import (
 // parseCorpusSpec parses a corpus spec by name, skipping if not cached.
 func parseCorpusSpec(t *testing.T, name string) *parser.ParseResult {
 	t.Helper()
-	spec := corpusutil.GetByName(name)
+	spec := corpustest.GetByName(name)
 	require.NotNilf(t, spec, "Corpus spec %q not found", name)
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	result, err := parser.ParseWithOptions(
 		parser.WithFilePath(spec.GetLocalPath()),

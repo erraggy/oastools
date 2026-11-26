@@ -11,7 +11,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/erraggy/oastools/internal/corpusutil"
+	"github.com/erraggy/oastools/internal/corpustest"
 )
 
 // BenchmarkCorpus_LargeSpecs benchmarks parsing of large (>5MB) corpus specifications.
@@ -22,7 +22,7 @@ func BenchmarkCorpus_LargeSpecs(b *testing.B) {
 		b.Skip("Skipping large spec benchmarks (SKIP_LARGE_TESTS=1)")
 	}
 
-	for _, spec := range corpusutil.GetLargeSpecs() {
+	for _, spec := range corpustest.GetLargeSpecs() {
 		if !spec.IsAvailable() {
 			continue
 		}
@@ -51,7 +51,7 @@ func BenchmarkCorpus_MarshalJSON(b *testing.B) {
 	}
 
 	// Include all parseable specs (both regular and large) to test pool benefits at scale
-	for _, spec := range corpusutil.GetParseableSpecs(true) {
+	for _, spec := range corpustest.GetParseableSpecs(true) {
 		if !spec.IsAvailable() {
 			continue
 		}

@@ -3,7 +3,6 @@ package parser
 import (
 	"testing"
 
-	"github.com/erraggy/oastools/internal/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -128,68 +127,68 @@ func TestEqualHeader(t *testing.T) {
 		{
 			name: "Explode nil vs non-nil",
 			a:    &Header{Explode: nil},
-			b:    &Header{Explode: testutil.Ptr(true)},
+			b:    &Header{Explode: new(true)},
 			want: false,
 		},
 		{
 			name: "same Explode true",
-			a:    &Header{Explode: testutil.Ptr(true)},
-			b:    &Header{Explode: testutil.Ptr(true)},
+			a:    &Header{Explode: new(true)},
+			b:    &Header{Explode: new(true)},
 			want: true,
 		},
 		{
 			name: "different Explode values",
-			a:    &Header{Explode: testutil.Ptr(true)},
-			b:    &Header{Explode: testutil.Ptr(false)},
+			a:    &Header{Explode: new(true)},
+			b:    &Header{Explode: new(false)},
 			want: false,
 		},
 		// Pointer fields - numeric
 		{
 			name: "different Maximum",
-			a:    &Header{Maximum: testutil.Ptr(100.0)},
-			b:    &Header{Maximum: testutil.Ptr(200.0)},
+			a:    &Header{Maximum: new(100.0)},
+			b:    &Header{Maximum: new(200.0)},
 			want: false,
 		},
 		{
 			name: "Maximum nil vs non-nil",
 			a:    &Header{Maximum: nil},
-			b:    &Header{Maximum: testutil.Ptr(100.0)},
+			b:    &Header{Maximum: new(100.0)},
 			want: false,
 		},
 		{
 			name: "different Minimum",
-			a:    &Header{Minimum: testutil.Ptr(0.0)},
-			b:    &Header{Minimum: testutil.Ptr(1.0)},
+			a:    &Header{Minimum: new(0.0)},
+			b:    &Header{Minimum: new(1.0)},
 			want: false,
 		},
 		{
 			name: "different MultipleOf",
-			a:    &Header{MultipleOf: testutil.Ptr(5.0)},
-			b:    &Header{MultipleOf: testutil.Ptr(10.0)},
+			a:    &Header{MultipleOf: new(5.0)},
+			b:    &Header{MultipleOf: new(10.0)},
 			want: false,
 		},
 		{
 			name: "different MaxLength",
-			a:    &Header{MaxLength: testutil.Ptr(100)},
-			b:    &Header{MaxLength: testutil.Ptr(200)},
+			a:    &Header{MaxLength: new(100)},
+			b:    &Header{MaxLength: new(200)},
 			want: false,
 		},
 		{
 			name: "different MinLength",
-			a:    &Header{MinLength: testutil.Ptr(1)},
-			b:    &Header{MinLength: testutil.Ptr(5)},
+			a:    &Header{MinLength: new(1)},
+			b:    &Header{MinLength: new(5)},
 			want: false,
 		},
 		{
 			name: "different MaxItems",
-			a:    &Header{MaxItems: testutil.Ptr(10)},
-			b:    &Header{MaxItems: testutil.Ptr(20)},
+			a:    &Header{MaxItems: new(10)},
+			b:    &Header{MaxItems: new(20)},
 			want: false,
 		},
 		{
 			name: "different MinItems",
-			a:    &Header{MinItems: testutil.Ptr(1)},
-			b:    &Header{MinItems: testutil.Ptr(2)},
+			a:    &Header{MinItems: new(1)},
+			b:    &Header{MinItems: new(2)},
 			want: false,
 		},
 		// Any fields
@@ -369,15 +368,15 @@ func TestEqualHeader(t *testing.T) {
 				Description: "Rate limit remaining",
 				Type:        "integer",
 				Format:      "int32",
-				Minimum:     testutil.Ptr(0.0),
-				Maximum:     testutil.Ptr(1000.0),
+				Minimum:     new(0.0),
+				Maximum:     new(1000.0),
 			},
 			b: &Header{
 				Description: "Rate limit remaining",
 				Type:        "integer",
 				Format:      "int32",
-				Minimum:     testutil.Ptr(0.0),
-				Maximum:     testutil.Ptr(1000.0),
+				Minimum:     new(0.0),
+				Maximum:     new(1000.0),
 			},
 			want: true,
 		},

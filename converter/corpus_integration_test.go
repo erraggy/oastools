@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/erraggy/oastools/internal/corpusutil"
+	"github.com/erraggy/oastools/internal/corpustest"
 	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -12,9 +12,9 @@ import (
 
 // TestCorpus_ConvertOAS2ToOAS3 tests converting Petstore 2.0 to various 3.x versions.
 func TestCorpus_ConvertOAS2ToOAS3(t *testing.T) {
-	spec := corpusutil.GetByName("Petstore")
+	spec := corpustest.GetByName("Petstore")
 	require.NotNil(t, spec, "Petstore spec should exist in corpus")
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	targetVersions := []string{"3.0.0", "3.0.3", "3.1.0"}
 
@@ -51,9 +51,9 @@ func TestCorpus_ConvertOAS2ToOAS3(t *testing.T) {
 
 // TestCorpus_ConvertRefRewriting verifies $ref paths are properly rewritten.
 func TestCorpus_ConvertRefRewriting(t *testing.T) {
-	spec := corpusutil.GetByName("Petstore")
+	spec := corpustest.GetByName("Petstore")
 	require.NotNil(t, spec)
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	result, err := ConvertWithOptions(
 		WithFilePath(spec.GetLocalPath()),
@@ -79,9 +79,9 @@ func TestCorpus_ConvertRefRewriting(t *testing.T) {
 
 // TestCorpus_ConvertServerGeneration tests server URL generation from host/basePath.
 func TestCorpus_ConvertServerGeneration(t *testing.T) {
-	spec := corpusutil.GetByName("Petstore")
+	spec := corpustest.GetByName("Petstore")
 	require.NotNil(t, spec)
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	result, err := ConvertWithOptions(
 		WithFilePath(spec.GetLocalPath()),
@@ -102,9 +102,9 @@ func TestCorpus_ConvertServerGeneration(t *testing.T) {
 
 // TestCorpus_ConvertSecuritySchemes tests security definition conversion.
 func TestCorpus_ConvertSecuritySchemes(t *testing.T) {
-	spec := corpusutil.GetByName("Petstore")
+	spec := corpustest.GetByName("Petstore")
 	require.NotNil(t, spec)
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	result, err := ConvertWithOptions(
 		WithFilePath(spec.GetLocalPath()),
@@ -127,9 +127,9 @@ func TestCorpus_ConvertSecuritySchemes(t *testing.T) {
 // TestCorpus_ConvertOAS3ToOAS2 tests converting an OAS 3.0 spec back to 2.0.
 func TestCorpus_ConvertOAS3ToOAS2(t *testing.T) {
 	// Use Discord as it's a clean OAS 3.1 spec
-	spec := corpusutil.GetByName("Discord")
+	spec := corpustest.GetByName("Discord")
 	require.NotNil(t, spec)
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	c := New()
 	c.StrictMode = false // Allow lossy conversions
@@ -152,9 +152,9 @@ func TestCorpus_ConvertOAS3ToOAS2(t *testing.T) {
 
 // TestCorpus_ConvertPreservesInfo tests that info section is preserved.
 func TestCorpus_ConvertPreservesInfo(t *testing.T) {
-	spec := corpusutil.GetByName("Petstore")
+	spec := corpustest.GetByName("Petstore")
 	require.NotNil(t, spec)
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	// Parse original to get info
 	p := parser.New()
@@ -181,9 +181,9 @@ func TestCorpus_ConvertPreservesInfo(t *testing.T) {
 // TestCorpus_ConvertIssueTracking tests that conversion issues are tracked.
 func TestCorpus_ConvertIssueTracking(t *testing.T) {
 	// Use a spec that will have some conversion issues
-	spec := corpusutil.GetByName("Discord")
+	spec := corpustest.GetByName("Discord")
 	require.NotNil(t, spec)
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	result, err := ConvertWithOptions(
 		WithFilePath(spec.GetLocalPath()),
@@ -213,9 +213,9 @@ func TestCorpus_ConvertVersionDetection(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name+"_to_"+tc.targetVersion, func(t *testing.T) {
-			spec := corpusutil.GetByName(tc.name)
+			spec := corpustest.GetByName(tc.name)
 			require.NotNil(t, spec)
-			corpusutil.SkipIfNotCached(t, *spec)
+			corpustest.SkipIfNotCached(t, *spec)
 
 			c := New()
 			c.StrictMode = false

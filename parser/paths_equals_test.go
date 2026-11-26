@@ -3,7 +3,6 @@ package parser
 import (
 	"testing"
 
-	"github.com/erraggy/oastools/internal/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -93,25 +92,25 @@ func TestEqualEncoding(t *testing.T) {
 		{
 			name: "Explode nil vs non-nil",
 			a:    &Encoding{Explode: nil},
-			b:    &Encoding{Explode: testutil.Ptr(true)},
+			b:    &Encoding{Explode: new(true)},
 			want: false,
 		},
 		{
 			name: "same Explode true",
-			a:    &Encoding{Explode: testutil.Ptr(true)},
-			b:    &Encoding{Explode: testutil.Ptr(true)},
+			a:    &Encoding{Explode: new(true)},
+			b:    &Encoding{Explode: new(true)},
 			want: true,
 		},
 		{
 			name: "same Explode false",
-			a:    &Encoding{Explode: testutil.Ptr(false)},
-			b:    &Encoding{Explode: testutil.Ptr(false)},
+			a:    &Encoding{Explode: new(false)},
+			b:    &Encoding{Explode: new(false)},
 			want: true,
 		},
 		{
 			name: "different Explode values",
-			a:    &Encoding{Explode: testutil.Ptr(true)},
-			b:    &Encoding{Explode: testutil.Ptr(false)},
+			a:    &Encoding{Explode: new(true)},
+			b:    &Encoding{Explode: new(false)},
 			want: false,
 		},
 		// Headers field
@@ -188,7 +187,7 @@ func TestEqualEncoding(t *testing.T) {
 			a: &Encoding{
 				ContentType:   "application/x-www-form-urlencoded",
 				Style:         "form",
-				Explode:       testutil.Ptr(true),
+				Explode:       new(true),
 				AllowReserved: false,
 				Headers: map[string]*Header{
 					"X-Custom-Header": {Description: "Custom header", Schema: &Schema{Type: "string"}},
@@ -198,7 +197,7 @@ func TestEqualEncoding(t *testing.T) {
 			b: &Encoding{
 				ContentType:   "application/x-www-form-urlencoded",
 				Style:         "form",
-				Explode:       testutil.Ptr(true),
+				Explode:       new(true),
 				AllowReserved: false,
 				Headers: map[string]*Header{
 					"X-Custom-Header": {Description: "Custom header", Schema: &Schema{Type: "string"}},
@@ -334,10 +333,10 @@ func TestEqualEncodingMap(t *testing.T) {
 		{
 			name: "same key different encoding style",
 			a: map[string]*Encoding{
-				"ids": {Style: "form", Explode: testutil.Ptr(true)},
+				"ids": {Style: "form", Explode: new(true)},
 			},
 			b: map[string]*Encoding{
-				"ids": {Style: "spaceDelimited", Explode: testutil.Ptr(false)},
+				"ids": {Style: "spaceDelimited", Explode: new(false)},
 			},
 			want: false,
 		},

@@ -40,6 +40,7 @@
 
 ## Key Patterns
 
+- **Test-only code lives in `_test.go` files**: a helper or hook that only tests call goes in a `_test.go` file of the package that uses it (`export_test.go` for a method a test needs on a package type). Test support shared by several packages goes in an `internal/` package whose name ends in `test` (`internal/corpustest`, `internal/conformancetest`), the way `net/http/httptest` is named but kept internal, since oastools ships no test utilities. A test caller makes code look live to every unused-code check, so code in a production file with only test callers is dead code
 - **Format preserved**: JSON/YAML auto-detected from extension or content
 - **Use constants**: `httputil.MethodGet`, `severity.SeverityError`
 - **Always run `go_diagnostics`** after edits—hints improve perf 5-15%

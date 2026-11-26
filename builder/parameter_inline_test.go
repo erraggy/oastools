@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/erraggy/oastools/internal/testutil"
 	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -353,8 +352,8 @@ func TestSchemaOverride_OAS3(t *testing.T) {
 		schema := &parser.Schema{
 			Type:     "array",
 			Items:    &parser.Schema{Type: "string", Format: "uuid"},
-			MinItems: testutil.Ptr(1),
-			MaxItems: testutil.Ptr(10),
+			MinItems: new(1),
+			MaxItems: new(10),
 		}
 
 		b := New(parser.OASVersion320).

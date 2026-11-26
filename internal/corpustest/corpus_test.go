@@ -1,4 +1,4 @@
-package corpusutil
+package corpustest
 
 import (
 	"path/filepath"

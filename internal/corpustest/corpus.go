@@ -1,4 +1,4 @@
-package corpusutil
+package corpustest
 
 import (
 	"os"
@@ -169,9 +169,9 @@ var Corpus = []SpecInfo{
 func CorpusDir() string {
 	_, thisFile, _, ok := runtime.Caller(0)
 	if !ok {
-		panic("corpusutil: cannot resolve this file's location")
+		panic("corpustest: cannot resolve this file's location")
 	}
-	// Go up from internal/corpusutil to project root
+	// Go up from internal/corpustest to project root
 	projectRoot := filepath.Dir(filepath.Dir(filepath.Dir(thisFile)))
 	return filepath.Join(projectRoot, "testdata", "corpus")
 }

@@ -1,4 +1,4 @@
-package conformance
+package conformancetest
 
 import (
 	"os"
@@ -62,7 +62,7 @@ func TestParseSourcesRejects(t *testing.T) {
 			assert.Nil(t, got)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tc.want)
-			assert.Contains(t, err.Error(), "conformance: cannot parse sources.txt")
+			assert.Contains(t, err.Error(), "conformancetest: cannot parse sources.txt")
 		})
 	}
 

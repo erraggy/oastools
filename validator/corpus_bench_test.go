@@ -10,7 +10,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/erraggy/oastools/internal/corpusutil"
+	"github.com/erraggy/oastools/internal/corpustest"
 )
 
 // BenchmarkCorpus_Validate benchmarks validation of corpus specifications.
@@ -18,7 +18,7 @@ import (
 // Run with: go test -tags=corpus -bench=BenchmarkCorpus_Validate ./validator/...
 func BenchmarkCorpus_Validate(b *testing.B) {
 	// Benchmark with Petstore (small, valid)
-	spec := corpusutil.GetByName("Petstore")
+	spec := corpustest.GetByName("Petstore")
 	if spec == nil || !spec.IsAvailable() {
 		b.Skip("Petstore spec not available")
 	}
@@ -34,7 +34,7 @@ func BenchmarkCorpus_Validate(b *testing.B) {
 	})
 
 	// Benchmark with DigitalOcean (medium, valid)
-	spec = corpusutil.GetByName("DigitalOcean")
+	spec = corpustest.GetByName("DigitalOcean")
 	if spec == nil || !spec.IsAvailable() {
 		return
 	}
@@ -58,7 +58,7 @@ func BenchmarkCorpus_LargeSpecs_Validate(b *testing.B) {
 		b.Skip("Skipping large spec benchmarks (SKIP_LARGE_TESTS=1)")
 	}
 
-	spec := corpusutil.GetByName("Stripe")
+	spec := corpustest.GetByName("Stripe")
 	if spec == nil || !spec.IsAvailable() {
 		b.Skip("Stripe spec not available")
 	}

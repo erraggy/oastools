@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/erraggy/oastools/internal/corpusutil"
+	"github.com/erraggy/oastools/internal/corpustest"
 	"github.com/erraggy/oastools/parser"
 	"github.com/erraggy/oastools/validator"
 	"github.com/stretchr/testify/assert"
@@ -19,13 +19,13 @@ import (
 // for corpus specs that have missing path parameter issues.
 func TestCorpus_FixerReducesErrors(t *testing.T) {
 	// Skip if corpus isn't downloaded
-	spec := corpusutil.GetByName("DigitalOcean")
+	spec := corpustest.GetByName("DigitalOcean")
 	if spec == nil {
 		t.Skip("DigitalOcean spec not found in corpus")
 		return
 	}
-	corpusutil.SkipIfNotCached(t, *spec)
-	corpusutil.SkipLargeInShortMode(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
+	corpustest.SkipLargeInShortMode(t, *spec)
 
 	// Parse the spec
 	p := parser.New()
@@ -70,12 +70,12 @@ func TestCorpus_FixerReducesErrors(t *testing.T) {
 
 // TestCorpus_FixerAllInvalidSpecs tests the fixer on all invalid corpus specs
 func TestCorpus_FixerAllInvalidSpecs(t *testing.T) {
-	invalidSpecs := corpusutil.GetInvalidSpecs(false) // exclude large
+	invalidSpecs := corpustest.GetInvalidSpecs(false) // exclude large
 
 	for _, spec := range invalidSpecs {
 		t.Run(spec.Name, func(t *testing.T) {
-			corpusutil.SkipIfNotCached(t, spec)
-			corpusutil.SkipIfHasParsingIssues(t, spec)
+			corpustest.SkipIfNotCached(t, spec)
+			corpustest.SkipIfHasParsingIssues(t, spec)
 
 			// Parse
 			p := parser.New()
@@ -118,11 +118,11 @@ func TestCorpus_FixerAllInvalidSpecs(t *testing.T) {
 
 // TestCorpus_FixerValidSpecs tests that fixer doesn't break valid specs
 func TestCorpus_FixerValidSpecs(t *testing.T) {
-	validSpecs := corpusutil.GetValidSpecs(false) // exclude large
+	validSpecs := corpustest.GetValidSpecs(false) // exclude large
 
 	for _, spec := range validSpecs {
 		t.Run(spec.Name, func(t *testing.T) {
-			corpusutil.SkipIfNotCached(t, spec)
+			corpustest.SkipIfNotCached(t, spec)
 
 			// Parse
 			p := parser.New()
@@ -159,12 +159,12 @@ func TestCorpus_FixerValidSpecs(t *testing.T) {
 
 // TestCorpus_FixerWithInferTypes tests type inference on real specs
 func TestCorpus_FixerWithInferTypes(t *testing.T) {
-	spec := corpusutil.GetByName("Asana")
+	spec := corpustest.GetByName("Asana")
 	if spec == nil {
 		t.Skip("Asana spec not found in corpus")
 		return
 	}
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	// Parse
 	p := parser.New()

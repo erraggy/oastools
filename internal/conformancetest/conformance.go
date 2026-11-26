@@ -1,4 +1,4 @@
-package conformance
+package conformancetest
 
 import (
 	"crypto/sha256"
@@ -126,7 +126,7 @@ func (s Source) ComputeDigest() (string, error) {
 func Dir() string {
 	_, thisFile, _, ok := runtime.Caller(0)
 	if !ok {
-		panic("conformance: cannot resolve this file's location")
+		panic("conformancetest: cannot resolve this file's location")
 	}
 	return filepath.Join(filepath.Dir(thisFile), "..", "..", "testdata", "conformance")
 }
@@ -227,7 +227,7 @@ type parseError struct {
 
 func (e *parseError) Error() string {
 	if e.line == "" {
-		return "conformance: cannot parse sources.txt: " + e.reason
+		return "conformancetest: cannot parse sources.txt: " + e.reason
 	}
-	return "conformance: cannot parse sources.txt line " + strconv.Quote(e.line) + ": " + e.reason
+	return "conformancetest: cannot parse sources.txt line " + strconv.Quote(e.line) + ": " + e.reason
 }
