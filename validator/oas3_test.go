@@ -659,7 +659,7 @@ func TestValidateOAuth2Flows_ImplicitInvalidAuthorizationUrl(t *testing.T) {
 					Type: "oauth2",
 					Flows: &parser.OAuthFlows{
 						Implicit: &parser.OAuthFlow{
-							AuthorizationURL: "not-a-valid-url",
+							AuthorizationURL: "not a valid url",
 							Scopes:           map[string]string{},
 						},
 					},
@@ -746,7 +746,7 @@ func TestValidateOAuth2Flows_PasswordInvalidTokenUrl(t *testing.T) {
 					Type: "oauth2",
 					Flows: &parser.OAuthFlows{
 						Password: &parser.OAuthFlow{
-							TokenURL: "not-a-valid-url",
+							TokenURL: "not a valid url",
 							Scopes:   map[string]string{},
 						},
 					},
@@ -833,7 +833,7 @@ func TestValidateOAuth2Flows_ClientCredentialsInvalidTokenUrl(t *testing.T) {
 					Type: "oauth2",
 					Flows: &parser.OAuthFlows{
 						ClientCredentials: &parser.OAuthFlow{
-							TokenURL: "not-a-valid-url",
+							TokenURL: "not a valid url",
 							Scopes:   map[string]string{},
 						},
 					},
@@ -921,7 +921,7 @@ func TestValidateOAuth2Flows_AuthorizationCodeInvalidAuthorizationUrl(t *testing
 					Type: "oauth2",
 					Flows: &parser.OAuthFlows{
 						AuthorizationCode: &parser.OAuthFlow{
-							AuthorizationURL: "not-a-valid-url",
+							AuthorizationURL: "not a valid url",
 							TokenURL:         "https://example.com/oauth/token",
 							Scopes:           map[string]string{},
 						},
@@ -1011,7 +1011,7 @@ func TestValidateOAuth2Flows_AuthorizationCodeInvalidTokenUrl(t *testing.T) {
 					Flows: &parser.OAuthFlows{
 						AuthorizationCode: &parser.OAuthFlow{
 							AuthorizationURL: "https://example.com/oauth/authorize",
-							TokenURL:         "not-a-valid-url",
+							TokenURL:         "not a valid url",
 							Scopes:           map[string]string{},
 						},
 					},

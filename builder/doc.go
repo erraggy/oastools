@@ -26,8 +26,8 @@
 //
 //   - a license is set without a name
 //
-//   - contact.url, license.url or termsOfService is not a URL, or contact.email
-//     is not an email address
+//   - contact.url or license.url is not a URI reference, termsOfService is not
+//     one (OAS 3.0 and later), or contact.email is not an email address
 //
 //   - the version is before 3.1 and summary or license.identifier is set
 //

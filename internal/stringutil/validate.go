@@ -25,10 +25,13 @@ func IsValidEmail(s string) bool {
 	return emailRegex.MatchString(s)
 }
 
-// IsValidURL reports whether s is an absolute http or https URL with a host,
-// or a relative URL starting with /.
+// IsValidURL reports whether s is a URI reference as RFC 3986 defines it, which
+// is the format the OpenAPI Specification's schemas require of its URL fields.
+// A relative reference such as "./terms.html" is valid, and so is any scheme.
+// An http or https URL must also have a host, which RFC 9110 requires. The
+// empty string is not accepted.
 func IsValidURL(s string) bool {
-	if s == "" {
+	if s == "" || !isURIReferenceText(s) {
 		return false
 	}
 
@@ -40,7 +43,33 @@ func IsValidURL(s string) bool {
 	if u.Scheme == "http" || u.Scheme == "https" {
 		return u.Hostname() != ""
 	}
-	return u.Scheme == "" && strings.HasPrefix(s, "/")
+	return true
+}
+
+// isURIReferenceText reports whether every character of s may appear in an
+// RFC 3986 URI reference: unreserved and reserved characters, and "%" followed
+// by two hex digits. Anything else, including spaces and non-ASCII characters,
+// must be percent-encoded.
+func isURIReferenceText(s string) bool {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9':
+		case strings.IndexByte("-._~:/?#[]@!$&'()*+,;=", c) >= 0:
+		case c == '%':
+			if i+2 >= len(s) || !isHexDigit(s[i+1]) || !isHexDigit(s[i+2]) {
+				return false
+			}
+			i += 2
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func isHexDigit(c byte) bool {
+	return c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F'
 }
 
 // IsValidSPDXExpression reports whether s is a well-formed SPDX license

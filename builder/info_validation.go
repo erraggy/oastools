@@ -34,7 +34,8 @@ func (b *Builder) infoErrors() []*BuilderError {
 		add("info.summary", "summary is not part of the Info Object before OAS 3.1; builder was created with version %s", b.version)
 	}
 
-	if info.TermsOfService != "" && !stringutil.IsValidURL(info.TermsOfService) {
+	// termsOfService is free text in OAS 2.0 and a URL from 3.0.
+	if info.TermsOfService != "" && b.version != parser.OASVersion20 && !stringutil.IsValidURL(info.TermsOfService) {
 		add("info.termsOfService", "termsOfService must be a URL, got %q", info.TermsOfService)
 	}
 

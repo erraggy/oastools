@@ -110,6 +110,8 @@ func TestBuilder_InfoFieldRules(t *testing.T) {
 	const (
 		pre31  = "pre31"
 		from31 = "from31"
+		from30 = "from30"
+		v20    = "v20"
 		all    = "all"
 	)
 
@@ -129,14 +131,28 @@ func TestBuilder_InfoFieldRules(t *testing.T) {
 			scope: all,
 		},
 		{
-			name:   "termsOfService not a url",
-			apply:  func(i *parser.Info) { i.TermsOfService = "terms" },
-			scope:  all,
+			name: "relative references are URLs",
+			apply: func(i *parser.Info) {
+				i.TermsOfService = "./terms.html"
+				i.Contact = &parser.Contact{URL: "support"}
+				i.License = &parser.License{Name: "MIT", URL: "../LICENSE"}
+			},
+			scope: all,
+		},
+		{
+			name:   "termsOfService not a URI reference",
+			apply:  func(i *parser.Info) { i.TermsOfService = "terms of service" },
+			scope:  from30,
 			fields: []string{"info.termsOfService"},
 		},
 		{
-			name:   "contact url not a url",
-			apply:  func(i *parser.Info) { i.Contact = &parser.Contact{URL: "support"} },
+			name:  "termsOfService is free text in 2.0",
+			apply: func(i *parser.Info) { i.TermsOfService = "terms of service" },
+			scope: v20,
+		},
+		{
+			name:   "contact url not a URI reference",
+			apply:  func(i *parser.Info) { i.Contact = &parser.Contact{URL: "support page"} },
 			scope:  all,
 			fields: []string{"info.contact.url"},
 		},
@@ -160,7 +176,7 @@ func TestBuilder_InfoFieldRules(t *testing.T) {
 		},
 		{
 			name:   "license url not a url",
-			apply:  func(i *parser.Info) { i.License = &parser.License{Name: "MIT", URL: "mit"} },
+			apply:  func(i *parser.Info) { i.License = &parser.License{Name: "MIT", URL: "https://"} },
 			scope:  all,
 			fields: []string{"info.license.url"},
 		},
@@ -211,13 +227,12 @@ func TestBuilder_InfoFieldRules(t *testing.T) {
 		{
 			name: "several problems are all reported",
 			apply: func(i *parser.Info) {
-				i.TermsOfService = "terms"
-				i.Contact = &parser.Contact{URL: "x", Email: "y"}
+				i.Contact = &parser.Contact{URL: "x y", Email: "y"}
 				i.License = &parser.License{}
 			},
 			scope: all,
 			fields: []string{
-				"info.termsOfService", "info.contact.url", "info.contact.email", "info.license.name",
+				"info.contact.url", "info.contact.email", "info.license.name",
 			},
 		},
 	}
@@ -225,6 +240,8 @@ func TestBuilder_InfoFieldRules(t *testing.T) {
 	for _, tt := range tests {
 		for _, version := range infoVersions {
 			applies := tt.scope == all ||
+				(tt.scope == v20 && version == parser.OASVersion20) ||
+				(tt.scope == from30 && version != parser.OASVersion20) ||
 				(tt.scope == pre31 && version < parser.OASVersion310) ||
 				(tt.scope == from31 && version >= parser.OASVersion310)
 			if !applies {

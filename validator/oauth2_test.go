@@ -40,7 +40,7 @@ func TestValidateOAuth2Flows(t *testing.T) {
 			name: "implicit flow invalid authorizationUrl",
 			flows: &parser.OAuthFlows{
 				Implicit: &parser.OAuthFlow{
-					AuthorizationURL: "not-a-valid-url",
+					AuthorizationURL: "not a valid url",
 					Scopes:           map[string]string{"read": "Read access"},
 				},
 			},
@@ -71,7 +71,7 @@ func TestValidateOAuth2Flows(t *testing.T) {
 			name: "password flow invalid tokenUrl",
 			flows: &parser.OAuthFlows{
 				Password: &parser.OAuthFlow{
-					TokenURL: "invalid-url",
+					TokenURL: "invalid url",
 					Scopes:   map[string]string{"read": "Read access"},
 				},
 			},
@@ -102,7 +102,7 @@ func TestValidateOAuth2Flows(t *testing.T) {
 			name: "clientCredentials flow invalid tokenUrl",
 			flows: &parser.OAuthFlows{
 				ClientCredentials: &parser.OAuthFlow{
-					TokenURL: "bad-url",
+					TokenURL: "bad url",
 					Scopes:   map[string]string{"read": "Read access"},
 				},
 			},
@@ -146,7 +146,7 @@ func TestValidateOAuth2Flows(t *testing.T) {
 			name: "authorizationCode flow invalid authorizationUrl",
 			flows: &parser.OAuthFlows{
 				AuthorizationCode: &parser.OAuthFlow{
-					AuthorizationURL: "invalid",
+					AuthorizationURL: "invalid url",
 					TokenURL:         "https://example.com/oauth/token",
 					Scopes:           map[string]string{"read": "Read access"},
 				},
@@ -159,7 +159,7 @@ func TestValidateOAuth2Flows(t *testing.T) {
 			flows: &parser.OAuthFlows{
 				AuthorizationCode: &parser.OAuthFlow{
 					AuthorizationURL: "https://example.com/oauth/authorize",
-					TokenURL:         "invalid",
+					TokenURL:         "invalid url",
 					Scopes:           map[string]string{"read": "Read access"},
 				},
 			},
@@ -170,8 +170,8 @@ func TestValidateOAuth2Flows(t *testing.T) {
 			name: "authorizationCode flow both URLs invalid",
 			flows: &parser.OAuthFlows{
 				AuthorizationCode: &parser.OAuthFlow{
-					AuthorizationURL: "bad-auth-url",
-					TokenURL:         "bad-token-url",
+					AuthorizationURL: "bad auth url",
+					TokenURL:         "bad token url",
 					Scopes:           map[string]string{"read": "Read access"},
 				},
 			},
