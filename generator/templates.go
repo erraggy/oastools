@@ -37,19 +37,11 @@ func getTemplates() (*template.Template, error) {
 // templateFuncs provides custom functions for templates
 var templateFuncs = template.FuncMap{
 	// String manipulation
-	"quote":     strconv.Quote,
-	"join":      strings.Join,
-	"upper":     strings.ToUpper,
-	"lower":     strings.ToLower,
-	"hasSuffix": strings.HasSuffix,
-	"hasPrefix": strings.HasPrefix,
+	"quote": strconv.Quote,
+	"upper": strings.ToUpper,
 
 	// Custom helpers
 	"zeroValue":       zeroValue,
-	"cleanDesc":       cleanDescription,
-	"toTypeName":      toTypeName,
-	"toFieldName":     toFieldName,
-	"toParamName":     toParamName,
 	"trimPointer":     trimPointer,
 	"methodToChiFunc": methodToChiFunc,
 }
