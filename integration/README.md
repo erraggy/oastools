@@ -99,7 +99,6 @@ expected-failure: "Known issue #123"
 
 # Optional: Debug settings
 debug:
-  dump-after: [parse, validate]
   verbose: true
 ```
 

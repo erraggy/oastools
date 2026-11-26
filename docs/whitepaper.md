@@ -145,8 +145,8 @@ oastools/
     ├── issues/     # Unified issue reporting
     ├── schemautil/ # Schema utilities
     ├── jsonpath/   # JSONPath RFC 9535 implementation
-    ├── corpusutil/ # Test corpus management
-    └── testutil/   # Test helpers
+    ├── corpustest/      # Test corpus management
+    └── conformancetest/ # OAS conformance suite reader
 ```
 
 ### Package Relationships

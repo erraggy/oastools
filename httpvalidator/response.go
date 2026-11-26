@@ -59,7 +59,7 @@ func (v *Validator) validateResponse(resp *http.Response, matchedPath string, op
 		body, err = io.ReadAll(io.LimitReader(resp.Body, maxSize+1))
 		if err != nil {
 			result.addError(
-				"response",
+				string(LocationResponse),
 				fmt.Sprintf("failed to read response body: %s", truncateForError(err.Error(), maxErrorValueLen)),
 				SeverityError,
 			)
@@ -67,7 +67,7 @@ func (v *Validator) validateResponse(resp *http.Response, matchedPath string, op
 		}
 
 		if int64(len(body)) > maxSize {
-			result.addError("response",
+			result.addError(string(LocationResponse),
 				fmt.Sprintf("response body size %d bytes exceeds maximum %d bytes", len(body), maxSize),
 				SeverityError)
 			return
@@ -173,7 +173,7 @@ func (v *Validator) validateResponseHeaders(headers http.Header, responseDef *pa
 			// Headers use simple style by default
 			param := &parser.Parameter{
 				Name:   headerName,
-				In:     "header",
+				In:     parser.ParamInHeader,
 				Schema: headerDef.Schema,
 			}
 			deserializedValue := deserializer.DeserializeHeaderParam(value, param)
