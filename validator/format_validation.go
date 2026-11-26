@@ -44,8 +44,7 @@ func getJSONSchemaRef() string {
 	return "https://www.ietf.org/archive/id/draft-bhutton-json-schema-01.html"
 }
 
-// isValidURL validates externalDocs.url and OAuth URLs. The Info, Contact and
-// License Object URLs are checked by internal/inforules.
+// isValidURL validates externalDocs.url and OAuth URLs.
 func isValidURL(s string) bool {
 	return stringutil.IsValidURL(s)
 }

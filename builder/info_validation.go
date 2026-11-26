@@ -4,20 +4,15 @@ import (
 	"github.com/erraggy/oastools/internal/inforules"
 )
 
-// infoHints adds the builder call that sets a required field to the shared
-// rule's message, since a builder user reaches the field through a setter.
+// infoHints names the setter for a required field, appended to its message.
 var infoHints = map[string]string{
 	"info.title":   "; call SetTitle",
 	"info.version": " (the version of your API, not of the OpenAPI Specification); call SetVersion",
 }
 
-// infoErrors returns every problem that makes the info object invalid for the
-// builder's OAS version. It runs at build time and stores nothing, since
-// SetInfo keeps the caller's pointer and the object can change until then.
-//
-// The rules themselves live in internal/inforules, which the validator also
-// uses, so the builder never accepts an info object the validator rejects.
-// They are listed in the package documentation.
+// infoErrors returns every problem with the info object for the builder's
+// version. It runs at build time, since SetInfo keeps the caller's pointer.
+// The rules are shared with the validator via internal/inforules.
 func (b *Builder) infoErrors() []*BuilderError {
 	if b.info == nil {
 		return []*BuilderError{NewMissingInfoError()}

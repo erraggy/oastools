@@ -104,8 +104,7 @@ func TestBuilder_InfoRequiredFields(t *testing.T) {
 			})
 
 			t.Run("whitespace is a title and version", func(t *testing.T) {
-				// The spec requires a string and sets no minLength, so the
-				// builder accepts what the validator accepts.
+				// The spec sets no minLength.
 				require.NoError(t, buildAny(New(version).SetTitle("  ").SetVersion("\t")))
 			})
 
@@ -276,8 +275,7 @@ func TestBuilder_InfoFieldRules(t *testing.T) {
 				info := &parser.Info{Title: "API", Version: "1.0.0"}
 				tt.apply(info)
 
-				// The validator shares the rules, so it must report the same
-				// fields for the same info (#558).
+				// The validator shares the rules, so must agree (#558).
 				assert.ElementsMatch(t, tt.fields, validatorInfoFields(t, version, info),
 					"validator and builder disagree")
 

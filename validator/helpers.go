@@ -9,10 +9,8 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
-// validateInfoObject reports every rule the Info, Contact and License Objects
-// break for the document's version. The rules live in internal/inforules, which
-// the builder also uses, so the two cannot disagree about what a valid info
-// object is.
+// validateInfoObject reports the internal/inforules problems for info, which
+// the builder checks too.
 func (v *Validator) validateInfoObject(info *parser.Info, version parser.OASVersion, result *ValidationResult, baseURL string) {
 	for _, p := range inforules.Check(info, version) {
 		opts := []func(*ValidationError){

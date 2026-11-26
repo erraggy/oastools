@@ -1,13 +1,5 @@
-// Package inforules states, once, the rules the OpenAPI Specification places on
-// the Info, Contact and License Objects, for every OAS version.
-//
-// The validator reports these rules against a parsed document and the builder
-// refuses to build a document that breaks them. Both consume [Check] so that
-// what the builder hands back is exactly what the validator accepts, and a rule
-// added for one reaches the other (#558).
-//
-// As an internal package, it is not part of the public API and may change
-// without notice.
+// Package inforules holds the spec's Info, Contact and License Object rules,
+// shared by the validator and the builder so the two cannot disagree.
 package inforules
 
 import (
@@ -17,8 +9,7 @@ import (
 	"github.com/erraggy/oastools/parser"
 )
 
-// Object names the specification object a [Problem] is about. Its value is the
-// anchor of that object's section in the published specification.
+// Object is the spec section anchor of the object a [Problem] is about.
 type Object string
 
 const (
@@ -41,32 +32,26 @@ type Problem struct {
 	Message string
 }
 
-// summaryAndIdentifierPermitted reports whether the version defines info.summary
-// and license.identifier, which OAS 3.1 introduced. An unrecognized version
-// permits them, matching the validator's other version gates.
+// summaryAndIdentifierPermitted reports whether the version has the 3.1 fields
+// info.summary and license.identifier. An unrecognized version permits them.
 func summaryAndIdentifierPermitted(version parser.OASVersion) bool {
 	return !version.IsValid() || version >= parser.OASVersion310
 }
 
-// termsOfServiceIsURL reports whether the version requires termsOfService to be
-// a URL. OAS 2.0 describes it as free text; 3.0 says URL and 3.1 says URI.
+// termsOfServiceIsURL reports whether termsOfService must be a URL (3.0+; 2.0
+// leaves it free text).
 func termsOfServiceIsURL(version parser.OASVersion) bool {
 	return version != parser.OASVersion20
 }
 
-// blank reports whether a required string field is missing.
-//
-// The specification requires the field and types it as a string, with no
-// minLength or pattern in any version's schema, so any value present is valid,
-// whitespace included. A Go string cannot tell an absent field from an empty
-// one, so the empty string is the only value treated as missing.
+// blank reports whether a required string is missing. The spec sets no
+// minLength, so only "" (indistinguishable from absent) counts.
 func blank(s string) bool {
 	return s == ""
 }
 
-// Check returns every rule info breaks for the given OAS version, in a fixed
-// order. A nil info returns nil: whether the Info Object itself is required is
-// the caller's to report, since only the caller knows the path it sits at.
+// Check returns every rule info breaks for version, in a fixed order. A nil
+// info returns nil; reporting a missing info is the caller's job.
 func Check(info *parser.Info, version parser.OASVersion) []Problem {
 	if info == nil {
 		return nil
@@ -74,12 +59,18 @@ func Check(info *parser.Info, version parser.OASVersion) []Problem {
 
 	var problems []Problem
 	add := func(obj Object, path, field, value, format string, args ...any) {
+		var msg string
+		if len(args) > 0 {
+			msg = fmt.Sprintf(format, args...)
+		} else {
+			msg = format
+		}
 		problems = append(problems, Problem{
 			Path:    path,
 			Field:   field,
 			Object:  obj,
 			Value:   value,
-			Message: fmt.Sprintf(format, args...),
+			Message: msg,
 		})
 	}
 
@@ -122,8 +113,7 @@ func Check(info *parser.Info, version parser.OASVersion) []Problem {
 				add(ObjectLicense, "info.license.identifier", "identifier", l.Identifier,
 					"identifier is not part of the License Object before OAS 3.1 (document is %s); use url instead", version)
 			} else {
-				// Both are reported: they are independent problems, and fixing
-				// only one would leave the other to surface on the next run.
+				// Independent problems, so both are reported.
 				if l.URL != "" {
 					add(ObjectLicense, "info.license.identifier", "identifier", l.Identifier,
 						"License identifier and url are mutually exclusive; set only one")
