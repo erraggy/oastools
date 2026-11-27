@@ -1358,7 +1358,7 @@ Configurable naming strategies handle generic types and package prefixes.
 
 ### 12.5 Server Builder
 
-The `ServerBuilder` extends the standard builder to produce runnable HTTP servers directly from the fluent API. This enables a "spec-first" development workflow where OpenAPI documentation and implementation stay synchronized. Request validation is performed automatically using the [httpvalidator](#13-http-validator-package) package.
+The `ServerBuilder` extends the standard builder to produce runnable HTTP servers directly from the fluent API. This enables a "spec-first" development workflow where OpenAPI documentation and implementation stay synchronized. Request validation is performed automatically using the [httpvalidator](#13-http-validator-package) package. Routing runs before validation: a path matching no operation gets 404 and an undeclared method gets 405 with an `Allow` header, whether or not validation is enabled, and `WithNotFoundHandler` and `WithMethodNotAllowedHandler` replace those responses. The server validates requests only.
 
 **Creating a Server:**
 

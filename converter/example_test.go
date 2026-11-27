@@ -110,7 +110,7 @@ func Example_convertParsed() {
 		log.Fatal(err)
 	}
 
-	// Convert using the parsed result — no re-parsing needed
+	// Convert using the parsed result (no re-parsing needed)
 	result, err := converter.ConvertWithOptions(
 		converter.WithParsed(*parsed),
 		converter.WithTargetVersion("3.0.3"),
@@ -223,4 +223,49 @@ func Example_complexConversion() {
 	// - Info messages: 0
 	//
 	// Conversion completed successfully
+}
+
+// Example_downgradeDropsInfoFields demonstrates inspecting the issues a
+// downgrade reports. OAS 3.0 defines neither info.summary nor
+// license.identifier, so converting a 3.1 document to 3.0 drops both and
+// reports a warning for each, leaving the source document unchanged.
+func Example_downgradeDropsInfoFields() {
+	spec := `
+openapi: 3.1.0
+info:
+  title: Pet API
+  summary: Manage pets
+  version: 1.0.0
+  license:
+    name: Apache 2.0
+    identifier: Apache-2.0
+paths: {}
+`
+	parsed, err := parser.ParseWithOptions(parser.WithBytes([]byte(spec)))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	result, err := converter.ConvertWithOptions(
+		converter.WithParsed(*parsed),
+		converter.WithTargetVersion("3.0.3"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, issue := range result.Issues {
+		if issue.Severity == converter.SeverityWarning {
+			fmt.Printf("WARNING [%s]: %s\n", issue.Path, issue.Message)
+		}
+	}
+
+	doc := result.Document.(*parser.OAS3Document)
+	fmt.Printf("Converted summary: %q\n", doc.Info.Summary)
+	fmt.Printf("Source summary: %q\n", parsed.Document.(*parser.OAS3Document).Info.Summary)
+	// Output:
+	// WARNING [info.summary]: 'summary' is OAS 3.1+ only and has no equivalent in OAS 3.0.3; dropped
+	// WARNING [info.license.identifier]: 'identifier' is OAS 3.1+ only and has no equivalent in OAS 3.0.3; dropped
+	// Converted summary: ""
+	// Source summary: "Manage pets"
 }

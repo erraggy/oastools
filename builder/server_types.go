@@ -80,7 +80,7 @@ type ServerResult struct {
 type Middleware func(http.Handler) http.Handler
 
 // RouterStrategy defines how paths are matched to handlers.
-// The stdlib router, returned by WithStdlibRouter, is its only implementation:
+// The stdlib router, which WithStdlibRouter selects, is its only implementation:
 // Build takes an unexported route type, so packages outside builder cannot
 // implement it.
 type RouterStrategy interface {

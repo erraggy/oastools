@@ -59,6 +59,10 @@
 // same way. An Operation without a responses field is an error at OAS 2.0 and
 // 3.0.x, and permitted from 3.1, because 3.1 removed the requirement.
 //
+// The OAS 3.1 Info fields are gated too: info.summary and
+// info.license.identifier are errors in a 2.0 or 3.0.x document, and
+// termsOfService must be a URL from 3.0, while 2.0 leaves it free text.
+//
 // # Validation Output
 //
 // ValidationResult contains:

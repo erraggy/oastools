@@ -6,6 +6,7 @@ import (
 	"log"
 	"maps"
 	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"slices"
 	"strconv"
@@ -1209,6 +1210,58 @@ func Example_serverBuilderWithValidation() {
 	fmt.Printf("Validation enabled: %v\n", result.Validator != nil)
 	// Output:
 	// Validation enabled: true
+}
+
+// Example_serverBuilderNotFoundAndMethodNotAllowed demonstrates custom 404 and
+// 405 handlers. Routing runs before request validation, so an unknown path
+// reaches the 404 handler and a known path with an unsupported method reaches
+// the 405 handler even with validation enabled. The Allow header is already set
+// when the 405 handler is called.
+func Example_serverBuilderNotFoundAndMethodNotAllowed() {
+	notFound := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "no route for "+r.URL.Path, http.StatusNotFound)
+	})
+	methodNotAllowed := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, r.Method+" not allowed; use "+w.Header().Get("Allow"), http.StatusMethodNotAllowed)
+	})
+
+	srv := builder.NewServerBuilder(parser.OASVersion320,
+		builder.WithValidationConfig(builder.ValidationConfig{IncludeRequestValidation: true}),
+		builder.WithNotFoundHandler(notFound),
+		builder.WithMethodNotAllowedHandler(methodNotAllowed),
+	).
+		SetTitle("Routing API").
+		SetVersion("1.0.0")
+
+	srv.AddOperation(http.MethodGet, "/pets",
+		builder.WithOperationID("listPets"),
+		builder.WithResponse(http.StatusOK, []Pet{}),
+	)
+	srv.AddOperation(http.MethodPost, "/pets",
+		builder.WithOperationID("createPet"),
+		builder.WithRequestBody(contentTypeJSON, Pet{}),
+		builder.WithResponse(http.StatusCreated, Pet{}),
+	)
+	srv.Handle(http.MethodGet, "/pets", func(_ context.Context, _ *builder.Request) builder.Response {
+		return builder.JSON(http.StatusOK, []Pet{})
+	})
+	srv.Handle(http.MethodPost, "/pets", func(_ context.Context, req *builder.Request) builder.Response {
+		return builder.JSON(http.StatusCreated, req.Body)
+	})
+
+	result := srv.MustBuildServer()
+
+	for _, req := range []*http.Request{
+		httptest.NewRequest(http.MethodGet, "/owners", nil),
+		httptest.NewRequest(http.MethodDelete, "/pets", nil),
+	} {
+		rec := httptest.NewRecorder()
+		result.Handler.ServeHTTP(rec, req)
+		fmt.Printf("%s %s: %d %s\n", req.Method, req.URL.Path, rec.Code, strings.TrimSpace(rec.Body.String()))
+	}
+	// Output:
+	// GET /owners: 404 no route for /owners
+	// DELETE /pets: 405 DELETE not allowed; use GET, POST
 }
 
 // Example_withSchemaFieldProcessor demonstrates custom struct tag processing.

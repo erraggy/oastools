@@ -18,25 +18,20 @@
 //
 // # Validation
 //
-// The builder does not perform full OAS specification validation. Use the validator
-// package to validate built documents. The builder does check the info object:
-// Build* methods return an error listing every problem if:
-//
+// The builder does not perform full OAS specification validation. It does check
+// the info object: every Build* method returns an error listing each problem if:
 //   - there is no info object, or its title or version is empty
-//
 //   - a license is set without a name
-//
 //   - contact.url or license.url is not a URI reference, termsOfService is not
 //     one (OAS 3.0 and later), or contact.email is not an email address
-//
 //   - the version is before 3.1 and summary or license.identifier is set
-//
 //   - license.identifier and license.url are both set
-//
 //   - license.identifier is not an SPDX license expression
 //
-//     result, _ := spec.BuildResult()
-//     valResult, _ := validator.ValidateWithOptions(validator.WithParsed(*result))
+// Use the validator package to validate the rest of a built document:
+//
+//	result, _ := spec.BuildResult()
+//	valResult, _ := validator.ValidateWithOptions(validator.WithParsed(*result))
 //
 // # Quick Start
 //

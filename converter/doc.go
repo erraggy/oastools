@@ -81,6 +81,16 @@
 // Validate the result against the target version before shipping it. The
 // section below shows the pattern.
 //
+// Info fields are the exception: when the conversion changes the version, an
+// Info field the target version does not define is removed from the converted
+// document (never from the source) and
+// reported as a Warning naming the path and the dropped value. That covers
+// info.summary and info.license.identifier when the target is below 3.1, and a
+// termsOfService that is not a URL when converting 2.0 to 3.x, since 2.0 allows
+// free text there. No license.url is derived from an SPDX identifier. A request
+// whose target equals the source version returns the document unchanged, so
+// nothing is removed then.
+//
 // # Converting with the Validator Package
 //
 // Always validate converted documents for the target version:

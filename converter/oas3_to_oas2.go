@@ -34,7 +34,7 @@ func oas2ResponseKey(code string, codes map[string]*parser.Response) (string, bo
 func (c *Converter) convertOAS3ToOAS2(parseResult parser.ParseResult, result *ConversionResult) error {
 	src, ok := parseResult.OAS3Document()
 	if !ok {
-		return fmt.Errorf("source document is not an OAS3Document")
+		return fmt.Errorf("converter: source document is not an OAS3Document")
 	}
 
 	// Create the OAS 2.0 document

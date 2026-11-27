@@ -9,7 +9,7 @@ import (
 type ServerBuilderOption func(*serverBuilderConfig)
 
 // WithRouter sets the routing strategy.
-// Default: StdlibRouter (uses net/http with PathMatcherSet).
+// Default: the stdlib router (net/http with PathMatcherSet), which WithStdlibRouter selects.
 func WithRouter(strategy RouterStrategy) ServerBuilderOption {
 	return func(cfg *serverBuilderConfig) {
 		cfg.router = strategy

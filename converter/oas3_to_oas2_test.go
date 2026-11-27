@@ -1250,3 +1250,35 @@ func TestInferTypeFromNestedComposite(t *testing.T) {
 	mutual.AllOf = []*parser.Schema{other}
 	assert.Empty(t, inferTypeFromSchema(mutual), "a mutual cycle should terminate too")
 }
+
+// TestConvertFromOAS3_RefusesNonOAS3Source covers the guards that refuse a
+// ParseResult whose document is not OAS 3. ConvertParsed routes by version, so
+// only a direct call reaches them.
+func TestConvertFromOAS3_RefusesNonOAS3Source(t *testing.T) {
+	src := parser.ParseResult{Document: &parser.OAS2Document{Swagger: "2.0"}}
+
+	tests := []struct {
+		name    string
+		convert func(c *Converter, result *ConversionResult) error
+	}{
+		{
+			name: "to OAS 2.0",
+			convert: func(c *Converter, result *ConversionResult) error {
+				return c.convertOAS3ToOAS2(src, result)
+			},
+		},
+		{
+			name: "to OAS 3.x",
+			convert: func(c *Converter, result *ConversionResult) error {
+				return c.convertOAS3ToOAS3(src, parser.OASVersion310, result)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.convert(New(), &ConversionResult{})
+			require.EqualError(t, err, "converter: source document is not an OAS3Document")
+		})
+	}
+}

@@ -119,7 +119,8 @@ oastools/
 │   ├── httputil/       # HTTP constants and validation
 │   ├── severity/       # Issue severity levels
 │   ├── issues/         # Unified issue reporting
-│   └── testutil/       # Test helpers
+│   ├── corpustest/     # Test corpus management
+│   └── conformancetest/ # OAS conformance suite reader
 └── testdata/           # Test fixtures
 ```
 

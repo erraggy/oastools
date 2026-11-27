@@ -513,7 +513,7 @@ func (c *Converter) convertOAS3ToOAS3(parseResult parser.ParseResult, targetVers
 	// For OAS 3.x to 3.y conversions, we primarily just update the version string
 	doc, ok := parseResult.OAS3Document()
 	if !ok {
-		return fmt.Errorf("source document is not an OAS3Document")
+		return fmt.Errorf("converter: source document is not an OAS3Document")
 	}
 
 	// Create a deep copy of the document
