@@ -246,14 +246,14 @@ paths:
 	require.NoError(t, os.WriteFile(spec1Path, []byte(spec1), 0600))
 	require.NoError(t, os.WriteFile(spec2Path, []byte(spec2), 0600))
 
-	// Create spec-specific overlay for users API only
-	// Use bracket notation for paths with slashes
+	// The target matches the GET in both specs, so an overlay applied to the
+	// wrong spec shows up on /orders.
 	usersOverlay := &overlay.Overlay{
 		Version: "1.0.0",
 		Info:    overlay.Info{Title: "Users Overlay", Version: "1.0"},
 		Actions: []overlay.Action{
 			{
-				Target: "$.paths['/users'].get",
+				Target: "$.paths.*.get",
 				Update: map[string]any{
 					"x-users-only": true,
 				},
@@ -319,7 +319,7 @@ info:
   title: Users Overlay
   version: "1.0"
 actions:
-  - target: $.paths['/users'].get
+  - target: $.paths.*.get
     update:
       x-users-only: true
 `
