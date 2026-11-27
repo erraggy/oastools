@@ -514,39 +514,3 @@ func TestSchemaRefPath(t *testing.T) {
 		})
 	}
 }
-
-func TestExtractSchemaName(t *testing.T) {
-	tests := []struct {
-		name     string
-		ref      string
-		expected string
-	}{
-		{
-			name:     "OAS 3.0 ref",
-			ref:      "#/components/schemas/User",
-			expected: "User",
-		},
-		{
-			name:     "OAS 2.0 ref",
-			ref:      "#/definitions/Product",
-			expected: "Product",
-		},
-		{
-			name:     "invalid ref",
-			ref:      "#/invalid/path",
-			expected: "",
-		},
-		{
-			name:     "empty ref",
-			ref:      "",
-			expected: "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := extractSchemaName(tt.ref)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}

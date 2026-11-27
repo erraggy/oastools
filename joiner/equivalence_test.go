@@ -586,10 +586,26 @@ func TestEqualTypes_ArrayTypes(t *testing.T) {
 	assert.False(t, equalTypes([]string{"string"}, []string{"string", "null"}))
 }
 
-func TestPathJoin(t *testing.T) {
-	assert.Equal(t, "type", pathJoin("", "type"))
-	assert.Equal(t, "properties.name", pathJoin("properties", "name"))
-	assert.Equal(t, "properties.address.city", pathJoin("properties.address", "city"))
+func TestComparePath(t *testing.T) {
+	path := &comparePath{}
+	assert.Equal(t, "", path.String())
+
+	path.push("type")
+	assert.Equal(t, "type", path.String())
+	path.pop()
+
+	path.push("properties")
+	path.push("address")
+	path.push("city")
+	assert.Equal(t, "properties.address.city", path.String())
+
+	path.pop()
+	assert.Equal(t, "properties.address", path.String())
+
+	path.pop()
+	path.pop()
+	path.pop()
+	assert.Equal(t, "", path.String(), "pop on an empty path is a no-op")
 }
 
 func TestValidEquivalenceModes(t *testing.T) {

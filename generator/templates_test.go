@@ -48,7 +48,7 @@ func TestGetTemplates(t *testing.T) {
 	assert.Equal(t, tmpl, tmpl2, "expected same template instance from sync.Once")
 
 	// Verify some expected templates exist
-	expectedTemplates := []string{"client.go.tmpl", "types.go.tmpl", "router.go.tmpl"}
+	expectedTemplates := []string{"types.go.tmpl", "router.go.tmpl", "binder.go.tmpl"}
 	for _, name := range expectedTemplates {
 		assert.NotNil(t, tmpl.Lookup(name), "expected template %q to exist", name)
 	}

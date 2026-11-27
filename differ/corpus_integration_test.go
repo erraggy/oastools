@@ -3,7 +3,7 @@ package differ
 import (
 	"testing"
 
-	"github.com/erraggy/oastools/internal/corpusutil"
+	"github.com/erraggy/oastools/internal/corpustest"
 	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,9 +15,9 @@ func TestCorpus_DiffIdentical(t *testing.T) {
 
 	for _, name := range specs {
 		t.Run(name, func(t *testing.T) {
-			spec := corpusutil.GetByName(name)
+			spec := corpustest.GetByName(name)
 			require.NotNil(t, spec)
-			corpusutil.SkipIfNotCached(t, *spec)
+			corpustest.SkipIfNotCached(t, *spec)
 
 			d := New()
 			d.Mode = ModeBreaking
@@ -37,8 +37,8 @@ func TestCorpus_DiffIdentical(t *testing.T) {
 // TestCorpus_DiffDifferentSpecs tests diffing two different specs.
 func TestCorpus_DiffDifferentSpecs(t *testing.T) {
 	// Use Petstore (OAS 2.0) and Discord (OAS 3.1)
-	spec1 := corpusutil.GetByName("Petstore") // 2.0
-	spec2 := corpusutil.GetByName("Discord")  // 3.1.0
+	spec1 := corpustest.GetByName("Petstore") // 2.0
+	spec2 := corpustest.GetByName("Discord")  // 3.1.0
 
 	require.NotNil(t, spec1)
 	require.NotNil(t, spec2)
@@ -64,9 +64,9 @@ func TestCorpus_DiffDifferentSpecs(t *testing.T) {
 
 // TestCorpus_DiffBreakingMode tests breaking change detection mode.
 func TestCorpus_DiffBreakingMode(t *testing.T) {
-	spec := corpusutil.GetByName("Discord")
+	spec := corpustest.GetByName("Discord")
 	require.NotNil(t, spec)
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	d := New()
 	d.Mode = ModeBreaking
@@ -81,12 +81,12 @@ func TestCorpus_DiffBreakingMode(t *testing.T) {
 
 // TestCorpus_DiffSimpleMode tests simple diff mode.
 func TestCorpus_DiffSimpleMode(t *testing.T) {
-	spec1 := corpusutil.GetByName("Petstore")
-	spec2 := corpusutil.GetByName("Petstore") // Same spec for predictable results
+	spec1 := corpustest.GetByName("Petstore")
+	spec2 := corpustest.GetByName("Petstore") // Same spec for predictable results
 
 	require.NotNil(t, spec1)
 	require.NotNil(t, spec2)
-	corpusutil.SkipIfNotCached(t, *spec1)
+	corpustest.SkipIfNotCached(t, *spec1)
 
 	d := New()
 	d.Mode = ModeSimple
@@ -101,9 +101,9 @@ func TestCorpus_DiffSimpleMode(t *testing.T) {
 
 // TestCorpus_DiffOAS2 tests diffing OAS 2.0 specs.
 func TestCorpus_DiffOAS2(t *testing.T) {
-	spec := corpusutil.GetByName("Petstore")
+	spec := corpustest.GetByName("Petstore")
 	require.NotNil(t, spec)
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	d := New()
 	d.Mode = ModeBreaking
@@ -117,9 +117,9 @@ func TestCorpus_DiffOAS2(t *testing.T) {
 
 // TestCorpus_DiffOAS31 tests diffing OAS 3.1.0 specs.
 func TestCorpus_DiffOAS31(t *testing.T) {
-	spec := corpusutil.GetByName("Discord")
+	spec := corpustest.GetByName("Discord")
 	require.NotNil(t, spec)
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	d := New()
 	d.Mode = ModeBreaking
@@ -133,8 +133,8 @@ func TestCorpus_DiffOAS31(t *testing.T) {
 
 // TestCorpus_DiffVersionMismatch tests diffing specs of different OAS versions.
 func TestCorpus_DiffVersionMismatch(t *testing.T) {
-	petstore := corpusutil.GetByName("Petstore") // 2.0
-	discord := corpusutil.GetByName("Discord")   // 3.1.0
+	petstore := corpustest.GetByName("Petstore") // 2.0
+	discord := corpustest.GetByName("Discord")   // 3.1.0
 
 	require.NotNil(t, petstore)
 	require.NotNil(t, discord)
@@ -159,9 +159,9 @@ func TestCorpus_DiffVersionMismatch(t *testing.T) {
 
 // TestCorpus_DiffParsed tests diffing pre-parsed documents.
 func TestCorpus_DiffParsed(t *testing.T) {
-	spec := corpusutil.GetByName("Discord")
+	spec := corpustest.GetByName("Discord")
 	require.NotNil(t, spec)
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	// Parse first
 	result1, err := parser.ParseWithOptions(

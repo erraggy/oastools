@@ -9,7 +9,7 @@ package fixer
 import (
 	"testing"
 
-	"github.com/erraggy/oastools/internal/corpusutil"
+	"github.com/erraggy/oastools/internal/corpustest"
 	"github.com/erraggy/oastools/parser"
 )
 
@@ -17,7 +17,7 @@ import (
 // This benchmark is excluded by default to prevent memory exhaustion.
 // Run with: go test -tags=corpus -bench=BenchmarkCorpus_Fix ./fixer/...
 func BenchmarkCorpus_Fix(b *testing.B) {
-	spec := corpusutil.GetByName("Asana")
+	spec := corpustest.GetByName("Asana")
 	if spec == nil {
 		b.Skip("Asana spec not found")
 	}

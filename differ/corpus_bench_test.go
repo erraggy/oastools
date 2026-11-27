@@ -9,14 +9,14 @@ package differ
 import (
 	"testing"
 
-	"github.com/erraggy/oastools/internal/corpusutil"
+	"github.com/erraggy/oastools/internal/corpustest"
 )
 
 // BenchmarkCorpus_Diff benchmarks diffing of corpus specifications.
 // This benchmark is excluded by default to prevent memory exhaustion.
 // Run with: go test -tags=corpus -bench=BenchmarkCorpus_Diff ./differ/...
 func BenchmarkCorpus_Diff(b *testing.B) {
-	spec := corpusutil.GetByName("Petstore")
+	spec := corpustest.GetByName("Petstore")
 	if spec == nil || !spec.IsAvailable() {
 		b.Skip("Petstore spec not available")
 	}

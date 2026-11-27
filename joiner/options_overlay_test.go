@@ -246,14 +246,14 @@ paths:
 	require.NoError(t, os.WriteFile(spec1Path, []byte(spec1), 0600))
 	require.NoError(t, os.WriteFile(spec2Path, []byte(spec2), 0600))
 
-	// Create spec-specific overlay for users API only
-	// Use bracket notation for paths with slashes
+	// The target matches the GET in both specs, so an overlay applied to the
+	// wrong spec shows up on /orders.
 	usersOverlay := &overlay.Overlay{
 		Version: "1.0.0",
 		Info:    overlay.Info{Title: "Users Overlay", Version: "1.0"},
 		Actions: []overlay.Action{
 			{
-				Target: "$.paths['/users'].get",
+				Target: "$.paths.*.get",
 				Update: map[string]any{
 					"x-users-only": true,
 				},
@@ -287,6 +287,81 @@ paths:
 	if ordersPath.Get.Extra != nil {
 		assert.NotContains(t, ordersPath.Get.Extra, "x-users-only", "Spec-specific overlay should NOT be applied to orders API")
 	}
+}
+
+func TestWithSpecOverlayFile(t *testing.T) {
+	dir := t.TempDir()
+
+	spec1 := `openapi: "3.0.3"
+info:
+  title: Users API
+  version: "1.0.0"
+paths:
+  /users:
+    get:
+      responses:
+        "200":
+          description: OK
+`
+	spec2 := `openapi: "3.0.3"
+info:
+  title: Orders API
+  version: "1.0.0"
+paths:
+  /orders:
+    get:
+      responses:
+        "200":
+          description: OK
+`
+	usersOverlay := `overlay: "1.0.0"
+info:
+  title: Users Overlay
+  version: "1.0"
+actions:
+  - target: $.paths.*.get
+    update:
+      x-users-only: true
+`
+
+	spec1Path := filepath.Join(dir, "users-api.yaml")
+	spec2Path := filepath.Join(dir, "orders-api.yaml")
+	overlayPath := filepath.Join(dir, "users-overlay.yaml")
+	require.NoError(t, os.WriteFile(spec1Path, []byte(spec1), 0600))
+	require.NoError(t, os.WriteFile(spec2Path, []byte(spec2), 0600))
+	require.NoError(t, os.WriteFile(overlayPath, []byte(usersOverlay), 0600))
+
+	t.Run("applies to the named spec only", func(t *testing.T) {
+		result, err := JoinWithOptions(
+			WithFilePaths(spec1Path, spec2Path),
+			WithSpecOverlayFile(spec1Path, overlayPath),
+			WithPathStrategy(StrategyAcceptLeft),
+		)
+		require.NoError(t, err)
+
+		oas3Doc, ok := result.Document.(*parser.OAS3Document)
+		require.True(t, ok, "Document is not *parser.OAS3Document")
+
+		usersPath := oas3Doc.Paths["/users"]
+		require.NotNil(t, usersPath, "/users path not found")
+		require.NotNil(t, usersPath.Get, "GET operation not found on /users")
+		assert.Contains(t, usersPath.Get.Extra, "x-users-only", "spec overlay file was not applied to users API")
+
+		ordersPath := oas3Doc.Paths["/orders"]
+		require.NotNil(t, ordersPath, "/orders path not found")
+		require.NotNil(t, ordersPath.Get, "GET operation not found on /orders")
+		assert.NotContains(t, ordersPath.Get.Extra, "x-users-only", "spec overlay file should not apply to orders API")
+	})
+
+	t.Run("missing overlay file is an error", func(t *testing.T) {
+		_, err := JoinWithOptions(
+			WithFilePaths(spec1Path, spec2Path),
+			WithSpecOverlayFile(spec1Path, filepath.Join(dir, "missing.yaml")),
+			WithPathStrategy(StrategyAcceptLeft),
+		)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "spec overlay")
+	})
 }
 
 func TestWithNilPreJoinOverlay(t *testing.T) {

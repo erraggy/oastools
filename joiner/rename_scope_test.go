@@ -4,6 +4,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/erraggy/oastools/internal/schemarefs"
 	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -101,6 +102,13 @@ func definitionRefs(doc *parser.OAS2Document) []string {
 	}
 	sort.Strings(refs)
 	return refs
+}
+
+// definitionName returns the definition ref resolves to in doc, the way the
+// joiner itself resolves a reference token. A ref resolving to no definition
+// yields its own token, so asserting doc holds the result catches it.
+func definitionName(doc *parser.OAS2Document, ref string) string {
+	return schemarefs.ResolveName(schemarefs.SchemaName(ref), schemarefs.ComponentSchemaNames(doc))
 }
 
 // TestRenameScopeRenameRight covers #478: renaming an incoming schema must not
@@ -207,7 +215,7 @@ func TestRenameScopeSemanticDeduplication(t *testing.T) {
 
 	// Every reference names a definition that is still in the document.
 	for _, ref := range definitionRefs(d) {
-		name := extractSchemaName(ref)
+		name := definitionName(d, ref)
 		assert.Contains(t, d.Definitions, name, "dangling reference %s", ref)
 	}
 }
@@ -233,7 +241,7 @@ func TestRenameScopeNamespacePrefixThenCollision(t *testing.T) {
 	assert.Equal(t, "#/definitions/Api_Category.clinic", d.Definitions["Api_Pet.clinic"].Properties["category"].Ref)
 
 	for _, ref := range definitionRefs(d) {
-		name := extractSchemaName(ref)
+		name := definitionName(d, ref)
 		assert.Contains(t, d.Definitions, name, "dangling reference %s", ref)
 	}
 }
@@ -576,7 +584,7 @@ func TestRenameScopeRewritesHandlerCustomValues(t *testing.T) {
 		d.Definitions["Api_Pet"].Properties["category"].Ref,
 		"the handler's value was skipped by every pass, so its reference was never rewritten")
 	for _, ref := range definitionRefs(d) {
-		assert.Contains(t, d.Definitions, extractSchemaName(ref), "dangling reference %s", ref)
+		assert.Contains(t, d.Definitions, definitionName(d, ref), "dangling reference %s", ref)
 	}
 }
 
@@ -625,7 +633,7 @@ func TestRenameScopeRewritesHandlerCustomPathItem(t *testing.T) {
 	ref := petResponseRef(t, d, shared)
 	assert.Equal(t, "#/definitions/Api_Pet.b", ref,
 		"the handler's path item was skipped by every pass, so its reference was never rewritten")
-	assert.Contains(t, d.Definitions, extractSchemaName(ref), "dangling reference %s", ref)
+	assert.Contains(t, d.Definitions, definitionName(d, ref), "dangling reference %s", ref)
 }
 
 // petVariant is a minimal document whose one definition carries a property named
@@ -779,7 +787,7 @@ func TestRenameTemplateWithoutName(t *testing.T) {
 	// rather than dropped.
 	assert.ElementsMatch(t, []string{"Pet", "Category", "clinic", "clinic_2"}, definitionNames(d))
 	for _, ref := range definitionRefs(d) {
-		assert.Contains(t, d.Definitions, extractSchemaName(ref), "dangling reference %s", ref)
+		assert.Contains(t, d.Definitions, definitionName(d, ref), "dangling reference %s", ref)
 	}
 }
 

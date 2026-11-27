@@ -1,4 +1,4 @@
-// Package corpusutil provides utilities for loading and managing the
+// Package corpustest provides utilities for loading and managing the
 // integration test corpus of real-world public OpenAPI specifications.
 //
 // The corpus includes 10 carefully selected specifications spanning:
@@ -13,9 +13,9 @@
 // corpus files are not available:
 //
 //	func TestCorpus_Parse(t *testing.T) {
-//	    for _, spec := range corpusutil.GetSpecs(false) {
+//	    for _, spec := range corpustest.GetSpecs(false) {
 //	        t.Run(spec.Name, func(t *testing.T) {
-//	            corpusutil.SkipIfNotCached(t, spec)
+//	            corpustest.SkipIfNotCached(t, spec)
 //	            // ... test implementation
 //	        })
 //	    }
@@ -25,4 +25,4 @@
 //
 // Run `make corpus-download` to fetch all specifications to testdata/corpus/.
 // These files are not committed to the repository.
-package corpusutil
+package corpustest

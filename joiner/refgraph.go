@@ -337,24 +337,3 @@ func (g *RefGraph) recordSchemaRefs(schemaName string, schema *parser.Schema) {
 		})
 	})
 }
-
-// deduplicateOperationRefs removes duplicate operation references.
-// Duplicates are identified by path + method + usageType + statusCode.
-func deduplicateOperationRefs(refs []OperationRef) []OperationRef {
-	if len(refs) == 0 {
-		return refs
-	}
-
-	seen := make(map[string]bool)
-	result := make([]OperationRef, 0, len(refs))
-
-	for _, ref := range refs {
-		key := fmt.Sprintf("%s|%s|%s|%s", ref.Path, ref.Method, ref.UsageType, ref.StatusCode)
-		if !seen[key] {
-			seen[key] = true
-			result = append(result, ref)
-		}
-	}
-
-	return result
-}

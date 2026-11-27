@@ -15,7 +15,7 @@ import (
 
 // validatePathParams validates extracted path parameters against the spec.
 func (v *Validator) validatePathParams(pathParams map[string]string, pathTemplate string, operation *parser.Operation, result *RequestValidationResult) {
-	paramDefs := v.getParametersByLocation(pathTemplate, operation, "path")
+	paramDefs := v.getParametersByLocation(pathTemplate, operation, parser.ParamInPath)
 	deserializer := NewParamDeserializer()
 
 	// Build a map of defined parameters
@@ -67,7 +67,7 @@ func (v *Validator) validatePathParams(pathParams map[string]string, pathTemplat
 
 // validateQueryParams validates query parameters against the spec.
 func (v *Validator) validateQueryParams(req *http.Request, pathTemplate string, operation *parser.Operation, result *RequestValidationResult, flags validationFlags) {
-	paramDefs := v.getParametersByLocation(pathTemplate, operation, "query")
+	paramDefs := v.getParametersByLocation(pathTemplate, operation, parser.ParamInQuery)
 	deserializer := NewParamDeserializer()
 	queryValues := req.URL.Query()
 
@@ -157,7 +157,7 @@ func (v *Validator) validateQueryParams(req *http.Request, pathTemplate string, 
 
 // validateHeaderParams validates header parameters against the spec.
 func (v *Validator) validateHeaderParams(req *http.Request, pathTemplate string, operation *parser.Operation, result *RequestValidationResult, flags validationFlags) {
-	paramDefs := v.getParametersByLocation(pathTemplate, operation, "header")
+	paramDefs := v.getParametersByLocation(pathTemplate, operation, parser.ParamInHeader)
 	deserializer := NewParamDeserializer()
 
 	// Build a map of defined parameters (case-insensitive)
@@ -230,7 +230,7 @@ func (v *Validator) validateHeaderParams(req *http.Request, pathTemplate string,
 
 // validateCookieParams validates cookie parameters against the spec.
 func (v *Validator) validateCookieParams(req *http.Request, pathTemplate string, operation *parser.Operation, result *RequestValidationResult, flags validationFlags) {
-	paramDefs := v.getParametersByLocation(pathTemplate, operation, "cookie")
+	paramDefs := v.getParametersByLocation(pathTemplate, operation, parser.ParamInCookie)
 	deserializer := NewParamDeserializer()
 
 	// Build a map of defined parameters
@@ -314,7 +314,7 @@ func (v *Validator) validateRequestBody(req *http.Request, pathTemplate string, 
 	if req.Body == nil {
 		if bodyRequired {
 			result.addError(
-				"requestBody",
+				string(LocationRequestBody),
 				"request body is required but missing",
 				SeverityError,
 			)
@@ -326,7 +326,7 @@ func (v *Validator) validateRequestBody(req *http.Request, pathTemplate string, 
 	contentType := req.Header.Get("Content-Type")
 	if contentType == "" {
 		if flags.includeWarnings {
-			result.addWarning("requestBody", "Content-Type header is missing")
+			result.addWarning(string(LocationRequestBody), "Content-Type header is missing")
 		}
 		return
 	}
@@ -335,7 +335,7 @@ func (v *Validator) validateRequestBody(req *http.Request, pathTemplate string, 
 	mediaType, _, err := mime.ParseMediaType(contentType)
 	if err != nil {
 		result.addError(
-			"requestBody",
+			string(LocationRequestBody),
 			fmt.Sprintf("invalid Content-Type header: %q", truncateForError(contentType, maxErrorValueLen)),
 			SeverityError,
 		)
@@ -347,7 +347,7 @@ func (v *Validator) validateRequestBody(req *http.Request, pathTemplate string, 
 		bodySchema = v.getRequestBodySchema(requestBody, mediaType)
 		if bodySchema == nil && flags.strictMode {
 			result.addError(
-				"requestBody",
+				string(LocationRequestBody),
 				fmt.Sprintf("unsupported Content-Type: %q", truncateForError(mediaType, maxErrorValueLen)),
 				SeverityError,
 			)
@@ -365,7 +365,7 @@ func (v *Validator) validateRequestBody(req *http.Request, pathTemplate string, 
 	// beyond the scope of basic request validation.
 	if strings.HasPrefix(mediaType, "multipart/") {
 		if flags.includeWarnings {
-			result.addWarning("requestBody", "multipart/form-data validation is limited")
+			result.addWarning(string(LocationRequestBody), "multipart/form-data validation is limited")
 		}
 		return
 	}
@@ -375,7 +375,7 @@ func (v *Validator) validateRequestBody(req *http.Request, pathTemplate string, 
 	body, readErr := io.ReadAll(io.LimitReader(req.Body, maxSize+1))
 	if readErr != nil {
 		result.addError(
-			"requestBody",
+			string(LocationRequestBody),
 			fmt.Sprintf("failed to read request body: %s", truncateForError(readErr.Error(), maxErrorValueLen)),
 			SeverityError,
 		)
@@ -383,7 +383,7 @@ func (v *Validator) validateRequestBody(req *http.Request, pathTemplate string, 
 	}
 
 	if int64(len(body)) > maxSize {
-		result.addError("requestBody",
+		result.addError(string(LocationRequestBody),
 			fmt.Sprintf("request body size %d bytes exceeds maximum %d bytes", len(body), maxSize),
 			SeverityError)
 		return
@@ -400,12 +400,12 @@ func (v *Validator) validateRequestBody(req *http.Request, pathTemplate string, 
 	case strings.HasPrefix(mediaType, "text/"):
 		// Text body - validate as string
 		if flags.includeWarnings && len(body) == 0 {
-			result.addWarning("requestBody", "request body is empty")
+			result.addWarning(string(LocationRequestBody), "request body is empty")
 		}
 
 	default:
 		if flags.includeWarnings {
-			result.addWarning("requestBody", fmt.Sprintf("cannot validate content type: %q", truncateForError(mediaType, maxErrorValueLen)))
+			result.addWarning(string(LocationRequestBody), fmt.Sprintf("cannot validate content type: %q", truncateForError(mediaType, maxErrorValueLen)))
 		}
 	}
 }
@@ -448,7 +448,7 @@ func matchMediaType(pattern, mediaType string) bool {
 
 // validateJSONBody validates a JSON request body against a schema.
 func (v *Validator) validateJSONBody(body []byte, schema *parser.Schema, result *RequestValidationResult) {
-	const path = "requestBody"
+	const path = string(LocationRequestBody)
 	if len(body) == 0 {
 		result.addError(path, "request body is empty", SeverityError)
 		return
@@ -485,7 +485,7 @@ func (v *Validator) validateFormBody(body []byte, schema *parser.Schema, pathTem
 	// OAS 3.x: Parse form data and validate against schema
 	parsed, parseErr := url.ParseQuery(string(body))
 	if parseErr != nil {
-		result.addError("requestBody", fmt.Sprintf("invalid form body: %s", truncateForError(parseErr.Error(), maxErrorValueLen)), SeverityError)
+		result.addError(string(LocationRequestBody), fmt.Sprintf("invalid form body: %s", truncateForError(parseErr.Error(), maxErrorValueLen)), SeverityError)
 		return
 	}
 	formData := make(map[string]any, len(parsed))
@@ -495,7 +495,7 @@ func (v *Validator) validateFormBody(body []byte, schema *parser.Schema, pathTem
 		}
 	}
 
-	errors := v.schemaValidator.Validate(formData, schema, "requestBody")
+	errors := v.schemaValidator.Validate(formData, schema, string(LocationRequestBody))
 	for _, err := range errors {
 		result.addError(err.Path, err.Message, err.Severity)
 	}
@@ -506,12 +506,12 @@ func (v *Validator) validateFormDataParams(body []byte, pathTemplate string, ope
 	// Parse form data
 	formValues, parseErr := url.ParseQuery(string(body))
 	if parseErr != nil {
-		result.addError("requestBody", fmt.Sprintf("invalid form body: %s", truncateForError(parseErr.Error(), maxErrorValueLen)), SeverityError)
+		result.addError(string(LocationRequestBody), fmt.Sprintf("invalid form body: %s", truncateForError(parseErr.Error(), maxErrorValueLen)), SeverityError)
 		return
 	}
 
 	// Get formData parameters
-	paramDefs := v.getParametersByLocation(pathTemplate, operation, "formData")
+	paramDefs := v.getParametersByLocation(pathTemplate, operation, parser.ParamInFormData)
 	defined := make(map[string]*parser.Parameter)
 	for _, param := range paramDefs {
 		defined[param.Name] = param

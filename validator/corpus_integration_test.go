@@ -3,7 +3,7 @@ package validator
 import (
 	"testing"
 
-	"github.com/erraggy/oastools/internal/corpusutil"
+	"github.com/erraggy/oastools/internal/corpustest"
 	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -11,11 +11,11 @@ import (
 
 // TestCorpus_Validate tests validation of all non-large corpus specifications.
 func TestCorpus_Validate(t *testing.T) {
-	specs := corpusutil.GetParseableSpecs(false) // Exclude large specs and specs with parsing issues
+	specs := corpustest.GetParseableSpecs(false) // Exclude large specs and specs with parsing issues
 
 	for _, spec := range specs {
 		t.Run(spec.Name, func(t *testing.T) {
-			corpusutil.SkipIfNotCached(t, spec)
+			corpustest.SkipIfNotCached(t, spec)
 
 			v := New()
 			v.IncludeWarnings = true
@@ -51,12 +51,12 @@ func TestCorpus_Validate(t *testing.T) {
 
 // TestCorpus_ValidSpecs specifically tests specs expected to pass validation.
 func TestCorpus_ValidSpecs(t *testing.T) {
-	validSpecs := corpusutil.GetValidSpecs(false)
+	validSpecs := corpustest.GetValidSpecs(false)
 
 	for _, spec := range validSpecs {
 		t.Run(spec.Name+"_Valid", func(t *testing.T) {
-			corpusutil.SkipIfNotCached(t, spec)
-			corpusutil.SkipIfHasParsingIssues(t, spec)
+			corpustest.SkipIfNotCached(t, spec)
+			corpustest.SkipIfHasParsingIssues(t, spec)
 
 			result, err := ValidateWithOptions(
 				WithFilePath(spec.GetLocalPath()),
@@ -84,11 +84,11 @@ func TestCorpus_ValidSpecs(t *testing.T) {
 
 // TestCorpus_InvalidSpecs specifically tests specs expected to fail validation.
 func TestCorpus_InvalidSpecs(t *testing.T) {
-	invalidSpecs := corpusutil.GetInvalidSpecs(false)
+	invalidSpecs := corpustest.GetInvalidSpecs(false)
 
 	for _, spec := range invalidSpecs {
 		t.Run(spec.Name+"_Invalid", func(t *testing.T) {
-			corpusutil.SkipIfNotCached(t, spec)
+			corpustest.SkipIfNotCached(t, spec)
 
 			result, err := ValidateWithOptions(
 				WithFilePath(spec.GetLocalPath()),
@@ -110,9 +110,9 @@ func TestCorpus_InvalidSpecs(t *testing.T) {
 
 // TestCorpus_StrictMode tests strict validation mode on Petstore.
 func TestCorpus_StrictMode(t *testing.T) {
-	spec := corpusutil.GetByName("Petstore")
+	spec := corpustest.GetByName("Petstore")
 	require.NotNil(t, spec, "Petstore spec should exist in corpus")
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	v := New()
 	v.StrictMode = true
@@ -130,9 +130,9 @@ func TestCorpus_StrictMode(t *testing.T) {
 
 // TestCorpus_OAS31Validation tests validation of OAS 3.1.0 spec (Discord).
 func TestCorpus_OAS31Validation(t *testing.T) {
-	spec := corpusutil.GetByName("Discord")
+	spec := corpustest.GetByName("Discord")
 	require.NotNil(t, spec, "Discord spec should exist in corpus")
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	v := New()
 	v.IncludeWarnings = true
@@ -149,9 +149,9 @@ func TestCorpus_OAS31Validation(t *testing.T) {
 
 // TestCorpus_OAS2Validation tests validation of OAS 2.0 spec (Petstore).
 func TestCorpus_OAS2Validation(t *testing.T) {
-	spec := corpusutil.GetByName("Petstore")
+	spec := corpustest.GetByName("Petstore")
 	require.NotNil(t, spec, "Petstore spec should exist in corpus")
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	v := New()
 	v.IncludeWarnings = true
@@ -167,9 +167,9 @@ func TestCorpus_OAS2Validation(t *testing.T) {
 
 // TestCorpus_ValidateParsed tests validation of pre-parsed documents.
 func TestCorpus_ValidateParsed(t *testing.T) {
-	spec := corpusutil.GetByName("Discord")
+	spec := corpustest.GetByName("Discord")
 	require.NotNil(t, spec)
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	// First parse, then validate
 	parseResult, err := parser.ParseWithOptions(

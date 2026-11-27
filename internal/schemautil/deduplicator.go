@@ -252,24 +252,3 @@ func (d *SchemaDeduplicator) canonicalName(group []string) string {
 	}
 	return canonical
 }
-
-// CanonicalName returns the canonical name for a schema name.
-// If the name is not an alias, it returns the name unchanged.
-func (r *DeduplicationResult) CanonicalName(name string) string {
-	if canonical, ok := r.Aliases[name]; ok {
-		return canonical
-	}
-	return name
-}
-
-// IsAlias returns true if the given name is an alias (not canonical).
-func (r *DeduplicationResult) IsAlias(name string) bool {
-	_, ok := r.Aliases[name]
-	return ok
-}
-
-// IsCanonical returns true if the given name is a canonical schema name.
-func (r *DeduplicationResult) IsCanonical(name string) bool {
-	_, ok := r.CanonicalSchemas[name]
-	return ok
-}

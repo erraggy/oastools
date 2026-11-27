@@ -34,6 +34,8 @@ type FileSplitter struct {
 }
 
 // NewFileSplitter creates a new FileSplitter with default settings.
+//
+// Deprecated: NewFileSplitter is not used by generator and will be removed in a future release.
 func NewFileSplitter() *FileSplitter {
 	return &FileSplitter{
 		MaxLinesPerFile:      2000,
@@ -92,6 +94,8 @@ type FileGroup struct {
 	Tag string
 
 	// PathPrefix is the path prefix (if grouped by path).
+	//
+	// Deprecated: PathPrefix is not used by generator and will be removed in a future release.
 	PathPrefix string
 }
 
@@ -110,6 +114,8 @@ type OperationInfo struct {
 	Tags []string
 
 	// ReferencedTypes contains the type names referenced by this operation.
+	//
+	// Deprecated: ReferencedTypes is not used by generator and will be removed in a future release.
 	ReferencedTypes []string
 
 	// EstimatedLines is the estimated lines of generated code.
@@ -117,6 +123,8 @@ type OperationInfo struct {
 }
 
 // TypeInfo contains information about a type/schema for grouping purposes.
+//
+// Deprecated: TypeInfo is not used by generator and will be removed in a future release.
 type TypeInfo struct {
 	// Name is the type name.
 	Name string
@@ -796,6 +804,8 @@ func (fs *FileSplitter) sanitizeGroupName(name string) string {
 }
 
 // GroupNameToTypeName converts a group name to a PascalCase type prefix.
+//
+// Deprecated: GroupNameToTypeName is not used by generator and will be removed in a future release.
 func GroupNameToTypeName(name string) string {
 	return toTypeName(name)
 }

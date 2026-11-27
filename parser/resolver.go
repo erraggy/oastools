@@ -608,32 +608,6 @@ func (r *RefResolver) buildExternalSourceMap(path string, data []byte) {
 	r.SourceMap.Merge(extMap)
 }
 
-// updateRefTargetLocation updates the Target field in a RefLocation
-// after the reference has been resolved.
-func (r *RefResolver) updateRefTargetLocation(refPath, targetRef string) {
-	if r.SourceMap == nil {
-		return
-	}
-
-	refLoc := r.SourceMap.GetRef(refPath)
-	if refLoc.TargetRef == "" {
-		return // No $ref tracked at this path
-	}
-
-	// Convert the $ref to a JSON path
-	targetPath := convertRefToJSONPath(targetRef)
-	if targetPath == "" {
-		return // External ref, can't resolve target location
-	}
-
-	// Look up the target location
-	targetLoc := r.SourceMap.Get(targetPath)
-	if targetLoc.IsKnown() {
-		refLoc.Target = targetLoc
-		r.SourceMap.setRef(refPath, refLoc)
-	}
-}
-
 // updateAllRefTargets updates Target locations for all refs in the source map.
 // This is called after reference resolution is complete to populate
 // target locations for all tracked $ref occurrences.

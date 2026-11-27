@@ -3,7 +3,7 @@
 //
 // This internal package contains common string transformation functions used
 // by multiple oastools packages including builder and joiner. Functions include
-// ToPascalCase, ToCamelCase, ToSnakeCase, ToKebabCase, and ToTitleCase.
+// ToPascalCase, ToCamelCase, ToSnakeCase, and ToKebabCase.
 //
 // These functions are used for:
 //   - Builder package: Schema and operation naming from titles

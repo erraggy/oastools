@@ -151,12 +151,3 @@ func formatDuration(d time.Duration) string {
 	}
 	return fmt.Sprintf("%.1fs", d.Seconds())
 }
-
-// ColorStatus returns a colored status string (for terminal output).
-// This is a placeholder - actual coloring would require terminal detection.
-func ColorStatus(success bool) string {
-	if success {
-		return "PASS"
-	}
-	return "FAIL"
-}

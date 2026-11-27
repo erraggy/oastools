@@ -201,43 +201,6 @@ func TestToKebabCase(t *testing.T) {
 	}
 }
 
-func TestToTitleCase(t *testing.T) {
-	tests := []struct {
-		name  string
-		input string
-		want  string
-	}{
-		// Empty and single characters
-		{name: "empty string", input: "", want: ""},
-		{name: "single lowercase letter", input: "a", want: "A"},
-		{name: "single uppercase letter", input: "A", want: "A"},
-		{name: "single digit", input: "1", want: "1"},
-
-		// Words
-		{name: "lowercase word", input: "hello", want: "Hello"},
-		{name: "uppercase word", input: "HELLO", want: "HELLO"},
-		{name: "mixed case", input: "hELLO", want: "HELLO"},
-		{name: "multiple words", input: "hello world", want: "Hello world"},
-		{name: "already titled", input: "Hello", want: "Hello"},
-
-		// Unicode
-		{name: "unicode lowercase", input: "über", want: "Über"},
-		{name: "unicode uppercase", input: "Über", want: "Über"},
-		{name: "japanese", input: "日本語", want: "日本語"},
-
-		// With separators (only first letter is affected)
-		{name: "snake_case", input: "hello_world", want: "Hello_world"},
-		{name: "kebab-case", input: "hello-world", want: "Hello-world"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := ToTitleCase(tt.input)
-			assert.Equal(t, tt.want, got, "ToTitleCase(%q)", tt.input)
-		})
-	}
-}
-
 // Edge case tests for additional coverage
 func TestEdgeCases(t *testing.T) {
 	t.Run("consecutive separators in PascalCase", func(t *testing.T) {

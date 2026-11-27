@@ -236,8 +236,6 @@ type Assertion struct {
 
 // DebugConfig contains debug settings for a scenario.
 type DebugConfig struct {
-	// DumpAfter specifies which steps should dump their output
-	DumpAfter []string `yaml:"dump-after,omitempty"`
 	// Verbose enables verbose logging
 	Verbose bool `yaml:"verbose,omitempty"`
 }

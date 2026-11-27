@@ -3,7 +3,6 @@ package builder
 import (
 	"testing"
 
-	"github.com/erraggy/oastools/internal/testutil"
 	"github.com/erraggy/oastools/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,12 +22,12 @@ func TestHasParamConstraints(t *testing.T) {
 		},
 		{
 			name:     "with minimum",
-			cfg:      &paramConfig{minimum: testutil.Ptr(1.0)},
+			cfg:      &paramConfig{minimum: new(1.0)},
 			expected: true,
 		},
 		{
 			name:     "with maximum",
-			cfg:      &paramConfig{maximum: testutil.Ptr(100.0)},
+			cfg:      &paramConfig{maximum: new(100.0)},
 			expected: true,
 		},
 		{
@@ -43,17 +42,17 @@ func TestHasParamConstraints(t *testing.T) {
 		},
 		{
 			name:     "with multipleOf",
-			cfg:      &paramConfig{multipleOf: testutil.Ptr(5.0)},
+			cfg:      &paramConfig{multipleOf: new(5.0)},
 			expected: true,
 		},
 		{
 			name:     "with minLength",
-			cfg:      &paramConfig{minLength: testutil.Ptr(1)},
+			cfg:      &paramConfig{minLength: new(1)},
 			expected: true,
 		},
 		{
 			name:     "with maxLength",
-			cfg:      &paramConfig{maxLength: testutil.Ptr(100)},
+			cfg:      &paramConfig{maxLength: new(100)},
 			expected: true,
 		},
 		{
@@ -63,12 +62,12 @@ func TestHasParamConstraints(t *testing.T) {
 		},
 		{
 			name:     "with minItems",
-			cfg:      &paramConfig{minItems: testutil.Ptr(1)},
+			cfg:      &paramConfig{minItems: new(1)},
 			expected: true,
 		},
 		{
 			name:     "with maxItems",
-			cfg:      &paramConfig{maxItems: testutil.Ptr(10)},
+			cfg:      &paramConfig{maxItems: new(10)},
 			expected: true,
 		},
 		{
@@ -98,7 +97,7 @@ func TestHasParamConstraints(t *testing.T) {
 // TestApplyParamConstraintsToSchema tests the applyParamConstraintsToSchema helper.
 func TestApplyParamConstraintsToSchema(t *testing.T) {
 	t.Run("nil schema", func(t *testing.T) {
-		result := applyParamConstraintsToSchema(nil, &paramConfig{minimum: testutil.Ptr(1.0)})
+		result := applyParamConstraintsToSchema(nil, &paramConfig{minimum: new(1.0)})
 		assert.Nil(t, result)
 	})
 
@@ -112,11 +111,11 @@ func TestApplyParamConstraintsToSchema(t *testing.T) {
 	t.Run("all numeric constraints", func(t *testing.T) {
 		schema := &parser.Schema{Type: "integer"}
 		cfg := &paramConfig{
-			minimum:          testutil.Ptr(1.0),
-			maximum:          testutil.Ptr(100.0),
+			minimum:          new(1.0),
+			maximum:          new(100.0),
 			exclusiveMinimum: true,
 			exclusiveMaximum: true,
-			multipleOf:       testutil.Ptr(5.0),
+			multipleOf:       new(5.0),
 		}
 		result := applyParamConstraintsToSchema(schema, cfg)
 		require.NotNil(t, result.Minimum)
@@ -132,8 +131,8 @@ func TestApplyParamConstraintsToSchema(t *testing.T) {
 	t.Run("all string constraints", func(t *testing.T) {
 		schema := &parser.Schema{Type: "string"}
 		cfg := &paramConfig{
-			minLength: testutil.Ptr(1),
-			maxLength: testutil.Ptr(50),
+			minLength: new(1),
+			maxLength: new(50),
 			pattern:   "^[a-zA-Z]+$",
 		}
 		result := applyParamConstraintsToSchema(schema, cfg)
@@ -147,8 +146,8 @@ func TestApplyParamConstraintsToSchema(t *testing.T) {
 	t.Run("all array constraints", func(t *testing.T) {
 		schema := &parser.Schema{Type: "array"}
 		cfg := &paramConfig{
-			minItems:    testutil.Ptr(1),
-			maxItems:    testutil.Ptr(10),
+			minItems:    new(1),
+			maxItems:    new(10),
 			uniqueItems: true,
 		}
 		result := applyParamConstraintsToSchema(schema, cfg)
@@ -177,16 +176,16 @@ func TestApplyParamConstraintsToParam(t *testing.T) {
 	t.Run("all constraints", func(t *testing.T) {
 		param := &parser.Parameter{}
 		cfg := &paramConfig{
-			minimum:          testutil.Ptr(1.0),
-			maximum:          testutil.Ptr(100.0),
+			minimum:          new(1.0),
+			maximum:          new(100.0),
 			exclusiveMinimum: true,
 			exclusiveMaximum: true,
-			multipleOf:       testutil.Ptr(5.0),
-			minLength:        testutil.Ptr(1),
-			maxLength:        testutil.Ptr(50),
+			multipleOf:       new(5.0),
+			minLength:        new(1),
+			maxLength:        new(50),
 			pattern:          "^[a-z]+$",
-			minItems:         testutil.Ptr(1),
-			maxItems:         testutil.Ptr(10),
+			minItems:         new(1),
+			maxItems:         new(10),
 			uniqueItems:      true,
 			enum:             []any{"a", "b"},
 			defaultValue:     "a",
@@ -221,14 +220,14 @@ func TestApplyParamConstraintsToParam(t *testing.T) {
 func TestValidateParamConstraints(t *testing.T) {
 	t.Run("valid constraints", func(t *testing.T) {
 		cfg := &paramConfig{
-			minimum:    testutil.Ptr(1.0),
-			maximum:    testutil.Ptr(100.0),
-			minLength:  testutil.Ptr(1),
-			maxLength:  testutil.Ptr(50),
-			minItems:   testutil.Ptr(0),
-			maxItems:   testutil.Ptr(10),
+			minimum:    new(1.0),
+			maximum:    new(100.0),
+			minLength:  new(1),
+			maxLength:  new(50),
+			minItems:   new(0),
+			maxItems:   new(10),
 			pattern:    "^[a-z]+$",
-			multipleOf: testutil.Ptr(5.0),
+			multipleOf: new(5.0),
 		}
 		err := validateParamConstraints(cfg)
 		assert.NoError(t, err)
@@ -236,8 +235,8 @@ func TestValidateParamConstraints(t *testing.T) {
 
 	t.Run("minimum greater than maximum", func(t *testing.T) {
 		cfg := &paramConfig{
-			minimum: testutil.Ptr(100.0),
-			maximum: testutil.Ptr(1.0),
+			minimum: new(100.0),
+			maximum: new(1.0),
 		}
 		err := validateParamConstraints(cfg)
 		require.Error(t, err)
@@ -247,8 +246,8 @@ func TestValidateParamConstraints(t *testing.T) {
 
 	t.Run("minLength greater than maxLength", func(t *testing.T) {
 		cfg := &paramConfig{
-			minLength: testutil.Ptr(100),
-			maxLength: testutil.Ptr(10),
+			minLength: new(100),
+			maxLength: new(10),
 		}
 		err := validateParamConstraints(cfg)
 		require.Error(t, err)
@@ -258,7 +257,7 @@ func TestValidateParamConstraints(t *testing.T) {
 
 	t.Run("negative minLength", func(t *testing.T) {
 		cfg := &paramConfig{
-			minLength: testutil.Ptr(-1),
+			minLength: new(-1),
 		}
 		err := validateParamConstraints(cfg)
 		require.Error(t, err)
@@ -268,7 +267,7 @@ func TestValidateParamConstraints(t *testing.T) {
 
 	t.Run("negative maxLength", func(t *testing.T) {
 		cfg := &paramConfig{
-			maxLength: testutil.Ptr(-1),
+			maxLength: new(-1),
 		}
 		err := validateParamConstraints(cfg)
 		require.Error(t, err)
@@ -278,8 +277,8 @@ func TestValidateParamConstraints(t *testing.T) {
 
 	t.Run("minItems greater than maxItems", func(t *testing.T) {
 		cfg := &paramConfig{
-			minItems: testutil.Ptr(10),
-			maxItems: testutil.Ptr(1),
+			minItems: new(10),
+			maxItems: new(1),
 		}
 		err := validateParamConstraints(cfg)
 		require.Error(t, err)
@@ -289,7 +288,7 @@ func TestValidateParamConstraints(t *testing.T) {
 
 	t.Run("negative minItems", func(t *testing.T) {
 		cfg := &paramConfig{
-			minItems: testutil.Ptr(-1),
+			minItems: new(-1),
 		}
 		err := validateParamConstraints(cfg)
 		require.Error(t, err)
@@ -299,7 +298,7 @@ func TestValidateParamConstraints(t *testing.T) {
 
 	t.Run("negative maxItems", func(t *testing.T) {
 		cfg := &paramConfig{
-			maxItems: testutil.Ptr(-1),
+			maxItems: new(-1),
 		}
 		err := validateParamConstraints(cfg)
 		require.Error(t, err)
@@ -309,7 +308,7 @@ func TestValidateParamConstraints(t *testing.T) {
 
 	t.Run("zero multipleOf", func(t *testing.T) {
 		cfg := &paramConfig{
-			multipleOf: testutil.Ptr(0.0),
+			multipleOf: new(0.0),
 		}
 		err := validateParamConstraints(cfg)
 		require.Error(t, err)
@@ -319,7 +318,7 @@ func TestValidateParamConstraints(t *testing.T) {
 
 	t.Run("negative multipleOf", func(t *testing.T) {
 		cfg := &paramConfig{
-			multipleOf: testutil.Ptr(-5.0),
+			multipleOf: new(-5.0),
 		}
 		err := validateParamConstraints(cfg)
 		require.Error(t, err)
@@ -345,7 +344,7 @@ func TestValidateParamConstraints(t *testing.T) {
 
 	t.Run("nil config fields are valid", func(t *testing.T) {
 		cfg := &paramConfig{
-			minimum: testutil.Ptr(1.0), // Only minimum set, no maximum
+			minimum: new(1.0), // Only minimum set, no maximum
 		}
 		err := validateParamConstraints(cfg)
 		assert.NoError(t, err)
@@ -353,12 +352,12 @@ func TestValidateParamConstraints(t *testing.T) {
 
 	t.Run("multiple errors joined", func(t *testing.T) {
 		cfg := &paramConfig{
-			minimum:    testutil.Ptr(100.0),
-			maximum:    testutil.Ptr(1.0), // min > max
-			minLength:  testutil.Ptr(-1),  // negative
-			maxLength:  testutil.Ptr(-2),  // negative
-			multipleOf: testutil.Ptr(0.0), // not positive
-			pattern:    "[invalid",        // invalid regex
+			minimum:    new(100.0),
+			maximum:    new(1.0),   // min > max
+			minLength:  new(-1),    // negative
+			maxLength:  new(-2),    // negative
+			multipleOf: new(0.0),   // not positive
+			pattern:    "[invalid", // invalid regex
 		}
 		err := validateParamConstraints(cfg)
 		require.Error(t, err)

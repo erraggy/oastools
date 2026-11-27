@@ -1,4 +1,4 @@
-// Package conformance reads the OpenAPI Specification conformance suite
+// Package conformancetest reads the OpenAPI Specification conformance suite
 // vendored under testdata/conformance.
 //
 // The suite is OAI's own, published per version at tests/schema/{pass,fail} on
@@ -21,4 +21,4 @@
 // fixture that oastools rejects is a triage item that may turn out to be
 // correct. tests/schema/pass/operation-object-example.yaml on 3.2 is the known
 // case, being schema-valid and specification-invalid.
-package conformance
+package conformancetest

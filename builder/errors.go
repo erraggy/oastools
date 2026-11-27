@@ -208,6 +208,8 @@ func NewInvalidMethodError(method, path string) *BuilderError {
 }
 
 // NewParameterConstraintError creates an error for parameter constraint violations.
+//
+// Deprecated: NewParameterConstraintError is not used by builder and will be removed in a future release.
 func NewParameterConstraintError(paramName, operationContext, field, message string) *BuilderError {
 	return &BuilderError{
 		Component: ComponentParameter,
@@ -237,6 +239,8 @@ func NewInfoError(field, message string) *BuilderError {
 }
 
 // NewSchemaError creates an error for schema-related issues.
+//
+// Deprecated: NewSchemaError is not used by builder and will be removed in a future release.
 func NewSchemaError(schemaName, message string, cause error) *BuilderError {
 	return &BuilderError{
 		Component: ComponentSchema,

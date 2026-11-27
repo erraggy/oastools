@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/erraggy/oastools/internal/corpusutil"
+	"github.com/erraggy/oastools/internal/corpustest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -14,11 +14,11 @@ import (
 // TestCorpus_Generate tests code generation for all non-large corpus specifications.
 // This test ensures generated code is valid Go syntax by parsing it.
 func TestCorpus_Generate(t *testing.T) {
-	specs := corpusutil.GetParseableSpecs(false) // Exclude large specs and specs with parsing issues
+	specs := corpustest.GetParseableSpecs(false) // Exclude large specs and specs with parsing issues
 
 	for _, spec := range specs {
 		t.Run(spec.Name, func(t *testing.T) {
-			corpusutil.SkipIfNotCached(t, spec)
+			corpustest.SkipIfNotCached(t, spec)
 
 			g := New()
 			g.PackageName = "testpkg"
@@ -58,11 +58,11 @@ func TestCorpus_Generate(t *testing.T) {
 
 // TestCorpus_GenerateTypesOnly tests type generation for corpus specs.
 func TestCorpus_GenerateTypesOnly(t *testing.T) {
-	specs := corpusutil.GetParseableSpecs(false)
+	specs := corpustest.GetParseableSpecs(false)
 
 	for _, spec := range specs {
 		t.Run(spec.Name+"_TypesOnly", func(t *testing.T) {
-			corpusutil.SkipIfNotCached(t, spec)
+			corpustest.SkipIfNotCached(t, spec)
 
 			result, err := GenerateWithOptions(
 				WithFilePath(spec.GetLocalPath()),
@@ -94,12 +94,12 @@ func TestCorpus_GenerateClient(t *testing.T) {
 	specNames := []string{"Discord", "GoogleMaps", "GitHub", "Asana"}
 
 	for _, name := range specNames {
-		spec := corpusutil.GetByName(name)
+		spec := corpustest.GetByName(name)
 		require.NotNil(t, spec, "Spec %s should exist in corpus", name)
 
 		t.Run(spec.Name+"_Client", func(t *testing.T) {
-			corpusutil.SkipIfNotCached(t, *spec)
-			corpusutil.SkipIfHasParsingIssues(t, *spec)
+			corpustest.SkipIfNotCached(t, *spec)
+			corpustest.SkipIfHasParsingIssues(t, *spec)
 
 			result, err := GenerateWithOptions(
 				WithFilePath(spec.GetLocalPath()),
@@ -126,9 +126,9 @@ func TestCorpus_GenerateClient(t *testing.T) {
 
 // TestCorpus_OAS2Generation tests generation for OAS 2.0 (Swagger) specs.
 func TestCorpus_OAS2Generation(t *testing.T) {
-	spec := corpusutil.GetByName("Petstore")
+	spec := corpustest.GetByName("Petstore")
 	require.NotNil(t, spec, "Petstore spec should exist in corpus")
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	result, err := GenerateWithOptions(
 		WithFilePath(spec.GetLocalPath()),
@@ -159,9 +159,9 @@ func TestCorpus_OAS2Generation(t *testing.T) {
 
 // TestCorpus_OAS31Generation tests generation for OAS 3.1.0 specs.
 func TestCorpus_OAS31Generation(t *testing.T) {
-	spec := corpusutil.GetByName("Discord")
+	spec := corpustest.GetByName("Discord")
 	require.NotNil(t, spec, "Discord spec should exist in corpus")
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	result, err := GenerateWithOptions(
 		WithFilePath(spec.GetLocalPath()),

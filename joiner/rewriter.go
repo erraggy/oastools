@@ -3,7 +3,6 @@ package joiner
 import (
 	"fmt"
 	"reflect"
-	"strings"
 
 	"github.com/erraggy/oastools/internal/pathutil"
 	"github.com/erraggy/oastools/internal/schemautil"
@@ -530,17 +529,4 @@ func (r *SchemaRewriter) rewriteOperation(op *parser.Operation) {
 	for _, callback := range op.Callbacks {
 		r.rewriteCallback(callback)
 	}
-}
-
-// extractSchemaName extracts the schema name from a $ref path
-func extractSchemaName(ref string) string {
-	// Handle "#/components/schemas/Name"
-	if name, found := strings.CutPrefix(ref, pathutil.RefPrefixSchemas); found {
-		return pathutil.UnescapeRefToken(name)
-	}
-	// Handle "#/definitions/Name"
-	if name, found := strings.CutPrefix(ref, pathutil.RefPrefixDefinitions); found {
-		return pathutil.UnescapeRefToken(name)
-	}
-	return ""
 }

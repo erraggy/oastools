@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/erraggy/oastools/internal/corpusutil"
+	"github.com/erraggy/oastools/internal/corpustest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,9 +18,9 @@ func TestCorpus_LargeSpecs_Validate(t *testing.T) {
 		t.Skip("Skipping large spec tests (SKIP_LARGE_TESTS=1)")
 	}
 
-	for _, spec := range corpusutil.GetLargeSpecs() {
+	for _, spec := range corpustest.GetLargeSpecs() {
 		t.Run(spec.Name, func(t *testing.T) {
-			corpusutil.SkipIfNotCached(t, spec)
+			corpustest.SkipIfNotCached(t, spec)
 
 			v := New()
 			v.IncludeWarnings = false // Skip warnings for large specs
@@ -50,9 +50,9 @@ func TestCorpus_Stripe_Validate(t *testing.T) {
 		t.Skip("Skipping large spec tests (SKIP_LARGE_TESTS=1)")
 	}
 
-	spec := corpusutil.GetByName("Stripe")
+	spec := corpustest.GetByName("Stripe")
 	require.NotNil(t, spec)
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	v := New()
 	v.IncludeWarnings = true
@@ -73,9 +73,9 @@ func TestCorpus_MicrosoftGraph_Validate(t *testing.T) {
 		t.Skip("Skipping large spec tests (SKIP_LARGE_TESTS=1)")
 	}
 
-	spec := corpusutil.GetByName("MicrosoftGraph")
+	spec := corpustest.GetByName("MicrosoftGraph")
 	require.NotNil(t, spec)
-	corpusutil.SkipIfNotCached(t, *spec)
+	corpustest.SkipIfNotCached(t, *spec)
 
 	v := New()
 	v.IncludeWarnings = false // Too many warnings

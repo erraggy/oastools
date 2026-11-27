@@ -81,14 +81,3 @@ func ToSnakeCase(s string) string {
 func ToKebabCase(s string) string {
 	return strings.ReplaceAll(ToSnakeCase(s), "_", "-")
 }
-
-// ToTitleCase converts the first letter to uppercase.
-// Example: "hello" -> "Hello"
-func ToTitleCase(s string) string {
-	if s == "" {
-		return ""
-	}
-	runes := []rune(s)
-	runes[0] = unicode.ToUpper(runes[0])
-	return string(runes)
-}
