@@ -49,15 +49,17 @@ func TestDocCodeExampleAPISync(t *testing.T) {
 	// Internal package names that should not be referenced in doc code examples.
 	// Value is the suggested public package to use instead (empty if no direct equivalent).
 	internalPkgs := map[string]string{
-		"severity":   "differ",
-		"httputil":   "",
-		"jsonpath":   "",
-		"maputil":    "",
-		"naming":     "",
-		"pathutil":   "",
-		"schemautil": "",
-		"stringutil": "",
-		"testutil":   "",
+		"severity":        "differ",
+		"httputil":        "",
+		"jsonpath":        "",
+		"maputil":         "",
+		"naming":          "",
+		"pathutil":        "",
+		"schemautil":      "",
+		"stringutil":      "",
+		"corpustest":      "",
+		"conformancetest": "",
+		"inforules":       "",
 	}
 
 	// Build regex for matching qualified references: knownPkg.ExportedSymbol.

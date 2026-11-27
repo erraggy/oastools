@@ -153,7 +153,7 @@ make clean # Remove build artifacts
 - **differ/** - Compare OAS files, detect breaking changes by severity
 - **generator/** - Generate Go code (clients, servers, types) from OAS files
 - **builder/** - Build OAS documents programmatically with reflection-based schema generation
-- **internal/** - Shared utilities (httputil, severity, issues, testutil)
+- **internal/** - Shared utilities (httputil, severity, issues, schemautil)
 - **testdata/** - Test fixtures including sample OAS files
 
 Each public package includes `doc.go` (package docs) and `example_test.go` (godoc examples).

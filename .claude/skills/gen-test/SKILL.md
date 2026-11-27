@@ -43,7 +43,7 @@ ls -la $(dirname "$FILE")/*_test.go 2>/dev/null | head -5
 Read 1-2 existing test files to understand:
 
 - Table-driven test patterns used
-- Test helper usage (`testutil`, `require`, `assert`)
+- Test helper usage (`require`, `assert`)
 - Fixture/testdata patterns
 - Subtests structure
 
@@ -57,7 +57,7 @@ Create or append to the `*_test.go` file following these conventions:
 2. **Table-driven tests**: Use `tests := []struct{...}` pattern
 3. **Subtests**: Use `t.Run(tt.name, func(t *testing.T) {...})`
 4. **Descriptive names**: Test case names should describe the scenario
-5. **testutil helpers**: Use `testutil.LoadSpec()` for loading OAS fixtures
+5. **Pointer literals**: use Go 1.26 `new(expr)` (e.g. `new(true)`, `new(5)`); there is no shared pointer helper. Load fixtures from `testdata/` with `filepath.Join("..", "testdata", ...)`
 
 ### Template Structure
 

@@ -50,7 +50,7 @@ sha256() {
 # content, in a byte-stable order. Counts alone cannot see a fixture edited in
 # place, nor one version's fixtures vendored into another's directory when both
 # publish the same names, which 3.2 and 3.3 do for all 37 of their pass
-# fixtures. internal/conformance recomputes this identically.
+# fixtures. internal/conformancetest recomputes this identically.
 digest_version() {
 	local vdir="$1" kind f
 	{

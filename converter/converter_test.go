@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// --- Test helpers (inlined from internal/testutil) ---
+// --- Test helpers ---
 
 // newSimpleOAS2Document creates a minimal OAS 2.0 document for testing.
 // Contains only required fields: swagger, info, host, basePath, schemes, paths.
