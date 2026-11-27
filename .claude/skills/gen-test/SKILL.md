@@ -57,7 +57,7 @@ Create or append to the `*_test.go` file following these conventions:
 2. **Table-driven tests**: Use `tests := []struct{...}` pattern
 3. **Subtests**: Use `t.Run(tt.name, func(t *testing.T) {...})`
 4. **Descriptive names**: Test case names should describe the scenario
-5. **Pointer literals**: use Go 1.26 `new(expr)` (e.g. `new(true)`, `new(5)`); there is no shared pointer helper. Load fixtures from `testdata/` with `filepath.Join("..", "testdata", ...)`
+5. **Pointer literals**: use Go 1.26 `new(expr)` (e.g. `new(true)`, `new(5)`); there is no shared pointer helper. Load fixtures from the repository's `testdata/` with a path relative to the test package (`filepath.Join("..", "testdata", ...)` from a top-level package, one more `".."` per level below it)
 
 ### Template Structure
 
