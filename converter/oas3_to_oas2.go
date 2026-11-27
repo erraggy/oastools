@@ -46,6 +46,7 @@ func (c *Converter) convertOAS3ToOAS2(parseResult parser.ParseResult, result *Co
 		Tags:       deepCopyTags(src.Tags),
 		Extra:      parser.DeepCopyExtensions(src.Extra),
 	}
+	c.dropOAS31InfoFields(dst.Info, parser.OASVersion20, result)
 
 	// Convert servers to host/basePath/schemes
 	c.convertServersToHostBasePath(src, dst, result)
