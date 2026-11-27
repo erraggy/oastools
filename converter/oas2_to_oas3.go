@@ -24,6 +24,8 @@ func (c *Converter) convertOAS2ToOAS3(parseResult parser.ParseResult, targetVers
 		Tags:       deepCopyTags(src.Tags),
 		Extra:      parser.DeepCopyExtensions(src.Extra),
 	}
+	c.dropOAS31InfoFields(dst.Info, targetVersion, result)
+	c.dropFreeTextTermsOfService(dst.Info, result)
 
 	// Convert components
 	if src.Definitions != nil || src.Parameters != nil || src.Responses != nil || src.SecurityDefinitions != nil {
