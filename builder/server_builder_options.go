@@ -46,14 +46,21 @@ func WithErrorHandler(handler ErrorHandler) ServerBuilderOption {
 	}
 }
 
-// WithNotFoundHandler sets the handler for unmatched paths.
+// WithNotFoundHandler sets the handler that serves every 404 the server
+// produces, which is a request whose path matches no operation. It is called
+// whether or not request validation is enabled, since routing runs first.
+// Default: http.NotFound.
 func WithNotFoundHandler(handler http.Handler) ServerBuilderOption {
 	return func(cfg *serverBuilderConfig) {
 		cfg.notFoundHandler = handler
 	}
 }
 
-// WithMethodNotAllowedHandler sets the handler for unmatched methods.
+// WithMethodNotAllowedHandler sets the handler that serves the 405 for a
+// request whose path matches an operation but whose method does not. The
+// Allow header listing the path's methods is already set when the handler is
+// called. It is called whether or not request validation is enabled, since
+// routing runs first. Default: a plain-text "Method Not Allowed" response.
 func WithMethodNotAllowedHandler(handler http.Handler) ServerBuilderOption {
 	return func(cfg *serverBuilderConfig) {
 		cfg.methodNotAllowed = handler
