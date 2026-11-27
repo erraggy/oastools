@@ -533,6 +533,10 @@ which removed the requirement. Enforcing a constraint no version states is the
 same class of defect as missing one, and both are gated per version rather than
 applied everywhere.
 
+The 3.1 Info fields are gated the same way: `info.summary` and
+`info.license.identifier` are errors before 3.1 (see
+[Info Object Validation](#info-object-validation)).
+
 [Back to top](#top)
 
 ---

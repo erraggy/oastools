@@ -583,8 +583,9 @@ func (b *Builder) prepareBuild() error {
 }
 
 // checkErrors checks for accumulated errors during building.
-// The builder does not perform OAS specification validation.
-// Use the validator package to validate built documents.
+// The builder does not perform full OAS specification validation; it checks
+// only the info object, through infoErrors. Use the validator package to
+// validate the rest of a built document.
 //
 // Returns a BuilderErrors collection if there are errors, which provides
 // detailed locality information for each error including component type,

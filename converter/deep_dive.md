@@ -440,6 +440,7 @@ fmt.Printf("\nTotal critical issues across all files: %d\n", totalCritical)
 | `type: file` | Binary string + format | `type: string, format: binary` |
 | `discriminator: petType` | `discriminator.propertyName` | Bare string promoted to the object form |
 | `collectionFormat` | `style` + `explode` | Mapping varies by format |
+| `info.termsOfService` (free text) | Dropped unless it is a URL | Warning issued; OAS 3.x requires a URL |
 
 **Server URL Construction:**
 
@@ -499,6 +500,7 @@ requestBody:
 | `discriminator` object | Bare string | `propertyName` preserved as the OAS 2.0 string form |
 | `discriminator.mapping` | Dropped | Warning issued (OAS 2.0 resolves by schema name only) |
 | `discriminator` extensions (`x-*`) | Dropped | Warning issued (the bare string has no object to hold them) |
+| `info.summary`, `info.license.identifier` (3.1+) | Dropped | Warning issued; no OAS 2.0 equivalent, and no `license.url` is synthesized |
 
 **Server URL Decomposition:**
 
@@ -563,6 +565,10 @@ discarding a field the author wrote is worse than returning something that needs
 a decision, and the report names what to decide about. Validate the result
 against the target version before shipping it.
 
+Info fields are the exception: `info.summary` and `info.license.identifier` are
+dropped with a warning when the target is below 3.1 (see the OAS 3.1 to OAS 3.0
+table).
+
 [Back to top](#top)
 
 ---
@@ -578,6 +584,7 @@ against the target version before shipping it.
 | `$comment` | Dropped | JSON Schema keyword with no OAS 3.0 equivalent |
 | `unevaluatedProperties` | Dropped | JSON Schema keyword with no OAS 3.0 equivalent |
 | `prefixItems` | `items` tuple form | Positions are preserved: draft 4 spells a tuple as an array in `items` |
+| `info.summary`, `info.license.identifier` | Dropped | Warning issued; introduced in 3.1 |
 
 [Back to top](#top)
 

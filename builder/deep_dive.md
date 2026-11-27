@@ -831,7 +831,7 @@ func main() {
 
 ### Integration with Validator
 
-Validate built documents before using them:
+Build methods already refuse a document whose info object breaks a spec rule (missing title or version, a license without a name, a malformed URL or email, or a 3.1 field such as `summary` on an earlier version). Validate built documents for everything else before using them:
 
 ```go
 package main
@@ -1047,7 +1047,9 @@ The package provides testing helpers for writing handler tests without starting 
 
 ```go
 func TestListPets(t *testing.T) {
-    srv := builder.NewServerBuilder(parser.OASVersion320, builder.WithoutValidation())
+    srv := builder.NewServerBuilder(parser.OASVersion320, builder.WithoutValidation()).
+        SetTitle("Pet API").
+        SetVersion("1.0.0")
 
     srv.AddOperation(http.MethodGet, "/pets",
         builder.WithOperationID("listPets"),
@@ -1118,7 +1120,7 @@ result := srv.MustBuildServer()
 | `WithErrorHandler(fn)` | Custom error handler |
 | `WithNotFoundHandler(h)` | Custom handler for every 404 (path matches no operation) |
 | `WithMethodNotAllowedHandler(h)` | Custom handler for the 405 (path matches, method does not); `Allow` is already set when `h` runs |
-| `WithRouter(strategy)` | Set the routing strategy |
+| `WithRouter(strategy)` | Set the routing strategy (the stdlib router is the only implementation) |
 | `WithStdlibRouter()` | Use net/http with PathMatcherSet for routing (default) |
 
 [↑ Back to top](#top)
