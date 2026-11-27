@@ -254,16 +254,11 @@ func (s *ServerBuilder) BuildServer() (*ServerResult, error) {
 	// Create dispatcher
 	dispatcher := s.buildDispatcher(routes, validator)
 
-	// Build router
-	handler, err := s.router.Build(routes, dispatcher)
+	// Build router. Request validation runs inside the dispatcher, after a
+	// route and method have matched, so an unmatched request gets 404 or 405.
+	handler, err := s.routerForBuild().Build(routes, dispatcher)
 	if err != nil {
 		return nil, fmt.Errorf("builder: failed to build router: %w", err)
-	}
-
-	// Add validation middleware if enabled
-	if s.config.enableValidation && validator != nil {
-		validationMW := validationMiddleware(validator, s.config.validationConfig)
-		handler = validationMW(handler)
 	}
 
 	// Add recovery middleware if enabled
@@ -287,6 +282,21 @@ func (s *ServerBuilder) BuildServer() (*ServerResult, error) {
 		ParseResult: parseResult,
 		Validator:   validator,
 	}, nil
+}
+
+// routerForBuild returns the router to build with. A configured not-found
+// handler is applied to a copy of the stdlib router, so the router value held
+// by the options is never mutated.
+func (s *ServerBuilder) routerForBuild() RouterStrategy {
+	if s.config.notFoundHandler == nil {
+		return s.router
+	}
+	if sr, ok := s.router.(*stdlibRouter); ok && sr != nil {
+		r := *sr
+		r.notFound = s.config.notFoundHandler
+		return &r
+	}
+	return s.router
 }
 
 // MustBuildServer is like BuildServer but panics on error.

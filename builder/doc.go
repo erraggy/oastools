@@ -614,7 +614,15 @@
 //		builder.WithRequestLogging(loggingFunc),        // Enable request logging
 //		builder.WithErrorHandler(customErrorHandler),   // Custom error handler
 //		builder.WithNotFoundHandler(custom404Handler),  // Custom 404 handler
+//		builder.WithMethodNotAllowedHandler(custom405), // Custom 405 handler
 //	)
+//
+// Routing runs before request validation, so a path that matches no operation
+// gets 404 and a known path with an unsupported method gets 405 (with the
+// Allow header set), whether or not validation is enabled. Validation runs
+// only for a request that matched an operation. The handler passed to
+// WithMethodNotAllowedHandler is called with the Allow header already set.
+// The server validates requests only; it does not validate responses.
 //
 // # Middleware
 //

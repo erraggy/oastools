@@ -14,50 +14,91 @@ import (
 	"github.com/erraggy/oastools/internal/maputil"
 )
 
-// dispatcher handles routing validated requests to handlers.
+// dispatcher resolves the matched path and method to an operation, then runs
+// that operation's handler chain.
 type dispatcher struct {
-	routes       map[string]map[string]operationRoute // path -> method -> route
-	errorHandler ErrorHandler
+	routes           map[string]map[string]operationRoute // path -> method -> route
+	chains           map[string]map[string]http.Handler   // path -> method -> validation, then invoke
+	errorHandler     ErrorHandler
+	notFound         http.Handler
+	methodNotAllowed http.Handler
 }
 
 // buildDispatcher creates the dispatcher that routes requests to handlers.
-// The validator parameter is reserved for future response validation integration.
-func (s *ServerBuilder) buildDispatcher(routes []operationRoute, _ *httpvalidator.Validator) http.Handler {
+// When validator is non-nil, each operation's chain validates the request
+// before invoking the handler, so validation runs only for a request whose
+// path and method already matched an operation.
+func (s *ServerBuilder) buildDispatcher(routes []operationRoute, validator *httpvalidator.Validator) http.Handler {
 	d := &dispatcher{
-		routes:       make(map[string]map[string]operationRoute),
-		errorHandler: s.errorHandler,
+		routes:           make(map[string]map[string]operationRoute),
+		chains:           make(map[string]map[string]http.Handler),
+		errorHandler:     s.errorHandler,
+		notFound:         s.config.notFoundHandler,
+		methodNotAllowed: s.config.methodNotAllowed,
+	}
+
+	var validate Middleware
+	if validator != nil {
+		validate = validationMiddleware(validator, s.config.validationConfig)
 	}
 
 	// Index routes by path and method
 	for _, route := range routes {
 		if d.routes[route.Path] == nil {
 			d.routes[route.Path] = make(map[string]operationRoute)
+			d.chains[route.Path] = make(map[string]http.Handler)
 		}
 		d.routes[route.Path][route.Method] = route
+
+		var chain http.Handler = d.invoke(route)
+		if validate != nil {
+			chain = validate(chain)
+		}
+		d.chains[route.Path][route.Method] = chain
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Get matched path from context
 		matchedPath, _ := r.Context().Value(matchedPathKey{}).(string)
 		if matchedPath == "" {
-			http.NotFound(w, r)
+			d.serveNotFound(w, r)
 			return
 		}
 
 		// Find route
 		methods, ok := d.routes[matchedPath]
 		if !ok {
-			http.NotFound(w, r)
+			d.serveNotFound(w, r)
 			return
 		}
 
-		route, ok := methods[r.Method]
-		if !ok {
+		if _, ok := methods[r.Method]; !ok {
 			w.Header().Set("Allow", strings.Join(d.allowedMethods(methods), ", "))
+			if d.methodNotAllowed != nil {
+				d.methodNotAllowed.ServeHTTP(w, r)
+				return
+			}
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
+		d.chains[matchedPath][r.Method].ServeHTTP(w, r)
+	})
+}
+
+// serveNotFound writes the 404 response, using the configured handler if any.
+func (d *dispatcher) serveNotFound(w http.ResponseWriter, r *http.Request) {
+	if d.notFound != nil {
+		d.notFound.ServeHTTP(w, r)
+		return
+	}
+	http.NotFound(w, r)
+}
+
+// invoke returns the handler that calls route's operation handler and writes
+// its response.
+func (d *dispatcher) invoke(route operationRoute) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		// Check if handler is registered
 		if route.Handler == nil {
 			operationInfo := route.Path
@@ -83,7 +124,7 @@ func (s *ServerBuilder) buildDispatcher(routes []operationRoute, _ *httpvalidato
 			// When error handler is nil or doesn't write a response,
 			// there's nothing more we can do - the response may be partially written
 		}
-	})
+	}
 }
 
 // buildRequest creates a Request from an http.Request and route.

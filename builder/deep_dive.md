@@ -1039,6 +1039,8 @@ srv := builder.NewServerBuilder(parser.OASVersion320,
 
 Invalid requests are rejected before reaching your handlers, ensuring your handlers receive only valid data.
 
+Routing runs first: a path that matches no operation gets 404, and a known path with an unsupported method gets 405 with an `Allow` header, whether or not validation is enabled. Validation runs only for a request that matched an operation. The server validates requests only; `ValidationConfig.IncludeResponseValidation` is deprecated and has no effect.
+
 **Testing Utilities:**
 
 The package provides testing helpers for writing handler tests without starting a real server:
@@ -1114,8 +1116,8 @@ result := srv.MustBuildServer()
 | `WithRecovery()` | Enable panic recovery middleware |
 | `WithRequestLogging(fn)` | Enable request logging with a logger function |
 | `WithErrorHandler(fn)` | Custom error handler |
-| `WithNotFoundHandler(h)` | Custom 404 handler |
-| `WithMethodNotAllowedHandler(h)` | Custom 405 handler |
+| `WithNotFoundHandler(h)` | Custom handler for every 404 (path matches no operation) |
+| `WithMethodNotAllowedHandler(h)` | Custom handler for the 405 (path matches, method does not); `Allow` is already set when `h` runs |
 | `WithRouter(strategy)` | Set the routing strategy |
 | `WithStdlibRouter()` | Use net/http with PathMatcherSet for routing (default) |
 

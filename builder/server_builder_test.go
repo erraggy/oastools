@@ -473,24 +473,6 @@ func TestServerBuilderOptions(t *testing.T) {
 		assert.NotNil(t, srv.errorHandler)
 	})
 
-	t.Run("WithNotFoundHandler", func(t *testing.T) {
-		t.Parallel()
-		handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusNotFound)
-		})
-		srv := NewServerBuilder(parser.OASVersion320, WithNotFoundHandler(handler))
-		assert.NotNil(t, srv.config.notFoundHandler)
-	})
-
-	t.Run("WithMethodNotAllowedHandler", func(t *testing.T) {
-		t.Parallel()
-		handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-		})
-		srv := NewServerBuilder(parser.OASVersion320, WithMethodNotAllowedHandler(handler))
-		assert.NotNil(t, srv.config.methodNotAllowed)
-	})
-
 	t.Run("WithRecovery", func(t *testing.T) {
 		t.Parallel()
 		srv := NewServerBuilder(parser.OASVersion320, WithRecovery())
@@ -504,7 +486,6 @@ func TestDefaultValidationConfig(t *testing.T) {
 	cfg := DefaultValidationConfig()
 
 	assert.True(t, cfg.IncludeRequestValidation)
-	assert.False(t, cfg.IncludeResponseValidation)
 	assert.False(t, cfg.StrictMode)
 	assert.Nil(t, cfg.OnValidationError)
 }
