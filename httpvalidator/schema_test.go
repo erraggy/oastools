@@ -138,6 +138,12 @@ func TestSchemaValidator_ValidateFormat(t *testing.T) {
 		expectError bool
 	}{
 		{"valid email", "test@example.com", "email", false},
+		{"valid email with apostrophe", "o'brien@example.com", "email", false},
+		{"valid email with exclamation", "ops!team@example.com", "email", false},
+		{"valid email with punycode", "team@example.xn--p1ai", "email", false},
+		{"valid email with single-label domain", "user@localhost", "email", false},
+		{"valid email with quoted local part", `"john doe"@example.com`, "email", false},
+		{"valid email with address literal", "user@[192.168.1.1]", "email", false},
 		{"invalid email", "not-an-email", "email", true},
 		{"valid uri http", "http://example.com", "uri", false},
 		{"valid uri https", "https://example.com", "uri", false},

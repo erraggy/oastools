@@ -84,6 +84,7 @@ func TestCheck_VersionScopedRules(t *testing.T) {
 
 		{"contact", func(i *parser.Info) { i.Contact = &parser.Contact{URL: "x y", Email: "y"} }, parser.OASVersion20,
 			[]string{"info.contact.url", "info.contact.email"}},
+		{"valid rfc5321 contact email", func(i *parser.Info) { i.Contact = &parser.Contact{Email: "o'brien@example.com"} }, parser.OASVersion303, nil},
 	}
 
 	for _, tt := range tests {
