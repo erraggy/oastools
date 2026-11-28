@@ -57,6 +57,7 @@ func WithServerVariable(name, defaultValue string, opts ...ServerVariableOption)
 
 		cfg.variables[name] = parser.ServerVariable{
 			Default:     defaultValue,
+			DefaultSet:  true,
 			Enum:        varCfg.enum,
 			Description: varCfg.description,
 		}

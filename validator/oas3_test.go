@@ -223,6 +223,123 @@ func TestValidateOAS3Servers_MultipleServers(t *testing.T) {
 	assert.True(t, foundDefaultError, "Should have error about servers[2].variables.port missing default")
 }
 
+func TestValidateOAS3Servers_VariableEmptyDefault(t *testing.T) {
+	tests := []struct {
+		name      string
+		spec      string
+		wantError bool
+		errField  string
+		errMsg    string
+	}{
+		{
+			name: "OAS 3.0 YAML empty string default with matching enum",
+			spec: `openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}
+servers:
+  - url: https://api.example.com{basePath}
+    variables:
+      basePath:
+        default: ""
+        enum:
+          - ""
+          - /v2
+`,
+			wantError: false,
+		},
+		{
+			name: "OAS 3.1 YAML empty string default without enum",
+			spec: `openapi: 3.1.0
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}
+servers:
+  - url: https://api.example.com{basePath}
+    variables:
+      basePath:
+        default: ""
+`,
+			wantError: false,
+		},
+		{
+			name: "OAS 3.0 JSON empty string default",
+			spec: `{
+  "openapi": "3.0.3",
+  "info": {"title": "Test API", "version": "1.0.0"},
+  "paths": {},
+  "servers": [
+    {
+      "url": "https://api.example.com{basePath}",
+      "variables": {
+        "basePath": {
+          "default": "",
+          "enum": ["", "/v2"]
+        }
+      }
+    }
+  ]
+}`,
+			wantError: false,
+		},
+		{
+			name: "OAS 3.0 empty string default not in enum reports enum error not missing default",
+			spec: `openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}
+servers:
+  - url: https://api.example.com{basePath}
+    variables:
+      basePath:
+        default: ""
+        enum:
+          - /v1
+          - /v2
+`,
+			wantError: true,
+			errField:  "default",
+			errMsg:    "must be one of the enum values",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parsed, err := parser.ParseWithOptions(parser.WithBytes([]byte(tt.spec)))
+			require.NoError(t, err)
+
+			v := New()
+			result, err := v.ValidateParsed(*parsed)
+			require.NoError(t, err)
+
+			if !tt.wantError {
+				for _, e := range result.Errors {
+					if strings.Contains(e.Path, "servers[") {
+						t.Errorf("Unexpected server error: %s at %s", e.Message, e.Path)
+					}
+				}
+			} else {
+				var found bool
+				for _, e := range result.Errors {
+					if strings.Contains(e.Path, "servers[0].variables.basePath") &&
+						strings.Contains(e.Message, tt.errMsg) {
+						found = true
+						assert.Equal(t, tt.errField, e.Field)
+					}
+					if strings.Contains(e.Path, "servers[0].variables.basePath") &&
+						strings.Contains(e.Message, "Server variable must have a default value") {
+						t.Errorf("Unexpected false positive missing default error: %s at %s", e.Message, e.Path)
+					}
+				}
+				assert.True(t, found, "Expected error matching %q", tt.errMsg)
+			}
+		})
+	}
+}
+
 // =============================================================================
 // validateOAS3SecurityScheme Tests
 // =============================================================================

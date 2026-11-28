@@ -82,6 +82,17 @@ type ServerVariable struct {
 	Description string   `yaml:"description,omitempty" json:"description,omitempty"`
 	// Extra captures specification extensions (fields starting with "x-")
 	Extra map[string]any `yaml:",inline" json:"-"`
+
+	// DefaultSet records whether the default field was explicitly present in
+	// the serialized source. An empty string is a valid default in OAS 3.x,
+	// while an absent default is invalid.
+	DefaultSet bool `yaml:"-" json:"-"`
+}
+
+// HasDefault reports whether the server variable has a default value set.
+// It returns true if Default is non-empty or if DefaultSet is true.
+func (sv ServerVariable) HasDefault() bool {
+	return sv.Default != "" || sv.DefaultSet
 }
 
 // Reference represents a JSON Reference ($ref)

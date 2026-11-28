@@ -473,10 +473,16 @@ package parser
 
 import "github.com/erraggy/oastools/internal/httputil"
 {{range .}}
+{{- $target := .}}
 func (x *{{.Name}}) decodeFromMap(m map[string]any) {
 {{- range .Fields}}
 {{- if eq .Strategy "string"}}
 	x.{{.FieldName}}, _ = m["{{.JSONKey}}"].(string)
+{{- if and (eq $target.Name "ServerVariable") (eq .FieldName "Default")}}
+	if _, ok := m["{{.JSONKey}}"]; ok {
+		x.DefaultSet = true
+	}
+{{- end}}
 {{- else if eq .Strategy "bool"}}
 	x.{{.FieldName}}, _ = m["{{.JSONKey}}"].(bool)
 {{- else if eq .Strategy "ptr_bool"}}

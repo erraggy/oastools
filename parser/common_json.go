@@ -232,13 +232,21 @@ func (sv *ServerVariable) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for ServerVariable.
-// This captures unknown fields (specification extensions like x-*) in the Extra map.
+// This captures unknown fields (specification extensions like x-*) in the Extra map,
+// and records whether the default field was explicitly present.
 func (sv *ServerVariable) UnmarshalJSON(data []byte) error {
 	type Alias ServerVariable
 	if err := json.Unmarshal(data, (*Alias)(sv)); err != nil {
 		return err
 	}
 	sv.Extra = jsonhelpers.ExtractExtensions(data)
+
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err == nil {
+		if _, ok := raw[jsonKeyDefault]; ok {
+			sv.DefaultSet = true
+		}
+	}
 	return nil
 }
 
