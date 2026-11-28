@@ -154,6 +154,13 @@ func TestBuilder_InfoFieldRules(t *testing.T) {
 			scope: all,
 		},
 		{
+			name: "valid contact with RFC 5321 email formats",
+			apply: func(i *parser.Info) {
+				i.Contact = &parser.Contact{Email: "o'brien@example.com"}
+			},
+			scope: all,
+		},
+		{
 			name: "relative references are URLs",
 			apply: func(i *parser.Info) {
 				i.TermsOfService = "./terms.html"

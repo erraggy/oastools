@@ -1,12 +1,11 @@
 package stringutil
 
 import (
+	"net"
 	"net/url"
 	"regexp"
 	"strings"
 )
-
-var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
 
 // spdxParenSpacer makes strings.Fields yield each parenthesis as its own token.
 // spdxIDPattern matches a license or exception id, an optional "+" suffix on a
@@ -20,9 +19,156 @@ var spdxExceptionPattern = regexp.MustCompile(`^(?:[A-Za-z0-9.\-]+|(?:DocumentRe
 
 var spdxParenSpacer = strings.NewReplacer("(", " ( ", ")", " ) ")
 
-// IsValidEmail checks if s is a valid email address.
+// IsValidEmail checks if s is a valid email address as defined by the "Mailbox"
+// ABNF rule in RFC 5321, section 4.1.2.
 func IsValidEmail(s string) bool {
-	return emailRegex.MatchString(s)
+	if len(s) == 0 || len(s) > 254 {
+		return false
+	}
+
+	var localPart, domainPart string
+
+	if s[0] == '"' {
+		// Quoted-string local part (RFC 5321 Section 4.1.2)
+		i := 1
+		closed := false
+		for i < len(s) {
+			c := s[i]
+			if c == '\\' {
+				i++
+				if i >= len(s) || s[i] < 32 || s[i] > 126 {
+					return false
+				}
+				i++
+			} else if c == '"' {
+				closed = true
+				i++
+				break
+			} else if (c >= 32 && c <= 33) || (c >= 35 && c <= 91) || (c >= 93 && c <= 126) {
+				i++
+			} else {
+				return false
+			}
+		}
+		if !closed || i >= len(s) || s[i] != '@' {
+			return false
+		}
+		localPart = s[:i]
+		domainPart = s[i+1:]
+	} else {
+		at := strings.IndexByte(s, '@')
+		if at < 0 {
+			return false
+		}
+		localPart = s[:at]
+		domainPart = s[at+1:]
+		if !isValidDotString(localPart) {
+			return false
+		}
+	}
+
+	if len(localPart) == 0 || len(localPart) > 64 {
+		return false
+	}
+
+	if len(domainPart) == 0 || len(domainPart) > 255 {
+		return false
+	}
+
+	if strings.HasPrefix(domainPart, "[") && strings.HasSuffix(domainPart, "]") {
+		return isValidAddressLiteral(domainPart[1 : len(domainPart)-1])
+	}
+
+	return isValidDomain(domainPart)
+}
+
+func isValidDotString(s string) bool {
+	if len(s) == 0 || s[0] == '.' || s[len(s)-1] == '.' {
+		return false
+	}
+	atoms := strings.Split(s, ".")
+	for _, atom := range atoms {
+		if len(atom) == 0 {
+			return false
+		}
+		for i := 0; i < len(atom); i++ {
+			if !isAtext(atom[i]) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func isAtext(c byte) bool {
+	switch {
+	case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9':
+		return true
+	case strings.IndexByte("!#$%&'*+-/=?^_`{|}~", c) >= 0:
+		return true
+	default:
+		return false
+	}
+}
+
+func isValidDomain(s string) bool {
+	if len(s) == 0 || s[0] == '.' || s[len(s)-1] == '.' {
+		return false
+	}
+	labels := strings.Split(s, ".")
+	for _, label := range labels {
+		if len(label) == 0 || len(label) > 63 {
+			return false
+		}
+		if !isAlphaNum(label[0]) || !isAlphaNum(label[len(label)-1]) {
+			return false
+		}
+		for i := 0; i < len(label); i++ {
+			c := label[i]
+			if !isAlphaNum(c) && c != '-' {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func isAlphaNum(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
+}
+
+func isValidAddressLiteral(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	if strings.HasPrefix(strings.ToLower(s), "ipv6:") {
+		ipv6 := s[5:]
+		ip := net.ParseIP(ipv6)
+		return ip != nil && strings.Contains(ipv6, ":")
+	}
+	parts := strings.Split(s, ".")
+	if len(parts) != 4 {
+		return false
+	}
+	for _, p := range parts {
+		if len(p) == 0 || len(p) > 3 {
+			return false
+		}
+		if len(p) > 1 && p[0] == '0' {
+			return false
+		}
+		val := 0
+		for i := 0; i < len(p); i++ {
+			if p[i] < '0' || p[i] > '9' {
+				return false
+			}
+			val = val*10 + int(p[i]-'0')
+		}
+		if val > 255 {
+			return false
+		}
+	}
+	return true
 }
 
 // IsValidURL reports whether s is a URI reference as RFC 3986 defines it, which
