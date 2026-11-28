@@ -479,6 +479,21 @@ func TestBuilder_AddServerWithVariables(t *testing.T) {
 	assert.Contains(t, b.servers[0].Variables, "environment")
 	assert.Equal(t, "prod", b.servers[0].Variables["environment"].Default)
 	assert.Equal(t, []string{"dev", "staging", "prod"}, b.servers[0].Variables["environment"].Enum)
+	assert.True(t, b.servers[0].Variables["environment"].HasDefault())
+
+	// Server variable with empty string default
+	b2 := New(parser.OASVersion320).
+		SetTitle("Test API").
+		SetVersion("1.0.0").
+		AddServer("https://api.example.com{basePath}",
+			WithServerVariable("basePath", "",
+				WithServerVariableEnum("", "/v2"),
+			),
+		)
+	require.Len(t, b2.servers, 1)
+	assert.Contains(t, b2.servers[0].Variables, "basePath")
+	assert.Equal(t, "", b2.servers[0].Variables["basePath"].Default)
+	assert.True(t, b2.servers[0].Variables["basePath"].HasDefault())
 }
 
 func TestBuilder_AddTag(t *testing.T) {

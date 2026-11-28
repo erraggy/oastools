@@ -141,7 +141,7 @@ func (v *Validator) validateOAS3Servers(doc *parser.OAS3Document, result *Valida
 		for varName, varObj := range server.Variables {
 			varPath := path + ".variables." + varName
 
-			if varObj.Default == "" {
+			if !varObj.HasDefault() {
 				v.addError(result, varPath, "Server variable must have a default value",
 					withSpecRef(fmt.Sprintf("%s#server-variable-object", baseURL)),
 					withField("default"),

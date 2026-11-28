@@ -39,6 +39,7 @@ func copyServers(servers []*parser.Server) []*parser.Server {
 					// Deep copy ServerVariable fields (Enum slice and Extra map)
 					varCopy := parser.ServerVariable{
 						Default:     v.Default,
+						DefaultSet:  v.DefaultSet,
 						Description: v.Description,
 					}
 					if v.Enum != nil {

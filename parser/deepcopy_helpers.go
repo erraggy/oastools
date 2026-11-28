@@ -193,6 +193,7 @@ func deepCopyServerVariables(v map[string]ServerVariable) map[string]ServerVaria
 	for k, sv := range v {
 		cpSV := ServerVariable{
 			Default:     sv.Default,
+			DefaultSet:  sv.DefaultSet,
 			Description: sv.Description,
 		}
 		if sv.Enum != nil {

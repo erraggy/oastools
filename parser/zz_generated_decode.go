@@ -929,6 +929,9 @@ func (x *Server) decodeFromMap(m map[string]any) {
 func (x *ServerVariable) decodeFromMap(m map[string]any) {
 	x.Enum = mapGetStringSlice(m, "enum")
 	x.Default, _ = m["default"].(string)
+	if _, ok := m["default"]; ok {
+		x.DefaultSet = true
+	}
 	x.Description, _ = m["description"].(string)
 	x.Extra = extractExtensionsFromMap(m)
 }

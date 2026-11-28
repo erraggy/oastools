@@ -381,6 +381,7 @@ func TestServerVariableUnmarshalJSON(t *testing.T) {
 				Default:     "v1",
 				Enum:        []string{"v1", "v2"},
 				Description: "API version",
+				DefaultSet:  true,
 			},
 		},
 		{
@@ -392,6 +393,24 @@ func TestServerVariableUnmarshalJSON(t *testing.T) {
 				Extra: map[string]any{
 					"x-deprecated": false,
 				},
+				DefaultSet: true,
+			},
+		},
+		{
+			name:  "server variable with empty string default",
+			input: `{"default":"","description":"Optional prefix"}`,
+			expected: &ServerVariable{
+				Default:     "",
+				Description: "Optional prefix",
+				DefaultSet:  true,
+			},
+		},
+		{
+			name:  "server variable with missing default",
+			input: `{"description":"No default"}`,
+			expected: &ServerVariable{
+				Description: "No default",
+				DefaultSet:  false,
 			},
 		},
 	}
@@ -403,6 +422,8 @@ func TestServerVariableUnmarshalJSON(t *testing.T) {
 			require.NoError(t, err, "UnmarshalJSON should not error")
 
 			assert.Equal(t, tt.expected.Default, variable.Default, "Default should match")
+			assert.Equal(t, tt.expected.DefaultSet, variable.DefaultSet, "DefaultSet should match")
+			assert.Equal(t, tt.expected.HasDefault(), variable.HasDefault(), "HasDefault should match")
 			assert.Equal(t, tt.expected.Enum, variable.Enum, "Enum should match")
 			assert.Equal(t, tt.expected.Description, variable.Description, "Description should match")
 			assert.Equal(t, tt.expected.Extra, variable.Extra, "Extra fields should match")
